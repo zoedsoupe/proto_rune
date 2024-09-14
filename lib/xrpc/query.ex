@@ -59,6 +59,13 @@ defmodule XRPC.Query do
     }
   end
 
+  def add_params(%__MODULE__{} = query, params)
+      when is_list(params) or is_map(params) do
+    with {:ok, data} <- Peri.validate(query.parser, params) do
+      {:ok, %{query | params: data}}
+    end
+  end
+
   def put_param(%__MODULE__{} = query, key, value) do
     put_in(query, [Access.key!(:params), key], value)
   end

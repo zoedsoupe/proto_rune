@@ -30,16 +30,20 @@ defmodule XRPC.Procedure do
   Validates the body using the specified parser and updates the procedure via [peri](https://hexdocs.pm/peri).
   """
 
-  defstruct [:method, :body, :parser]
+  defstruct [:method, :body, :parser, :headers]
 
   def new(method, from: parser) when is_binary(method) do
-    %__MODULE__{method: method, parser: parser, body: %{}}
+    %__MODULE__{method: method, parser: parser, body: %{}, headers: %{}}
   end
 
-  def put_body(%__MODULE__{} = proc, %{} = body) do
+  def put_body(%__MODULE__{} = proc, body) do
     with {:ok, body} <- Peri.validate(proc.parser, body) do
-      {:ok, %{proc | body: body}}
+      {:ok, %{proc | body: Map.new(body)}}
     end
+  end
+
+  def put_header(%__MODULE__{} = proc, key, value) do
+    put_in(proc, [Access.key!(:headers), key], value)
   end
 
   defimpl String.Chars, for: __MODULE__ do

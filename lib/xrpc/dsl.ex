@@ -85,17 +85,32 @@ defmodule XRPC.DSL do
     end
   end
 
-  defmacro defquery(method) do
+  @type options :: [for: atom | nil, authenticated: boolean]
+
+  @spec defquery(String.t(), options) :: Macro.t()
+  defmacro defquery(method, opts) do
+    authenticated? = Keyword.get(opts, :authenticated, false)
+
     {method, fun} = encode_method_name(method)
 
     quote do
-      def unquote(fun)() do
-        Query.new(unquote(method))
+      if unquote(authenticated?) do
+        def unquote(fun)(%{access_token: access_token}) do
+          Query.new(unquote(method))
+          |> Query.put_header(:authorization, "Bearer #{access_token}")
+          |> XRPC.Client.execute()
+        end
+      else
+        def unquote(fun)() do
+          Query.new(unquote(method))
+          |> XRPC.Client.execute()
+        end
       end
     end
   end
 
-  defmacro defquery(method, do: block) do
+  defmacro defquery(method, opts, do: block) do
+    authenticated = Keyword.get(opts, :authenticated, false)
     {method, fun} = encode_method_name(method)
 
     quote do
@@ -103,15 +118,59 @@ defmodule XRPC.DSL do
 
       unquote(block)
 
-      def unquote(fun)() do
-        Query.new(unquote(method), from: Map.new(@param))
+      if unquote(authenticated) do
+        def unquote(fun)(%{access_token: access_token}, params) do
+          query = Query.new(unquote(method), from: Map.new(@param))
+
+          with {:ok, query} <- Query.add_params(query, params) do
+            query
+            |> Query.put_header(:authorization, "Bearer #{access_token}")
+            |> XRPC.Client.execute()
+          end
+        end
+      else
+        def unquote(fun)(params) do
+          query = Query.new(unquote(method), from: Map.new(@param))
+
+          with {:ok, query} <- Query.add_params(query, params) do
+            XRPC.Client.execute(query)
+          end
+        end
       end
 
       Module.delete_attribute(__MODULE__, :param)
     end
   end
 
-  defmacro defprocedure(method, do: block) do
+  defmacro defprocedure(method, opts) do
+    authenticated = Keyword.get(opts, :authenticated, false)
+    {method, fun} = encode_method_name(method)
+
+    quote do
+      if unquote(authenticated) do
+        def unquote(fun)(%{access_token: access_token}, params) do
+          proc = Procedure.new(unquote(method), from: Map.new(@param))
+
+          with {:ok, proc} <- Procedure.put_body(proc, params) do
+            proc
+            |> Procedure.put_header(:authorization, "Bearer #{access_token}")
+            |> XRPC.Client.execute()
+          end
+        end
+      else
+        def unquote(fun)(params) do
+          proc = Procedure.new(unquote(method), from: Map.new(@param))
+
+          with {:ok, proc} <- Procedure.put_body(proc, params) do
+            XRPC.Client.execute(proc)
+          end
+        end
+      end
+    end
+  end
+
+  defmacro defprocedure(method, opts, do: block) do
+    authenticated = Keyword.get(opts, :authenticated, false)
     {method, fun} = encode_method_name(method)
 
     quote do
@@ -119,8 +178,24 @@ defmodule XRPC.DSL do
 
       unquote(block)
 
-      def unquote(fun)() do
-        Procedure.new(unquote(method), from: Map.new(@param))
+      if unquote(authenticated) do
+        def unquote(fun)(%{access_token: access_token}, params) do
+          proc = Procedure.new(unquote(method), from: Map.new(@param))
+
+          with {:ok, proc} <- Procedure.put_body(proc, params) do
+            proc
+            |> Procedure.put_header(:authorization, "Bearer #{access_token}")
+            |> XRPC.Client.execute()
+          end
+        end
+      else
+        def unquote(fun)(params) do
+          proc = Procedure.new(unquote(method), from: Map.new(@param))
+
+          with {:ok, proc} <- Procedure.put_body(proc, params) do
+            XRPC.Client.execute(proc)
+          end
+        end
       end
 
       Module.delete_attribute(__MODULE__, :param)
