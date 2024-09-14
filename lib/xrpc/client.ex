@@ -19,8 +19,8 @@ defmodule XRPC.Client do
   - For **procedures**, it performs a `POST` request and validates the request body.
   """
 
-  alias XRPC.Query
   alias XRPC.Procedure
+  alias XRPC.Query
 
   def execute(%Query{} = query) do
     with {:ok, _} <- Peri.validate(query.parser, query.params) do

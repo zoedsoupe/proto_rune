@@ -58,7 +58,7 @@ defmodule XRPC.DSL do
 
   ```elixir
   defmodule MyApp.Bsky do
-    use XRPC.DSL
+    import XRPC.DSL
 
     defquery "app.bsky.actor.getProfile"
 
@@ -73,17 +73,8 @@ defmodule XRPC.DSL do
   - `mute/0` is generated as a function that creates a procedure for `app.bsky.actor.mute` with the parameter `:actor_id` of type `:string`.
   """
 
-  alias XRPC.Query
   alias XRPC.Procedure
-
-  defmacro __using__(_opts) do
-    quote do
-      import XRPC.DSL
-
-      Module.register_attribute(__MODULE__, :query, accumulate: true)
-      Module.register_attribute(__MODULE__, :procedure, accumulate: true)
-    end
-  end
+  alias XRPC.Query
 
   @type options :: [for: atom | nil, authenticated: boolean]
 
@@ -109,6 +100,7 @@ defmodule XRPC.DSL do
     end
   end
 
+  @spec defquery(String.t(), options, do: Macro.t()) :: Macro.t()
   defmacro defquery(method, opts, do: block) do
     authenticated = Keyword.get(opts, :authenticated, false)
     {method, fun} = encode_method_name(method)
@@ -142,6 +134,7 @@ defmodule XRPC.DSL do
     end
   end
 
+  @spec defquery(String.t(), options) :: Macro.t()
   defmacro defprocedure(method, opts) do
     authenticated = Keyword.get(opts, :authenticated, false)
     {method, fun} = encode_method_name(method)
@@ -149,7 +142,7 @@ defmodule XRPC.DSL do
     quote do
       if unquote(authenticated) do
         def unquote(fun)(%{access_token: access_token}, params) do
-          proc = Procedure.new(unquote(method), from: Map.new(@param))
+          proc = Procedure.new(unquote(method))
 
           with {:ok, proc} <- Procedure.put_body(proc, params) do
             proc
@@ -159,7 +152,7 @@ defmodule XRPC.DSL do
         end
       else
         def unquote(fun)(params) do
-          proc = Procedure.new(unquote(method), from: Map.new(@param))
+          proc = Procedure.new(unquote(method))
 
           with {:ok, proc} <- Procedure.put_body(proc, params) do
             XRPC.Client.execute(proc)
@@ -169,6 +162,7 @@ defmodule XRPC.DSL do
     end
   end
 
+  @spec defquery(String.t(), options, do: Macro.t()) :: Macro.t()
   defmacro defprocedure(method, opts, do: block) do
     authenticated = Keyword.get(opts, :authenticated, false)
     {method, fun} = encode_method_name(method)

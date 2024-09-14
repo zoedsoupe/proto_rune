@@ -1,7 +1,7 @@
-defmodule Atproto.Schema do
+defmodule Atproto.Server do
   @moduledoc false
 
-  use XRPC.DSL
+  import XRPC.DSL
 
   @doc """
   Create an authentication session.

@@ -36,6 +36,10 @@ defmodule XRPC.Procedure do
     %__MODULE__{method: method, parser: parser, body: %{}, headers: %{}}
   end
 
+  def new(method) when is_binary(method) do
+    %__MODULE__{method: method, body: %{}, headers: %{}}
+  end
+
   def put_body(%__MODULE__{} = proc, body) do
     with {:ok, body} <- Peri.validate(proc.parser, body) do
       {:ok, %{proc | body: Map.new(body)}}
