@@ -75,8 +75,8 @@ defmodule ProtoRune.XRPC.Query do
   end
 
   defimpl String.Chars, for: __MODULE__ do
-    alias ProtoRune.XRPC.Query
     alias ProtoRune.XRPC.Config
+    alias ProtoRune.XRPC.Query
 
     def to_string(%Query{} = query) do
       base = Path.join(Config.get(:base_url), query.method)

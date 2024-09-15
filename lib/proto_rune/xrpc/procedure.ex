@@ -51,8 +51,8 @@ defmodule ProtoRune.XRPC.Procedure do
   end
 
   defimpl String.Chars, for: __MODULE__ do
-    alias ProtoRune.XRPC.Procedure
     alias ProtoRune.XRPC.Config
+    alias ProtoRune.XRPC.Procedure
 
     def to_string(%Procedure{} = proc) do
       Path.join(Config.get(:base_url), proc.method)
