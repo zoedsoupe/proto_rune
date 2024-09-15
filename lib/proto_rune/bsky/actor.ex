@@ -1,7 +1,7 @@
-defmodule Bsky.Actor do
+defmodule ProtoRune.Bsky.Actor do
   @moduledoc false
 
-  import XRPC.DSL
+  import ProtoRune.XRPC.DSL
 
   @doc """
   Get private preferences attached to the current account. Expected use is synchronization between multiple devices, and import/export during account migration. Requires auth.

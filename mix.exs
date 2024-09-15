@@ -1,12 +1,12 @@
-defmodule Atproto.MixProject do
+defmodule ProtoRune.MixProject do
   use Mix.Project
 
   @version "0.1.0"
-  @source_url "https://github.com/zoedsoupe/atproto-ex"
+  @source_url "https://github.com/zoedsoupe/proto_rune"
 
   def project do
     [
-      app: :atproto,
+      app: :proto_rune,
       version: @version,
       elixir: "~> 1.17",
       start_permanent: Mix.env() == :prod,
@@ -21,7 +21,7 @@ defmodule Atproto.MixProject do
   def application do
     [
       extra_applications: [:logger],
-      mod: {Atproto.Application, []}
+      mod: {ProtoRune.Application, []}
     ]
   end
 
@@ -38,12 +38,12 @@ defmodule Atproto.MixProject do
 
   defp package do
     %{
-      name: "atproto_http",
+      name: "proto_rune",
       licenses: ["MIT"],
       contributors: ["zoedsoupe"],
       links: %{
         "GitHub" => @source_url,
-        "Docs" => "https://hexdocs.pm/atproto"
+        "Docs" => "https://hexdocs.pm/proto_rune"
       },
       files: ~w[lib mix.exs README.md LICENSE]
     }
@@ -51,14 +51,14 @@ defmodule Atproto.MixProject do
 
   defp docs do
     [
-      main: "Atproto",
+      main: "README.md",
       extras: ["README.md"]
     ]
   end
 
   defp description do
     """
-    ATProtocol and Bluesky client for Elixir (using HTTP)
+    ATProtocol and Bluesky framework for Elixir
     """
   end
 end

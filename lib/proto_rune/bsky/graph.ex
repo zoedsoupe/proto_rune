@@ -1,7 +1,7 @@
-defmodule Bsky.Graph do
+defmodule ProtoRune.Bsky.Graph do
   @moduledoc false
 
-  import XRPC.DSL
+  import ProtoRune.XRPC.DSL
 
   @doc """
   Get a list of starter packs created by the actor.

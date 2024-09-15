@@ -1,7 +1,7 @@
-defmodule Bsky.Video do
+defmodule ProtoRune.Bsky.Video do
   @moduledoc false
 
-  import XRPC.DSL
+  import ProtoRune.XRPC.DSL
 
   @doc """
   Get status details for a video processing job.

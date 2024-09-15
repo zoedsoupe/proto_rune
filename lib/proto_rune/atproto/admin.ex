@@ -1,7 +1,7 @@
-defmodule Atproto.Admin do
+defmodule ProtoRune.Atproto.Admin do
   @moduledoc false
 
-  import XRPC.DSL
+  import ProtoRune.XRPC.DSL
 
   @doc """
   Delete a user account as an administrator.

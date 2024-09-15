@@ -1,4 +1,4 @@
-defmodule XRPC.Query do
+defmodule ProtoRune.XRPC.Query do
   @moduledoc """
   The `XRPC.Query` module is responsible for defining and managing queries in the XRPC system. It encapsulates the method, parameters, headers, and an optional parser, providing functions to create and manipulate query structures.
 
@@ -75,10 +75,11 @@ defmodule XRPC.Query do
   end
 
   defimpl String.Chars, for: __MODULE__ do
-    alias XRPC.Query
+    alias ProtoRune.XRPC.Query
+    alias ProtoRune.XRPC.Config
 
     def to_string(%Query{} = query) do
-      base = Path.join(XRPC.Config.get(:base_url), query.method)
+      base = Path.join(Config.get(:base_url), query.method)
 
       if Enum.empty?(query.params) do
         base

@@ -1,4 +1,4 @@
-defmodule Atproto.Session do
+defmodule ProtoRune.Atproto.Session do
   @moduledoc false
 
   @t %{

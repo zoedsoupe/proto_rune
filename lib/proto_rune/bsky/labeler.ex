@@ -1,7 +1,7 @@
-defmodule Bsky.Labeler do
+defmodule ProtoRune.Bsky.Labeler do
   @moduledoc false
 
-  import XRPC.DSL
+  import ProtoRune.XRPC.DSL
 
   @doc """
   Get information about a list of labeler services.

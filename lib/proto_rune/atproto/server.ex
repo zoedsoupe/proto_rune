@@ -1,7 +1,7 @@
-defmodule Atproto.Server do
+defmodule ProtoRune.Atproto.Server do
   @moduledoc false
 
-  import XRPC.DSL
+  import ProtoRune.XRPC.DSL
 
   @doc """
   Activates a currently deactivated account. Used to finalize account migration after the account's repo is imported and identity is setup.

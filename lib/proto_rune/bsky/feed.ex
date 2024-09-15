@@ -1,7 +1,7 @@
-defmodule Bsky.Feed do
+defmodule ProtoRune.Bsky.Feed do
   @moduledoc false
 
-  import XRPC.DSL
+  import ProtoRune.XRPC.DSL
 
   @doc """
   Get information about a feed generator, including policies and offered feed URIs. Does not require auth; implemented by Feed Generator services (not App View).

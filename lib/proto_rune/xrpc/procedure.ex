@@ -1,4 +1,4 @@
-defmodule XRPC.Procedure do
+defmodule ProtoRune.XRPC.Procedure do
   @moduledoc """
   The `XRPC.Procedure` module represents a procedure in the XRPC system, encapsulating the method name, request body, and a parser for validating the body. It provides functions to create and manipulate procedure structures.
 
@@ -51,10 +51,11 @@ defmodule XRPC.Procedure do
   end
 
   defimpl String.Chars, for: __MODULE__ do
-    alias XRPC.Procedure
+    alias ProtoRune.XRPC.Procedure
+    alias ProtoRune.XRPC.Config
 
     def to_string(%Procedure{} = proc) do
-      Path.join(XRPC.Config.get(:base_url), proc.method)
+      Path.join(Config.get(:base_url), proc.method)
     end
   end
 end

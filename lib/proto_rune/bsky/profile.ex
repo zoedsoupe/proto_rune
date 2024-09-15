@@ -1,4 +1,4 @@
-defmodule Bsky.Profile do
+defmodule ProtoRune.Bsky.Profile do
   @moduledoc false
 
   defstruct [:handle, :did]

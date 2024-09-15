@@ -1,4 +1,4 @@
-defprotocol XRPC.Schema do
+defprotocol ProtoRune.XRPC.Schema do
   def parse(source, response)
 end
 

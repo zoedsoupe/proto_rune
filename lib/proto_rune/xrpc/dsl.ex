@@ -1,4 +1,4 @@
-defmodule XRPC.DSL do
+defmodule ProtoRune.XRPC.DSL do
   @moduledoc """
   The `XRPC.DSL` module provides macros to define queries and procedures for interacting with the XRPC system, simplifying the creation of API methods for querying or performing procedures. It supports building custom XRPC queries and procedures by encoding method names and dynamically generating functions based on user-defined parameters.
 
@@ -73,8 +73,8 @@ defmodule XRPC.DSL do
   - `mute/0` is generated as a function that creates a procedure for `app.bsky.actor.mute` with the parameter `:actor_id` of type `:string`.
   """
 
-  alias XRPC.Procedure
-  alias XRPC.Query
+  alias ProtoRune.XRPC.Procedure
+  alias ProtoRune.XRPC.Query
 
   @type options :: [for: atom | nil, authenticated: boolean | nil, refresh: boolean | nil]
 
@@ -89,12 +89,12 @@ defmodule XRPC.DSL do
         def unquote(fun)(%{access_token: access_token}) do
           Query.new(unquote(method))
           |> Query.put_header(:authorization, "Bearer #{access_token}")
-          |> XRPC.Client.execute()
+          |> ProtoRune.XRPC.Client.execute()
         end
       else
         def unquote(fun)() do
           Query.new(unquote(method))
-          |> XRPC.Client.execute()
+          |> ProtoRune.XRPC.Client.execute()
         end
       end
     end
@@ -117,7 +117,7 @@ defmodule XRPC.DSL do
           with {:ok, query} <- Query.add_params(query, params) do
             query
             |> Query.put_header(:authorization, "Bearer #{access_token}")
-            |> XRPC.Client.execute()
+            |> ProtoRune.XRPC.Client.execute()
           end
         end
       else
@@ -125,7 +125,7 @@ defmodule XRPC.DSL do
           query = Query.new(unquote(method), from: Map.new(@param))
 
           with {:ok, query} <- Query.add_params(query, params) do
-            XRPC.Client.execute(query)
+            ProtoRune.XRPC.Client.execute(query)
           end
         end
       end
@@ -149,7 +149,7 @@ defmodule XRPC.DSL do
             with {:ok, proc} <- Procedure.put_body(proc, params) do
               proc
               |> Procedure.put_header(:authorization, "Bearer #{access_token}")
-              |> XRPC.Client.execute()
+              |> ProtoRune.XRPC.Client.execute()
             end
           end
 
@@ -160,7 +160,7 @@ defmodule XRPC.DSL do
             with {:ok, proc} <- Procedure.put_body(proc, params) do
               proc
               |> Procedure.put_header(:authorization, "Bearer #{refresh}")
-              |> XRPC.Client.execute()
+              |> ProtoRune.XRPC.Client.execute()
             end
           end
 
@@ -169,7 +169,7 @@ defmodule XRPC.DSL do
             proc = Procedure.new(unquote(method))
 
             with {:ok, proc} <- Procedure.put_body(proc, params) do
-              XRPC.Client.execute(proc)
+              ProtoRune.XRPC.Client.execute(proc)
             end
           end
       end
@@ -193,7 +193,7 @@ defmodule XRPC.DSL do
           with {:ok, proc} <- Procedure.put_body(proc, params) do
             proc
             |> Procedure.put_header(:authorization, "Bearer #{access_token}")
-            |> XRPC.Client.execute()
+            |> ProtoRune.XRPC.Client.execute()
           end
         end
       else
@@ -201,7 +201,7 @@ defmodule XRPC.DSL do
           proc = Procedure.new(unquote(method), from: Map.new(@param))
 
           with {:ok, proc} <- Procedure.put_body(proc, params) do
-            XRPC.Client.execute(proc)
+            ProtoRune.XRPC.Client.execute(proc)
           end
         end
       end
@@ -221,7 +221,7 @@ defmodule XRPC.DSL do
      method
      |> String.split(".")
      |> List.last()
-     |> XRPC.Case.snakelize()
+     |> ProtoRune.XRPC.Case.snakelize()
      |> String.to_atom()}
   end
 end

@@ -1,7 +1,7 @@
-defmodule Bsky.Chat.Moderation do
+defmodule ProtoRune.Bsky.Chat.Moderation do
   @moduledoc false
 
-  import XRPC.DSL
+  import ProtoRune.XRPC.DSL
 
   @doc """
   https://docs.bsky.app/docs/api/chat-bsky-moderation-get-actor-metadata

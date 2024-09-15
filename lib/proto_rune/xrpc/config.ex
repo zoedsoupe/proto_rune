@@ -1,8 +1,8 @@
-defmodule XRPC.Config do
+defmodule ProtoRune.XRPC.Config do
   @moduledoc false
 
   def get(key) when is_atom(key) do
-    env = Application.get_env(:atproto, :env, :dev)
+    env = Application.get_env(:proto_rune, :env, :dev)
 
     xrpc_config(env, key)
   end
@@ -16,6 +16,6 @@ defmodule XRPC.Config do
   end
 
   defp xrpc_config(:prod, key) do
-    Application.get_env(:atproto, key)
+    Application.get_env(:proto_rune, key)
   end
 end

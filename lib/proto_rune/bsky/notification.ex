@@ -1,7 +1,7 @@
-defmodule Bsky.Notification do
+defmodule ProtoRune.Bsky.Notification do
   @moduledoc false
 
-  import XRPC.DSL
+  import ProtoRune.XRPC.DSL
 
   @doc """
   Count the number of unread notifications for the requesting account. Requires auth.

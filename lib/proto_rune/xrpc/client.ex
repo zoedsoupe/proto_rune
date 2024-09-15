@@ -1,4 +1,4 @@
-defmodule XRPC.Client do
+defmodule ProtoRune.XRPC.Client do
   @moduledoc """
   The `XRPC.Client` module handles executing queries and procedures in the XRPC system. It interacts with external services through HTTP requests and performs response validation and schema parsing. The client supports both GET and POST requests, depending on whether the request is a query or a procedure.
 
@@ -19,8 +19,8 @@ defmodule XRPC.Client do
   - For **procedures**, it performs a `POST` request and validates the request body.
   """
 
-  alias XRPC.Procedure
-  alias XRPC.Query
+  alias ProtoRune.XRPC.Procedure
+  alias ProtoRune.XRPC.Query
 
   def execute(%Query{} = query) do
     with {:ok, _} <- Peri.validate(query.parser, query.params) do
@@ -34,7 +34,7 @@ defmodule XRPC.Client do
 
   def execute(%Procedure{} = proc) do
     with {:ok, body} <- Peri.validate(proc.parser, proc.body) do
-      body = apply_case_map(body, &XRPC.Case.camelize/1)
+      body = apply_case_map(body, &ProtoRune.XRPC.Case.camelize/1)
 
       proc
       |> to_string()
@@ -49,12 +49,12 @@ defmodule XRPC.Client do
   defp parse_http({:ok, %{status: 404}}), do: {:error, :not_found}
 
   defp parse_http({:ok, %{status: 400, body: error}}) do
-    {:error, apply_case_map(error, &XRPC.Case.snakelize/1)}
+    {:error, apply_case_map(error, &ProtoRune.XRPC.Case.snakelize/1)}
   end
 
   defp parse_http({:ok, %{status: status, body: body}})
        when status in [200, 201] do
-    {:ok, apply_case_map(body, &XRPC.Case.snakelize/1)}
+    {:ok, apply_case_map(body, &ProtoRune.XRPC.Case.snakelize/1)}
   end
 
   defp parse_schema({:error, _err} = err, _), do: err

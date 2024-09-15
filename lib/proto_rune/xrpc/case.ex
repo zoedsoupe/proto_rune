@@ -1,4 +1,4 @@
-defmodule XRPC.Case do
+defmodule ProtoRune.XRPC.Case do
   @moduledoc """
   Yeah, in house string casing
   """
