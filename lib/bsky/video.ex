@@ -9,7 +9,7 @@ defmodule Bsky.Video do
   https://docs.bsky.app/docs/api/app-bsky-video-get-job-status
   """
   defquery "app.bsky.video.getJobStatus", for: :todo do
-    param(:job_id, {:required, :string})
+    param :job_id, {:required, :string}
   end
 
   @doc """
@@ -17,7 +17,7 @@ defmodule Bsky.Video do
 
   https://docs.bsky.app/docs/api/app-bsky-video-get-upload-limits
   """
-  defquery("app.bsky.video.getUploadLimits", authenticated: true)
+  defquery "app.bsky.video.getUploadLimits", authenticated: true
 
   @doc """
   Upload a video to be processed then stored on the PDS.
@@ -26,6 +26,6 @@ defmodule Bsky.Video do
   """
   defprocedure "app.bsky.video.uploadVideo", authenticated: true do
     # TODO
-    param(:any, :any)
+    param :any, :any
   end
 end

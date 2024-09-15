@@ -76,7 +76,7 @@ defmodule XRPC.DSL do
   alias XRPC.Procedure
   alias XRPC.Query
 
-  @type options :: [for: atom | nil, authenticated: boolean]
+  @type options :: [for: atom | nil, authenticated: boolean | nil, refresh: boolean | nil]
 
   @spec defquery(String.t(), options) :: Macro.t()
   defmacro defquery(method, opts) do
@@ -137,27 +137,41 @@ defmodule XRPC.DSL do
   @spec defquery(String.t(), options) :: Macro.t()
   defmacro defprocedure(method, opts) do
     authenticated = Keyword.get(opts, :authenticated, false)
+    refresh = Keyword.get(opts, :refresh, false)
     {method, fun} = encode_method_name(method)
 
     quote do
-      if unquote(authenticated) do
-        def unquote(fun)(%{access_token: access_token}, params) do
-          proc = Procedure.new(unquote(method))
+      cond do
+        unquote(authenticated) ->
+          def unquote(fun)(%{access_token: access_token}, params) do
+            proc = Procedure.new(unquote(method))
 
-          with {:ok, proc} <- Procedure.put_body(proc, params) do
-            proc
-            |> Procedure.put_header(:authorization, "Bearer #{access_token}")
-            |> XRPC.Client.execute()
+            with {:ok, proc} <- Procedure.put_body(proc, params) do
+              proc
+              |> Procedure.put_header(:authorization, "Bearer #{access_token}")
+              |> XRPC.Client.execute()
+            end
           end
-        end
-      else
-        def unquote(fun)(params) do
-          proc = Procedure.new(unquote(method))
 
-          with {:ok, proc} <- Procedure.put_body(proc, params) do
-            XRPC.Client.execute(proc)
+        unquote(refresh) ->
+          def unquote(fun)(%{refresh_token: refresh}, params) do
+            proc = Procedure.new(unquote(method))
+
+            with {:ok, proc} <- Procedure.put_body(proc, params) do
+              proc
+              |> Procedure.put_header(:authorization, "Bearer #{refresh}")
+              |> XRPC.Client.execute()
+            end
           end
-        end
+
+        true ->
+          def unquote(fun)(params) do
+            proc = Procedure.new(unquote(method))
+
+            with {:ok, proc} <- Procedure.put_body(proc, params) do
+              XRPC.Client.execute(proc)
+            end
+          end
       end
     end
   end

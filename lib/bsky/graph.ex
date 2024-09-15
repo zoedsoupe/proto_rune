@@ -9,9 +9,9 @@ defmodule Bsky.Graph do
   https://docs.bsky.app/docs/api/app-bsky-graph-get-actor-starter-packs
   """
   defquery "app.bsky.graph.getActorStarterPacks", for: :actor do
-    param(:actor, {:required, :string})
-    param(:limit, :integer)
-    param(:cursor, :string)
+    param :actor, {:required, :string}
+    param :limit, :integer
+    param :cursor, :string
   end
 
   @doc """
@@ -19,9 +19,11 @@ defmodule Bsky.Graph do
 
   https://docs.bsky.app/docs/api/app-bsky-graph-get-blocks
   """
+  defquery "app.bsky.graph.getBlocks", authenticated: true
+
   defquery "app.bsky.graph.getBlocks", authenticated: true do
-    param(:limit, :integer)
-    param(:cursor, :string)
+    param :limit, :integer
+    param :cursor, :string
   end
 
   @doc """
@@ -30,9 +32,9 @@ defmodule Bsky.Graph do
   https://docs.bsky.app/docs/api/app-bsky-graph-get-followers
   """
   defquery "app.bsky.graph.getFollowers", for: :todo do
-    param(:actor, {:required, :string})
-    param(:limit, :integer)
-    param(:cursor, :string)
+    param :actor, {:required, :string}
+    param :limit, :integer
+    param :cursor, :string
   end
 
   @doc """
@@ -41,9 +43,9 @@ defmodule Bsky.Graph do
   https://docs.bsky.app/docs/api/app-bsky-graph-get-follows
   """
   defquery "app.bsky.graph.getFollows", for: :todo do
-    param(:actor, {:required, :string})
-    param(:limit, :integer)
-    param(:cursor, :string)
+    param :actor, {:required, :string}
+    param :limit, :integer
+    param :cursor, :string
   end
 
   @doc """
@@ -52,9 +54,9 @@ defmodule Bsky.Graph do
   https://docs.bsky.app/docs/api/app-bsky-graph-get-known-followers
   """
   defquery "app.bsky.graph.getKnownFollowers", for: :todo do
-    param(:actor, {:required, :string})
-    param(:limit, :integer)
-    param(:cursor, :string)
+    param :actor, {:required, :string}
+    param :limit, :integer
+    param :cursor, :string
   end
 
   @doc """
@@ -62,9 +64,11 @@ defmodule Bsky.Graph do
 
   https://docs.bsky.app/docs/api/app-bsky-graph-get-list-blocks
   """
+  defquery "app.bsky.graph.getListBlocks", authenticated: true
+
   defquery "app.bsky.graph.getListBlocks", authenticated: true do
-    param(:limit, :integer)
-    param(:cursor, :string)
+    param :limit, :integer
+    param :cursor, :string
   end
 
   @doc """
@@ -72,9 +76,11 @@ defmodule Bsky.Graph do
 
   https://docs.bsky.app/docs/api/app-bsky-graph-get-list-mutes
   """
+  defquery "app.bsky.graph.getListMutes", authenticated: true
+
   defquery "app.bsky.graph.getListMutes", authenticated: true do
-    param(:limit, :integer)
-    param(:cursor, :string)
+    param :limit, :integer
+    param :cursor, :string
   end
 
   @doc """
@@ -83,9 +89,9 @@ defmodule Bsky.Graph do
   https://docs.bsky.app/docs/api/app-bsky-graph-get-list
   """
   defquery "app.bsky.graph.getList", for: :Todo do
-    param(:list, {:required, :string})
-    param(:limit, :integer)
-    param(:cursor, :string)
+    param :list, {:required, :string}
+    param :limit, :integer
+    param :cursor, :string
   end
 
   @doc """
@@ -94,9 +100,9 @@ defmodule Bsky.Graph do
   https://docs.bsky.app/docs/api/app-bsky-graph-get-lists
   """
   defquery "app.bsky.graph.getLists", for: :Todo do
-    param(:actor, {:required, :string})
-    param(:limit, :integer)
-    param(:cursor, :string)
+    param :actor, {:required, :string}
+    param :limit, :integer
+    param :cursor, :string
   end
 
   @doc """
@@ -104,9 +110,11 @@ defmodule Bsky.Graph do
 
   https://docs.bsky.app/docs/api/app-bsky-graph-get-mutes
   """
+  defquery "app.bsky.graph.getMutes", for: :todo
+
   defquery "app.bsky.graph.getMutes", for: :todo do
-    param(:limit, :integer)
-    param(:cursor, :string)
+    param :limit, :integer
+    param :cursor, :string
   end
 
   @doc """
@@ -115,8 +123,8 @@ defmodule Bsky.Graph do
   https://docs.bsky.app/docs/api/app-bsky-graph-get-relationships
   """
   defquery "app.bsky.graph.getRelationShips", for: :todo do
-    param(:actor, {:required, :string})
-    param(:others, {:list, :string})
+    param :actor, {:required, :string}
+    param :others, {:list, :string}
   end
 
   @doc """
@@ -125,7 +133,7 @@ defmodule Bsky.Graph do
   https://docs.bsky.app/docs/api/app-bsky-graph-get-starter-pack
   """
   defquery "app.bsky.graph.getStarterPack", for: :todo do
-    param(:starter_pack, {:required, :string})
+    param :starter_pack, {:required, :string}
   end
 
   @doc """
@@ -134,7 +142,7 @@ defmodule Bsky.Graph do
   https://docs.bsky.app/docs/api/app-bsky-graph-get-starter-packs
   """
   defquery "app.bsky.graph.getStarterPacks", for: :todo do
-    param(:uris, {:required, {:list, :string}})
+    param :uris, {:required, {:list, :string}}
   end
 
   @doc """
@@ -143,7 +151,7 @@ defmodule Bsky.Graph do
   https://docs.bsky.app/docs/api/app-bsky-graph-get-suggested-follows-by-actor
   """
   defquery "app.bsky.graph.getSuggestedFollowsByActor", for: :todo do
-    param(:actor, {:required, :string})
+    param :actor, {:required, :string}
   end
 
   @doc """
@@ -152,7 +160,7 @@ defmodule Bsky.Graph do
   https://docs.bsky.app/docs/api/app-bsky-graph-mute-actor-list
   """
   defprocedure "app.bsky.graph.muteActorList", authenticated: true do
-    param(:list, {:required, :string})
+    param :list, {:required, :string}
   end
 
   @doc """
@@ -161,7 +169,7 @@ defmodule Bsky.Graph do
   https://docs.bsky.app/docs/api/app-bsky-graph-mute-actor
   """
   defprocedure "app.bsky.graph.muteActor", authenticated: true do
-    param(:actor, {:required, :string})
+    param :actor, {:required, :string}
   end
 
   @doc """
@@ -170,7 +178,7 @@ defmodule Bsky.Graph do
   https://docs.bsky.app/docs/api/app-bsky-graph-mute-thread
   """
   defprocedure "app.bsky.graph.muteThread", authenticated: true do
-    param(:root, {:required, :string})
+    param :root, {:required, :string}
   end
 
   @doc """
@@ -179,7 +187,7 @@ defmodule Bsky.Graph do
   https://docs.bsky.app/docs/api/app-bsky-graph-unmute-actor-list
   """
   defprocedure "app.bsky.graph.unmuteActorList", authenticated: true do
-    param(:list, {:required, :string})
+    param :list, {:required, :string}
   end
 
   @doc """
@@ -188,7 +196,7 @@ defmodule Bsky.Graph do
   https://docs.bsky.app/docs/api/app-bsky-graph-unmute-actor
   """
   defprocedure "app.bsky.graph.unmuteActor", authenticated: true do
-    param(:actor, {:required, :string})
+    param :actor, {:required, :string}
   end
 
   @doc """
@@ -197,6 +205,6 @@ defmodule Bsky.Graph do
   https://docs.bsky.app/docs/api/app-bsky-graph-unmute-thread
   """
   defprocedure "app.bsky.graph.unmuteThread", authenticated: true do
-    param(:root, {:required, :string})
+    param :root, {:required, :string}
   end
 end

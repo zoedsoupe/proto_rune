@@ -9,7 +9,7 @@ defmodule Bsky.Labeler do
   https://docs.bsky.app/docs/api/app-bsky-labeler-get-services
   """
   defquery "app.bsky.labeler.getServices", for: :todo do
-    param(:dids, {:required, {:list, :string}})
-    param(:detailed, :boolean)
+    param :dids, {:required, {:list, :string}}
+    param :detailed, :boolean
   end
 end
