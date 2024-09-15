@@ -8,7 +8,7 @@ defmodule ProtoRune.Bsky.Graph do
 
   https://docs.bsky.app/docs/api/app-bsky-graph-get-actor-starter-packs
   """
-  defquery "app.bsky.graph.getActorStarterPacks", for: :actor do
+  defquery "app.bsky.graph.getActorStarterPacks", authenticated: true do
     param :actor, {:required, :string}
     param :limit, :integer
     param :cursor, :string
@@ -31,7 +31,7 @@ defmodule ProtoRune.Bsky.Graph do
 
   https://docs.bsky.app/docs/api/app-bsky-graph-get-followers
   """
-  defquery "app.bsky.graph.getFollowers", for: :todo do
+  defquery "app.bsky.graph.getFollowers", authenticated: true do
     param :actor, {:required, :string}
     param :limit, :integer
     param :cursor, :string
@@ -42,7 +42,7 @@ defmodule ProtoRune.Bsky.Graph do
 
   https://docs.bsky.app/docs/api/app-bsky-graph-get-follows
   """
-  defquery "app.bsky.graph.getFollows", for: :todo do
+  defquery "app.bsky.graph.getFollows", authenticated: true do
     param :actor, {:required, :string}
     param :limit, :integer
     param :cursor, :string
@@ -53,7 +53,7 @@ defmodule ProtoRune.Bsky.Graph do
 
   https://docs.bsky.app/docs/api/app-bsky-graph-get-known-followers
   """
-  defquery "app.bsky.graph.getKnownFollowers", for: :todo do
+  defquery "app.bsky.graph.getKnownFollowers", authenticated: true do
     param :actor, {:required, :string}
     param :limit, :integer
     param :cursor, :string
@@ -88,7 +88,7 @@ defmodule ProtoRune.Bsky.Graph do
 
   https://docs.bsky.app/docs/api/app-bsky-graph-get-list
   """
-  defquery "app.bsky.graph.getList", for: :Todo do
+  defquery "app.bsky.graph.getList", authenticated: true do
     param :list, {:required, :string}
     param :limit, :integer
     param :cursor, :string
@@ -99,7 +99,7 @@ defmodule ProtoRune.Bsky.Graph do
 
   https://docs.bsky.app/docs/api/app-bsky-graph-get-lists
   """
-  defquery "app.bsky.graph.getLists", for: :Todo do
+  defquery "app.bsky.graph.getLists", authenticated: true do
     param :actor, {:required, :string}
     param :limit, :integer
     param :cursor, :string
@@ -110,9 +110,9 @@ defmodule ProtoRune.Bsky.Graph do
 
   https://docs.bsky.app/docs/api/app-bsky-graph-get-mutes
   """
-  defquery "app.bsky.graph.getMutes", for: :todo
+  defquery "app.bsky.graph.getMutes", authenticated: true
 
-  defquery "app.bsky.graph.getMutes", for: :todo do
+  defquery "app.bsky.graph.getMutes", authenticated: true do
     param :limit, :integer
     param :cursor, :string
   end
@@ -150,7 +150,7 @@ defmodule ProtoRune.Bsky.Graph do
 
   https://docs.bsky.app/docs/api/app-bsky-graph-get-suggested-follows-by-actor
   """
-  defquery "app.bsky.graph.getSuggestedFollowsByActor", for: :todo do
+  defquery "app.bsky.graph.getSuggestedFollowsByActor", authenticated: true do
     param :actor, {:required, :string}
   end
 

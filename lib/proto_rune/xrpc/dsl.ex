@@ -73,6 +73,8 @@ defmodule ProtoRune.XRPC.DSL do
   - `mute/0` is generated as a function that creates a procedure for `app.bsky.actor.mute` with the parameter `:actor_id` of type `:string`.
   """
 
+  alias ProtoRune.XRPC.Case
+  alias ProtoRune.XRPC.Client
   alias ProtoRune.XRPC.Procedure
   alias ProtoRune.XRPC.Query
 
@@ -86,15 +88,15 @@ defmodule ProtoRune.XRPC.DSL do
 
     quote do
       if unquote(authenticated?) do
-        def unquote(fun)(%{access_token: access_token}) do
+        def unquote(fun)(%{access_jwt: access_token}) do
           Query.new(unquote(method))
           |> Query.put_header(:authorization, "Bearer #{access_token}")
-          |> ProtoRune.XRPC.Client.execute()
+          |> Client.execute()
         end
       else
         def unquote(fun)() do
           Query.new(unquote(method))
-          |> ProtoRune.XRPC.Client.execute()
+          |> Client.execute()
         end
       end
     end
@@ -111,13 +113,13 @@ defmodule ProtoRune.XRPC.DSL do
       unquote(block)
 
       if unquote(authenticated) do
-        def unquote(fun)(%{access_token: access_token}, params) do
+        def unquote(fun)(%{access_jwt: access_token}, params) do
           query = Query.new(unquote(method), from: Map.new(@param))
 
           with {:ok, query} <- Query.add_params(query, params) do
             query
             |> Query.put_header(:authorization, "Bearer #{access_token}")
-            |> ProtoRune.XRPC.Client.execute()
+            |> Client.execute()
           end
         end
       else
@@ -125,7 +127,7 @@ defmodule ProtoRune.XRPC.DSL do
           query = Query.new(unquote(method), from: Map.new(@param))
 
           with {:ok, query} <- Query.add_params(query, params) do
-            ProtoRune.XRPC.Client.execute(query)
+            Client.execute(query)
           end
         end
       end
@@ -143,13 +145,13 @@ defmodule ProtoRune.XRPC.DSL do
     quote do
       cond do
         unquote(authenticated) ->
-          def unquote(fun)(%{access_token: access_token}, params) do
+          def unquote(fun)(%{access_jwt: access_token}, params) do
             proc = Procedure.new(unquote(method))
 
             with {:ok, proc} <- Procedure.put_body(proc, params) do
               proc
               |> Procedure.put_header(:authorization, "Bearer #{access_token}")
-              |> ProtoRune.XRPC.Client.execute()
+              |> Client.execute()
             end
           end
 
@@ -160,7 +162,7 @@ defmodule ProtoRune.XRPC.DSL do
             with {:ok, proc} <- Procedure.put_body(proc, params) do
               proc
               |> Procedure.put_header(:authorization, "Bearer #{refresh}")
-              |> ProtoRune.XRPC.Client.execute()
+              |> Client.execute()
             end
           end
 
@@ -169,7 +171,7 @@ defmodule ProtoRune.XRPC.DSL do
             proc = Procedure.new(unquote(method))
 
             with {:ok, proc} <- Procedure.put_body(proc, params) do
-              ProtoRune.XRPC.Client.execute(proc)
+              Client.execute(proc)
             end
           end
       end
@@ -187,13 +189,13 @@ defmodule ProtoRune.XRPC.DSL do
       unquote(block)
 
       if unquote(authenticated) do
-        def unquote(fun)(%{access_token: access_token}, params) do
+        def unquote(fun)(%{access_jwt: access_token}, params) do
           proc = Procedure.new(unquote(method), from: Map.new(@param))
 
           with {:ok, proc} <- Procedure.put_body(proc, params) do
             proc
             |> Procedure.put_header(:authorization, "Bearer #{access_token}")
-            |> ProtoRune.XRPC.Client.execute()
+            |> Client.execute()
           end
         end
       else
@@ -201,7 +203,7 @@ defmodule ProtoRune.XRPC.DSL do
           proc = Procedure.new(unquote(method), from: Map.new(@param))
 
           with {:ok, proc} <- Procedure.put_body(proc, params) do
-            ProtoRune.XRPC.Client.execute(proc)
+            Client.execute(proc)
           end
         end
       end
@@ -221,7 +223,7 @@ defmodule ProtoRune.XRPC.DSL do
      method
      |> String.split(".")
      |> List.last()
-     |> ProtoRune.XRPC.Case.snakelize()
+     |> Case.snakelize()
      |> String.to_atom()}
   end
 end

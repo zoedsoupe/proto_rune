@@ -15,7 +15,7 @@ defmodule ProtoRune.Bsky.Feed do
 
   https://docs.bsky.app/docs/api/app-bsky-feed-get-actor-feeds
   """
-  defquery "app.bsky.feed.getActorFeeds", for: :feed do
+  defquery "app.bsky.feed.getActorFeeds", authenticated: true do
     param :actor, {:required, :string}
     param :limit, :integer
     param :cursor, :string

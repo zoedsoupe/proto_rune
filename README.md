@@ -66,6 +66,31 @@ defmodule MyModerator do
 end
 ```
 
+Here's a section to add a roadmap to the README using checklists:
+
+## Roadmap
+
+- [x] **Basic XRPC Client**
+    - Implement a client to interact with ATProto and Bluesky services via XRPC.
+- [ ] **Schemas Parsing and Definition**
+    - Define schemas like `ProfileBasicView` or even `Session` as structs
+- [ ] **Schema Generation**
+    - Automatically generate Elixir structs and typespecs from `defs.json` schema files.
+- [x] **Authenticated Queries**
+    - Support for authenticated queries using session tokens.
+- [x] **Flexible Query and Procedure Macros**
+    - Macros (`defquery` and `defprocedure`) to simplify the definition of queries and procedures.
+- [ ] **Custom Bots**
+    - Build an easy-to-use interface for creating bots that interact with ATProto services.
+- [ ] **Labeling and Moderation Tools**
+    - Provide built-in support for creating labelers and moderators for content on ATProto.
+- [ ] **Advanced Error Handling**
+    - Improve error handling for query execution and schema validation.
+- [ ] **App Views and Custom Feeds**
+    - Allow developers to create custom feeds and views based on the ATProto ecosystem.
+- [ ] **Documentation and Examples**
+    - Expand library documentation with detailed usage examples for bots, labelers, and moderators.
+
 ## Dynamic Schema Generation
 
 ProtoRune includes tools for dynamically generating Elixir modules for ATProto schemas:
