@@ -156,14 +156,12 @@ defmodule ProtoRune.XRPC.DSL do
           end
 
         unquote(refresh) ->
-          def unquote(fun)(%{refresh_token: refresh}, params) do
+          def unquote(fun)(%{refresh_token: refresh}) do
             proc = Procedure.new(unquote(method))
 
-            with {:ok, proc} <- Procedure.put_body(proc, params) do
-              proc
-              |> Procedure.put_header(:authorization, "Bearer #{refresh}")
-              |> Client.execute()
-            end
+            proc
+            |> Procedure.put_header(:authorization, "Bearer #{refresh}")
+            |> Client.execute()
           end
 
         true ->

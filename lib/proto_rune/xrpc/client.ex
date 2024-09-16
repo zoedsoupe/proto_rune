@@ -46,6 +46,19 @@ defmodule ProtoRune.XRPC.Client do
   defp parse_http({:error, err}), do: {:error, err}
   defp parse_http({:ok, %{status: 401}}), do: {:error, :unauthorized}
   defp parse_http({:ok, %{status: 404}}), do: {:error, :not_found}
+  defp parse_http({:ok, %{status: 403}}), do: {:error, :forbidden}
+  defp parse_http({:ok, %{status: 413}}), do: {:error, :payload_too_large}
+  defp parse_http({:ok, %{status: 501}}), do: {:error, :not_implemented}
+  defp parse_http({:ok, %{status: 502}}), do: {:error, :bad_gateway}
+  defp parse_http({:ok, %{status: 503}}), do: {:error, :service_unavailable}
+  defp parse_http({:ok, %{status: 504}}), do: {:error, :gateway_timeout}
+
+  defp parse_http({:ok, %{status: 429} = resp}) do
+    retry_after = Req.Response.get_header(resp, "retry-after")
+    {:error, {:rate_limited, retry_after}}
+  end
+
+  defp parse_http({:ok, %{status: 500, body: body}}), do: {:error, {:server_error, body}}
 
   defp parse_http({:ok, %{status: 400, body: error}}) do
     {:error, apply_case_map(error, &Case.snakelize/1)}

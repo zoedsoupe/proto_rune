@@ -51,7 +51,7 @@ defmodule ProtoRune.MixProject do
 
   defp docs do
     [
-      main: "README.md",
+      main: "readme",
       extras: ["README.md"]
     ]
   end
