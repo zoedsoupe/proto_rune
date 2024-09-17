@@ -133,19 +133,19 @@ defmodule ProtoRune.Bot.Poller do
     end
   end
 
-  defp handle_notifications(state, %{notifications: []}), do: {:noreply, state}
+  defp handle_notifications(state, %{notifications: []}), do: {:ok, state}
 
   defp handle_notifications(%State{} = state, data) do
     indexed_at = List.first(data[:notifications])[:indexed_at]
     {:ok, indexed_at} = NaiveDateTime.from_iso8601(indexed_at)
     last_seen = state.last_seen || indexed_at
 
-    Task.start(fn ->
-      for notification <- data[:notifications],
-          NaiveDateTime.compare(indexed_at, last_seen) == :gt do
+    for notification <- data[:notifications],
+        NaiveDateTime.compare(indexed_at, last_seen) == :gt do
+      Task.start(fn ->
         dispatch_notification(state, notification)
-      end
-    end)
+      end)
+    end
 
     {:ok, %{state | last_seen: indexed_at, cursor: data[:cursor]}}
   end

@@ -32,7 +32,7 @@ defmodule ProtoRune.Atproto.Server do
 
   https://docs.bsky.app/docs/api/com-atproto-server-create-account
   """
-  defprocedure "com.atproto.server.createAccount", authenticated: true do
+  defprocedure "com.atproto.server.createAccount", for: :account do
     param :handle, {:required, :string}
     param :email, :string
     param :did, :string

@@ -136,7 +136,7 @@ defmodule ProtoRune.XRPC.DSL do
     end
   end
 
-  @spec defquery(String.t(), options) :: Macro.t()
+  @spec defprocedure(String.t(), options) :: Macro.t()
   defmacro defprocedure(method, opts) do
     authenticated = Keyword.get(opts, :authenticated, false)
     refresh = Keyword.get(opts, :refresh, false)
@@ -156,7 +156,7 @@ defmodule ProtoRune.XRPC.DSL do
           end
 
         unquote(refresh) ->
-          def unquote(fun)(%{refresh_token: refresh}) do
+          def unquote(fun)(%{refresh_jwt: refresh}) do
             proc = Procedure.new(unquote(method))
 
             proc
@@ -176,7 +176,7 @@ defmodule ProtoRune.XRPC.DSL do
     end
   end
 
-  @spec defquery(String.t(), options, do: Macro.t()) :: Macro.t()
+  @spec defprocedure(String.t(), options, do: Macro.t()) :: Macro.t()
   defmacro defprocedure(method, opts, do: block) do
     authenticated = Keyword.get(opts, :authenticated, false)
     {method, fun} = encode_method_name(method)
