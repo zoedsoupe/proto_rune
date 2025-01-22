@@ -28,7 +28,7 @@
       default = mkShell {
         name = "proto-rune";
         packages = with pkgs;
-          [elixir_1_18]
+          [elixir_1_18 aider-chat]
           ++ lib.optional stdenv.isLinux [inotify-tools]
           ++ lib.optional stdenv.isDarwin [
             darwin.apple_sdk.frameworks.CoreServices
