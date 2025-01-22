@@ -6,20 +6,24 @@ defmodule ProtoRune.App.Bsky.Feed.Defs.ThreadViewPost do
   No description.
   """
 
+  alias ProtoRune.App.Bsky.Feed.Defs.BlockedPost
+  alias ProtoRune.App.Bsky.Feed.Defs.NotFoundPost
+  alias ProtoRune.App.Bsky.Feed.Defs.ThreadViewPost
+
   @enforce_keys [:post]
   defstruct parent: nil, post: nil, replies: nil, threadContext: nil
 
   @type t :: %__MODULE__{
           parent:
-            ProtoRune.App.Bsky.Feed.Defs.ThreadViewPost.t()
-            | ProtoRune.App.Bsky.Feed.Defs.NotFoundPost.t()
-            | ProtoRune.App.Bsky.Feed.Defs.BlockedPost.t(),
+            ThreadViewPost.t()
+            | NotFoundPost.t()
+            | BlockedPost.t(),
           post: ProtoRune.App.Bsky.Feed.Defs.PostView.t(),
           replies:
             list(
-              ProtoRune.App.Bsky.Feed.Defs.ThreadViewPost.t()
-              | ProtoRune.App.Bsky.Feed.Defs.NotFoundPost.t()
-              | ProtoRune.App.Bsky.Feed.Defs.BlockedPost.t()
+              ThreadViewPost.t()
+              | NotFoundPost.t()
+              | BlockedPost.t()
             ),
           threadContext: ProtoRune.App.Bsky.Feed.Defs.ThreadContext.t()
         }

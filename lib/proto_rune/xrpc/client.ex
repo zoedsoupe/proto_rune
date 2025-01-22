@@ -64,8 +64,7 @@ defmodule ProtoRune.XRPC.Client do
     {:error, apply_case_map(error, &Case.snakelize/1)}
   end
 
-  defp parse_http({:ok, %{status: status, body: body}})
-       when status in [200, 201] do
+  defp parse_http({:ok, %{status: status, body: body}}) when status in [200, 201] do
     {:ok, apply_case_map(body, &Case.snakelize/1)}
   end
 

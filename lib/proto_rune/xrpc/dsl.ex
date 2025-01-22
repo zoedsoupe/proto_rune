@@ -89,13 +89,15 @@ defmodule ProtoRune.XRPC.DSL do
     quote do
       if unquote(authenticated?) do
         def unquote(fun)(%{access_jwt: access_token}) do
-          Query.new(unquote(method))
+          unquote(method)
+          |> Query.new()
           |> Query.put_header(:authorization, "Bearer #{access_token}")
           |> Client.execute()
         end
       else
         def unquote(fun)() do
-          Query.new(unquote(method))
+          unquote(method)
+          |> Query.new()
           |> Client.execute()
         end
       end

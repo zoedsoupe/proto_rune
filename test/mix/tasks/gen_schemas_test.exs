@@ -1,11 +1,12 @@
 defmodule Mix.Tasks.GenSchemasTest do
   use ExUnit.Case, async: true
 
+  alias Mix.Tasks.GenSchemas
   alias Mix.Tasks.GenSchemas.Context
   alias Mix.Tasks.GenSchemas.DependencyResolver
   alias Mix.Tasks.GenSchemas.Generator
-  alias Mix.Tasks.GenSchemas.TypeMapper
   alias Mix.Tasks.GenSchemas.Loader
+  alias Mix.Tasks.GenSchemas.TypeMapper
   alias Mix.Tasks.GenSchemas.Utils
 
   @moduletag capture_log: true
@@ -281,7 +282,7 @@ defmodule Mix.Tasks.GenSchemasTest do
       lexicon_file = Path.join(lexicon_dir, "user_lexicon.json")
       File.write!(lexicon_file, lexicon_content)
 
-      Mix.Tasks.GenSchemas.run(["--path", lexicon_dir, "--output-dir", temp_dir])
+      GenSchemas.run(["--path", lexicon_dir, "--output-dir", temp_dir])
 
       user_module_file = Path.join([temp_dir, "com", "example", "user.ex"])
       profile_module_file = Path.join([temp_dir, "com", "example", "user", "profile.ex"])
@@ -311,7 +312,7 @@ defmodule Mix.Tasks.GenSchemasTest do
         File.rm_rf!(temp_lexicon_dir)
         File.cp_r!(lexicon_dir, temp_lexicon_dir)
 
-        Mix.Tasks.GenSchemas.run(["--path", temp_lexicon_dir, "--output-dir", temp_dir])
+        GenSchemas.run(["--path", temp_lexicon_dir, "--output-dir", temp_dir])
 
         expected_modules = [
           Path.join([temp_dir, "app", "bsky", "actor", "get_profile.ex"]),
@@ -322,9 +323,7 @@ defmodule Mix.Tasks.GenSchemasTest do
           assert File.exists?(module_file)
         end
       else
-        IO.puts(
-          "Skipping real lexicon definitions test: directory #{lexicon_dir} does not exist."
-        )
+        IO.puts("Skipping real lexicon definitions test: directory #{lexicon_dir} does not exist.")
 
         assert true
       end

@@ -6,18 +6,22 @@ defmodule ProtoRune.App.Bsky.Feed.Defs.ReplyRef do
   No description.
   """
 
+  alias ProtoRune.App.Bsky.Feed.Defs.BlockedPost
+  alias ProtoRune.App.Bsky.Feed.Defs.NotFoundPost
+  alias ProtoRune.App.Bsky.Feed.Defs.PostView
+
   @enforce_keys [:root, :parent]
   defstruct grandparentAuthor: nil, parent: nil, root: nil
 
   @type t :: %__MODULE__{
           grandparentAuthor: ProtoRune.App.Bsky.Actor.Defs.ProfileViewBasic.t(),
           parent:
-            ProtoRune.App.Bsky.Feed.Defs.PostView.t()
-            | ProtoRune.App.Bsky.Feed.Defs.NotFoundPost.t()
-            | ProtoRune.App.Bsky.Feed.Defs.BlockedPost.t(),
+            PostView.t()
+            | NotFoundPost.t()
+            | BlockedPost.t(),
           root:
-            ProtoRune.App.Bsky.Feed.Defs.PostView.t()
-            | ProtoRune.App.Bsky.Feed.Defs.NotFoundPost.t()
-            | ProtoRune.App.Bsky.Feed.Defs.BlockedPost.t()
+            PostView.t()
+            | NotFoundPost.t()
+            | BlockedPost.t()
         }
 end

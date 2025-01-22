@@ -26,8 +26,7 @@ defmodule ProtoRune.App.Bsky.Feed.Defs.GeneratorView do
           acceptsInteractions: boolean(),
           avatar: String.t(),
           cid: String.t(),
-          contentMode:
-            :"app.bsky.feed.defs#contentModeUnspecified" | :"app.bsky.feed.defs#contentModeVideo",
+          contentMode: :"app.bsky.feed.defs#contentModeUnspecified" | :"app.bsky.feed.defs#contentModeVideo",
           creator: ProtoRune.App.Bsky.Actor.Defs.ProfileView.t(),
           description: String.t(),
           descriptionFacets: list(ProtoRune.App.Bsky.Richtext.Facet.Main.t()),

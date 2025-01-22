@@ -6,6 +6,8 @@ defmodule ProtoRune.App.Bsky.Actor.Defs.ViewerState do
   Metadata about the requesting account's relationship with the subject account. Only has meaningful content for authed requests.
   """
 
+  alias ProtoRune.App.Bsky.Graph.Defs.ListViewBasic
+
   defstruct blockedBy: nil,
             blocking: nil,
             blockingByList: nil,
@@ -18,11 +20,11 @@ defmodule ProtoRune.App.Bsky.Actor.Defs.ViewerState do
   @type t :: %__MODULE__{
           blockedBy: boolean(),
           blocking: String.t(),
-          blockingByList: ProtoRune.App.Bsky.Graph.Defs.ListViewBasic.t(),
+          blockingByList: ListViewBasic.t(),
           followedBy: String.t(),
           following: String.t(),
           knownFollowers: ProtoRune.App.Bsky.Actor.Defs.KnownFollowers.t(),
           muted: boolean(),
-          mutedByList: ProtoRune.App.Bsky.Graph.Defs.ListViewBasic.t()
+          mutedByList: ListViewBasic.t()
         }
 end

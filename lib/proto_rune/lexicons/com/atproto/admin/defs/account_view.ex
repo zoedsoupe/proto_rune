@@ -6,6 +6,8 @@ defmodule ProtoRune.Com.Atproto.Admin.Defs.AccountView do
   No description.
   """
 
+  alias ProtoRune.Com.Atproto.Server.Defs.InviteCode
+
   @enforce_keys [:did, :handle, :indexedAt]
   defstruct deactivatedAt: nil,
             did: nil,
@@ -28,8 +30,8 @@ defmodule ProtoRune.Com.Atproto.Admin.Defs.AccountView do
           handle: String.t(),
           indexedAt: String.t(),
           inviteNote: String.t(),
-          invitedBy: ProtoRune.Com.Atproto.Server.Defs.InviteCode.t(),
-          invites: list(ProtoRune.Com.Atproto.Server.Defs.InviteCode.t()),
+          invitedBy: InviteCode.t(),
+          invites: list(InviteCode.t()),
           invitesDisabled: boolean(),
           relatedRecords: list(any()),
           threatSignatures: list(ProtoRune.Com.Atproto.Admin.Defs.ThreatSignature.t())

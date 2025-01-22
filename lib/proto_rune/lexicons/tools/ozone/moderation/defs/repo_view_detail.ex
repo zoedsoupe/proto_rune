@@ -6,6 +6,8 @@ defmodule ProtoRune.Tools.Ozone.Moderation.Defs.RepoViewDetail do
   No description.
   """
 
+  alias ProtoRune.Com.Atproto.Server.Defs.InviteCode
+
   @enforce_keys [:did, :handle, :relatedRecords, :indexedAt, :moderation]
   defstruct deactivatedAt: nil,
             did: nil,
@@ -30,8 +32,8 @@ defmodule ProtoRune.Tools.Ozone.Moderation.Defs.RepoViewDetail do
           handle: String.t(),
           indexedAt: String.t(),
           inviteNote: String.t(),
-          invitedBy: ProtoRune.Com.Atproto.Server.Defs.InviteCode.t(),
-          invites: list(ProtoRune.Com.Atproto.Server.Defs.InviteCode.t()),
+          invitedBy: InviteCode.t(),
+          invites: list(InviteCode.t()),
           invitesDisabled: boolean(),
           labels: list(ProtoRune.Com.Atproto.Label.Defs.Label.t()),
           moderation: ProtoRune.Tools.Ozone.Moderation.Defs.ModerationDetail.t(),

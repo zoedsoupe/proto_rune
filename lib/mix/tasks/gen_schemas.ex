@@ -1,4 +1,6 @@
 defmodule Mix.Tasks.GenSchemas do
+  @shortdoc "Generates Elixir modules/types from Lexicon schemas"
+
   @moduledoc """
   Generates Elixir code from Lexicon schema files.
 
@@ -12,8 +14,6 @@ defmodule Mix.Tasks.GenSchemas do
   """
 
   use Mix.Task
-
-  @shortdoc "Generates Elixir modules/types from Lexicon schemas"
 
   # ------------------------------------------------------------------
   # Main entry point
@@ -94,8 +94,7 @@ defmodule Mix.Tasks.GenSchemas do
   end
 
   defp load_lexicons!(files) do
-    files
-    |> Enum.map(fn file ->
+    Enum.map(files, fn file ->
       case File.read(file) do
         {:ok, contents} ->
           case Jason.decode(contents) do
@@ -185,8 +184,7 @@ defmodule Mix.Tasks.GenSchemas do
   end
 
   defp collect_refs(current_lex, %{"properties" => props}) when is_map(props) do
-    props
-    |> Enum.flat_map(fn {_k, v} -> collect_refs(current_lex, v) end)
+    Enum.flat_map(props, fn {_k, v} -> collect_refs(current_lex, v) end)
   end
 
   defp collect_refs(current_lex, %{"items" => items}) when is_map(items) do
@@ -194,18 +192,15 @@ defmodule Mix.Tasks.GenSchemas do
   end
 
   # For query/procedure shape
-  defp collect_refs(current_lex, %{"input" => inp}) when is_map(inp),
-    do: collect_refs(current_lex, inp)
+  defp collect_refs(current_lex, %{"input" => inp}) when is_map(inp), do: collect_refs(current_lex, inp)
 
-  defp collect_refs(current_lex, %{"output" => out}) when is_map(out),
-    do: collect_refs(current_lex, out)
+  defp collect_refs(current_lex, %{"output" => out}) when is_map(out), do: collect_refs(current_lex, out)
 
   defp collect_refs(current_lex, %{"parameters" => params}) when is_map(params) do
     Enum.flat_map(params, fn {_k, v} -> collect_refs(current_lex, v) end)
   end
 
-  defp collect_refs(current_lex, %{"schema" => s}) when is_map(s),
-    do: collect_refs(current_lex, s)
+  defp collect_refs(current_lex, %{"schema" => s}) when is_map(s), do: collect_refs(current_lex, s)
 
   defp collect_refs(current_lex, %{"errors" => errs}) when is_list(errs) do
     Enum.flat_map(errs, fn err ->
@@ -419,10 +414,9 @@ defmodule Mix.Tasks.GenSchemas do
     end
   end
 
-  defp map_to_typespec(current_lex, %{"type" => "union", "refs" => refs}, context)
-       when is_list(refs) do
-    # Union of references
-    Enum.map(refs, fn r ->
+  defp map_to_typespec(current_lex, %{"type" => "union", "refs" => refs}, context) when is_list(refs) do
+    Enum.map_join(refs, " | ", fn r ->
+      # Union of references
       {r_lex, r_name} = parse_ref(current_lex, r)
       ctx = ensure_generated(r_lex, r_name, context)
       ref_def = ctx.defs_map[{r_lex, r_name}]
@@ -435,7 +429,6 @@ defmodule Mix.Tasks.GenSchemas do
         _ -> "ProtoRune.Types.#{raw_type_name(r_lex, r_name)}"
       end
     end)
-    |> Enum.join(" | ")
   end
 
   defp map_to_typespec(current_lex, %{"type" => "object"} = defn, context) do
@@ -485,14 +478,10 @@ defmodule Mix.Tasks.GenSchemas do
         ":\"#{defn["const"]}\""
 
       is_list(defn["knownValues"]) ->
-        defn["knownValues"]
-        |> Enum.map(&":\"#{&1}\"")
-        |> Enum.join(" | ")
+        Enum.map_join(defn["knownValues"], " | ", &":\"#{&1}\"")
 
       is_list(defn["enum"]) ->
-        defn["enum"]
-        |> Enum.map(&":\"#{&1}\"")
-        |> Enum.join(" | ")
+        Enum.map_join(defn["enum"], " | ", &":\"#{&1}\"")
 
       true ->
         "String.t()"
@@ -555,5 +544,393 @@ defmodule Mix.Tasks.GenSchemas do
     |> Enum.map(&Macro.underscore/1)
     |> Path.join()
     |> then(&Path.join(output_dir, &1 <> ".ex"))
+  end
+end
+
+defmodule Mix.Tasks.GenSchemas.Parser do
+  @moduledoc """
+  Handles parsing of Lexicon JSON schema files.
+  """
+
+  @doc """
+  Loads and parses all lexicon files from the given path.
+  Returns a map of parsed lexicon definitions.
+  """
+  def load_lexicons!(path) do
+    Mix.shell().info("Loading lexicon files from #{path}...")
+
+    files = expand_lexicon_files(path)
+    Mix.shell().info("Found #{length(files)} lexicon files")
+
+    lexicons =
+      files
+      |> Enum.map(&parse_lexicon_file/1)
+      |> Enum.reject(&is_nil/1)
+
+    Mix.shell().info("Successfully parsed #{length(lexicons)} lexicon files")
+    lexicons
+  end
+
+  defp expand_lexicon_files(path) do
+    if File.dir?(path) do
+      Path.wildcard(Path.join(path, "**/*.json"))
+    else
+      Mix.raise("Invalid lexicon path: #{path}")
+    end
+  end
+
+  defp parse_lexicon_file(file) do
+    case File.read(file) do
+      {:ok, contents} ->
+        case Jason.decode(contents) do
+          {:ok, json} ->
+            Map.put(json, "file_path", file)
+
+          {:error, reason} ->
+            Mix.shell().error("Failed to parse JSON in #{file}: #{inspect(reason)}")
+            nil
+        end
+
+      {:error, reason} ->
+        Mix.shell().error("Failed to read file #{file}: #{inspect(reason)}")
+        nil
+    end
+  end
+
+  @doc """
+  Builds a map of all definitions from the lexicons.
+  """
+  def build_defs_map(lexicons) do
+    Mix.shell().info("Building definitions map...")
+
+    defs_map =
+      Enum.reduce(lexicons, %{}, fn lexicon, acc ->
+        lex_id = lexicon["id"] || raise "Missing lexicon ID in #{lexicon["file_path"]}"
+        defs = gather_definitions(lexicon)
+
+        Enum.reduce(defs, acc, fn {def_name, def_val}, acc_inner ->
+          Map.put(acc_inner, {lex_id, def_name}, def_val)
+        end)
+      end)
+
+    Mix.shell().info("Built definitions map with #{map_size(defs_map)} entries")
+    defs_map
+  end
+
+  defp gather_definitions(lexicon) do
+    top_level =
+      if lexicon["type"] do
+        %{"main" => lexicon}
+      else
+        %{}
+      end
+
+    Map.merge(top_level, lexicon["defs"] || %{})
+  end
+end
+
+defmodule Mix.Tasks.GenSchemas.TypeMapper do
+  @moduledoc """
+  Maps Lexicon types to Elixir type specifications.
+  """
+
+  @doc """
+  Maps a Lexicon type definition to an Elixir type specification.
+  Raises with clear error messages for unsupported types.
+  """
+  def to_typespec(current_lex, definition, context) do
+    case definition do
+      %{"type" => type} = def ->
+        do_map_type(type, def, current_lex, context)
+
+      _ ->
+        raise "Invalid type definition: #{inspect(definition)}"
+    end
+  end
+
+  defp do_map_type("ref", %{"ref" => ref}, current_lex, context) do
+    {r_lex, r_name} = parse_ref(current_lex, ref)
+    ref_def = Map.get(context.defs_map, {r_lex, r_name})
+
+    if is_nil(ref_def) do
+      raise "Reference not found: #{ref} in #{current_lex}"
+    end
+
+    case get_def_type(ref_def) do
+      "object" -> "#{inspect(build_module_name(r_lex, r_name))}.t()"
+      "record" -> "#{inspect(build_module_name(r_lex, r_name))}.t()"
+      "query" -> "#{inspect(build_module_name(r_lex, r_name))}.output()"
+      "procedure" -> "#{inspect(build_module_name(r_lex, r_name))}.output()"
+      _ -> "ProtoRune.Types.#{raw_type_name(r_lex, r_name)}"
+    end
+  end
+
+  defp do_map_type("union", %{"refs" => refs}, current_lex, context) when is_list(refs) do
+    Enum.map_join(refs, " | ", fn ref ->
+      {r_lex, r_name} = parse_ref(current_lex, ref)
+      ref_def = Map.get(context.defs_map, {r_lex, r_name})
+
+      if is_nil(ref_def) do
+        raise "Union reference not found: #{ref} in #{current_lex}"
+      end
+
+      case get_def_type(ref_def) do
+        "object" -> "#{inspect(build_module_name(r_lex, r_name))}.t()"
+        "record" -> "#{inspect(build_module_name(r_lex, r_name))}.t()"
+        "query" -> "#{inspect(build_module_name(r_lex, r_name))}.output()"
+        "procedure" -> "#{inspect(build_module_name(r_lex, r_name))}.output()"
+        _ -> "ProtoRune.Types.#{raw_type_name(r_lex, r_name)}"
+      end
+    end)
+  end
+
+  defp do_map_type("string", def, _current_lex, _context) do
+    cond do
+      def["const"] ->
+        ":\"#{def["const"]}\""
+
+      is_list(def["knownValues"]) ->
+        Enum.map_join(def["knownValues"], " | ", &":\"#{&1}\"")
+
+      is_list(def["enum"]) ->
+        Enum.map_join(def["enum"], " | ", &":\"#{&1}\"")
+
+      true ->
+        "String.t()"
+    end
+  end
+
+  defp do_map_type("array", %{"items" => items}, current_lex, context) do
+    item_type = to_typespec(current_lex, items, context)
+    "list(#{item_type})"
+  end
+
+  defp do_map_type("boolean", _, _, _), do: "boolean()"
+  defp do_map_type("integer", _, _, _), do: "integer()"
+  defp do_map_type("float", _, _, _), do: "float()"
+  defp do_map_type("bytes", _, _, _), do: "binary()"
+  defp do_map_type("cid-link", _, _, _), do: "binary()"
+  defp do_map_type("blob", _, _, _), do: "binary()"
+  defp do_map_type("token", _, _, _), do: "atom()"
+  defp do_map_type("null", _, _, _), do: "nil"
+
+  defp do_map_type(type, _, current_lex, _) do
+    raise "Unsupported type '#{type}' in lexicon #{current_lex}"
+  end
+
+  # Helper functions moved from main module
+  defp parse_ref(current_lex, ref) do
+    cond do
+      String.starts_with?(ref, "#") ->
+        {current_lex, String.trim_leading(ref, "#")}
+
+      String.contains?(ref, "#") ->
+        [nsid, local] = String.split(ref, "#", parts: 2)
+        {nsid, local}
+
+      true ->
+        {ref, "main"}
+    end
+  end
+
+  defp get_def_type(%{"type" => type}), do: type
+  defp get_def_type(_), do: nil
+
+  defp build_module_name(lex_id, local_name) do
+    base_parts = lex_id |> String.split(".") |> Enum.map(&Macro.camelize/1)
+    local_parts = local_name |> String.split("#") |> Enum.map(&Macro.camelize/1)
+    Module.concat(["ProtoRune" | base_parts ++ local_parts])
+  end
+
+  defp raw_type_name(lex_id, name) do
+    (lex_id <> "_" <> name)
+    |> String.replace("#", "_")
+    |> String.replace(".", "_")
+    |> Macro.underscore()
+  end
+end
+
+defmodule Mix.Tasks.GenSchemas.Generator do
+  @moduledoc """
+  Handles generation of Elixir code from parsed Lexicon definitions.
+  """
+
+  alias Mix.Tasks.GenSchemas.TypeMapper
+
+  @doc """
+  Generates Elixir code for a definition.
+  """
+  def generate_code(lex_id, name, definition, context) do
+    Mix.shell().info("Generating code for #{lex_id}##{name}...")
+
+    case get_def_type(definition) do
+      "object" ->
+        generate_struct_module(lex_id, name, definition, context)
+
+      "record" ->
+        generate_struct_module(lex_id, name, definition, context)
+
+      "query" ->
+        generate_query_proc_module(lex_id, name, definition, context)
+
+      "procedure" ->
+        generate_query_proc_module(lex_id, name, definition, context)
+
+      type when is_binary(type) ->
+        generate_raw_type(lex_id, name, definition, context)
+
+      nil ->
+        Mix.shell().error("Definition has no type: #{lex_id}##{name}")
+        context
+    end
+  end
+
+  defp generate_struct_module(lex_id, name, definition, context) do
+    mod_name = build_module_name(lex_id, name)
+    file_path = module_to_file_path(mod_name, context.output_dir)
+
+    description = Map.get(definition, "description", "No description.")
+    props = Map.get(definition, "properties", %{})
+    required = Map.get(definition, "required", [])
+    nullable = Map.get(definition, "nullable", [])
+
+    struct_fields = Enum.map(props, fn {k, _v} -> String.to_atom(k) end)
+
+    typespec_lines = generate_typespec_lines(props, nullable, lex_id, context)
+
+    enforce_keys_clause =
+      if required == [],
+        do: "",
+        else: "@enforce_keys #{inspect(Enum.map(required, &String.to_atom/1))}"
+
+    file_contents = """
+    # Generated by Mix.Tasks.GenSchemas
+    defmodule #{inspect(mod_name)} do
+      @moduledoc \"\"\"
+      **#{name}** (#{definition["type"]})
+
+      #{description}
+      \"\"\"
+
+      #{enforce_keys_clause}
+      defstruct #{inspect(Enum.map(struct_fields, &{&1, nil}))}
+
+      @type t :: %__MODULE__{
+        #{Enum.join(typespec_lines, ",\n  ")}
+      }
+    end
+    """
+
+    File.mkdir_p!(Path.dirname(file_path))
+    File.write!(file_path, file_contents)
+
+    Mix.shell().info("Generated struct module: #{inspect(mod_name)}")
+    context
+  end
+
+  defp generate_query_proc_module(lex_id, name, definition, context) do
+    mod_name = build_module_name(lex_id, name)
+    file_path = module_to_file_path(mod_name, context.output_dir)
+
+    description = Map.get(definition, "description", "No description.")
+
+    {input_spec, output_spec} = generate_io_specs(definition, lex_id, context)
+
+    file_contents = """
+    # Generated by Mix.Tasks.GenSchemas
+    defmodule #{inspect(mod_name)} do
+      @moduledoc \"\"\"
+      **#{name}** (#{definition["type"]})
+
+      #{description}
+      \"\"\"
+
+      @type input :: #{input_spec}
+      @type output :: #{output_spec}
+    end
+    """
+
+    File.mkdir_p!(Path.dirname(file_path))
+    File.write!(file_path, file_contents)
+
+    Mix.shell().info("Generated #{definition["type"]} module: #{inspect(mod_name)}")
+    context
+  end
+
+  defp generate_raw_type(lex_id, name, definition, context) do
+    type_alias = raw_type_name(lex_id, name)
+    type_string = TypeMapper.to_typespec(lex_id, definition, context)
+
+    new_lines = [
+      "",
+      "  @typedoc \"\"\"",
+      "  #{name} (#{lex_id})",
+      "  #{Map.get(definition, "description", "No description.")}",
+      "  \"\"\"",
+      "  @type #{type_alias} :: #{type_string}"
+    ]
+
+    Mix.shell().info("Generated raw type: #{type_alias}")
+    append_type_lines(context, new_lines)
+  end
+
+  # Helper functions
+  defp generate_typespec_lines(props, nullable, lex_id, context) do
+    Enum.map(props, fn {prop_name, prop_def} ->
+      atom_name = String.to_atom(prop_name)
+      base_t = TypeMapper.to_typespec(lex_id, prop_def, context)
+
+      if prop_name in nullable or atom_name in nullable do
+        "#{atom_name}: #{base_t} | nil"
+      else
+        "#{atom_name}: #{base_t}"
+      end
+    end)
+  end
+
+  defp generate_io_specs(definition, lex_id, context) do
+    input_spec =
+      case definition["input"] do
+        nil -> "any()"
+        input_def -> TypeMapper.to_typespec(lex_id, input_def, context)
+      end
+
+    output_spec =
+      case definition["output"] do
+        nil -> "any()"
+        output_def -> TypeMapper.to_typespec(lex_id, output_def, context)
+      end
+
+    {input_spec, output_spec}
+  end
+
+  # Utility functions moved from main module
+  defp get_def_type(%{"type" => type}), do: type
+  defp get_def_type(_), do: nil
+
+  defp build_module_name(lex_id, local_name) do
+    base_parts = lex_id |> String.split(".") |> Enum.map(&Macro.camelize/1)
+    local_parts = local_name |> String.split("#") |> Enum.map(&Macro.camelize/1)
+    Module.concat(["ProtoRune" | base_parts ++ local_parts])
+  end
+
+  defp raw_type_name(lex_id, name) do
+    (lex_id <> "_" <> name)
+    |> String.replace("#", "_")
+    |> String.replace(".", "_")
+    |> Macro.underscore()
+  end
+
+  defp module_to_file_path(mod_name, output_dir) do
+    mod_name
+    |> Module.split()
+    |> tl()
+    |> Enum.map(&Macro.underscore/1)
+    |> Path.join()
+    |> then(&Path.join(output_dir, &1 <> ".ex"))
+  end
+
+  defp append_type_lines(context, new_lines) do
+    %{context | base_types_lines: context.base_types_lines ++ new_lines}
   end
 end

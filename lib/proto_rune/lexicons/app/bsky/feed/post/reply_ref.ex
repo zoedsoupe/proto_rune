@@ -6,11 +6,13 @@ defmodule ProtoRune.App.Bsky.Feed.Post.ReplyRef do
   No description.
   """
 
+  alias ProtoRune.Com.Atproto.Repo.StrongRef.Main
+
   @enforce_keys [:root, :parent]
   defstruct parent: nil, root: nil
 
   @type t :: %__MODULE__{
-          parent: ProtoRune.Com.Atproto.Repo.StrongRef.Main.t(),
-          root: ProtoRune.Com.Atproto.Repo.StrongRef.Main.t()
+          parent: Main.t(),
+          root: Main.t()
         }
 end

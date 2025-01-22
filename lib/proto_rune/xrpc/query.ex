@@ -59,8 +59,7 @@ defmodule ProtoRune.XRPC.Query do
     }
   end
 
-  def add_params(%__MODULE__{} = query, params)
-      when is_list(params) or is_map(params) do
+  def add_params(%__MODULE__{} = query, params) when is_list(params) or is_map(params) do
     with {:ok, data} <- Peri.validate(query.parser, params) do
       {:ok, %{query | params: data}}
     end

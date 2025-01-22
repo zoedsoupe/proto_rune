@@ -213,8 +213,7 @@ defmodule ProtoRune.Bot.Server do
       {:noreply,
        state
        |> Map.put(:did, profile[:did])
-       |> Map.put(:session, Map.take(session, [:access_jwt, :refresh_jwt])),
-       {:continue, :start_listener}}
+       |> Map.put(:session, Map.take(session, [:access_jwt, :refresh_jwt])), {:continue, :start_listener}}
     else
       err -> {:stop, err, state}
     end

@@ -141,7 +141,7 @@ defmodule ProtoRune.Bot.Poller do
     last_seen = state.last_seen || indexed_at
 
     for notification <- data[:notifications],
-        NaiveDateTime.compare(indexed_at, last_seen) == :gt do
+        NaiveDateTime.after?(indexed_at, last_seen) do
       Task.start(fn ->
         dispatch_notification(state, notification)
       end)
@@ -196,10 +196,7 @@ defmodule ProtoRune.Bot.Poller do
     end
   end
 
-  defp dispatch_notification(
-         %State{} = state,
-         %{reason: "like", reason_subject: reason_subject} = notf
-       ) do
+  defp dispatch_notification(%State{} = state, %{reason: "like", reason_subject: reason_subject} = notf) do
     {:ok, subject} = Atproto.parse_at_uri(reason_subject)
 
     if match?({_, :post}, subject) do

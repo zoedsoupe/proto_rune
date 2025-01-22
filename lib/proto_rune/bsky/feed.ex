@@ -43,8 +43,7 @@ defmodule ProtoRune.Bsky.Feed do
     param :cursor, :string
 
     param :filter,
-          {:enum,
-           [:posts_with_replies, :posts_no_replies, :posts_with_media, :posts_and_author_threads]}
+          {:enum, [:posts_with_replies, :posts_no_replies, :posts_with_media, :posts_and_author_threads]}
   end
 
   @doc """
