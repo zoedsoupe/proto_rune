@@ -1,5 +1,5 @@
 {
-  description = "ATProtocol and BlueSky client for Elixir";
+  description = "ATProtocol and BlueSky SDK and bot framework for Elixir";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
 
@@ -15,13 +15,13 @@
       inherit (pkgs.beam) packagesWith;
       beam = packagesWith erlang_27;
       elixir_1_18 = beam.elixir.override {
-        version = "1.18.1";
+        version = "1.18.2";
 
         src = pkgs.fetchFromGitHub {
           owner = "elixir-lang";
           repo = "elixir";
-          rev = "v1.18.1";
-          sha256 = "sha256-zJNAoyqSj/KdJ1Cqau90QCJihjwHA+HO7nnD1Ugd768=";
+          rev = "v1.18.2";
+          sha256 = "sha256-8FhUKAaEjBBcF0etVPdkxMfrnR5niU40U8cxDRJdEok=";
         };
       };
     in {

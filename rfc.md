@@ -1,8 +1,8 @@
-# RFC: ATProtocol SDK Implementation for Elixir (proto_rune)
+# RFC: ProtoRune v0.1.0 - AT Protocol SDK for Elixir
 
 ## Abstract
 
-This RFC proposes a comprehensive implementation of the AT Protocol SDK for Elixir, building upon the existing proto_rune library. The implementation will provide feature parity with the JavaScript SDK while leveraging Elixir's strengths in concurrent processing, fault tolerance, and functional programming paradigms.
+This RFC proposes a comprehensive Elixir SDK implementation for the AT Protocol. The implementation aims to provide both a high-level developer-friendly API for common use cases while exposing low-level primitives for advanced usage. The design leverages Elixir's strengths in code generation and functional programming.
 
 ## Status
 
@@ -10,264 +10,226 @@ Draft
 
 ## Background
 
-The proto_rune library currently provides schema generation capabilities based on Bluesky lexicon definitions. This proposal aims to extend the library to include a full AT Protocol SDK implementation, including a bot framework, XRPC client, firehose support, and other essential features.
+AT Protocol uses Lexicons to define schemas, APIs, and record types. Current SDK implementations like go-atproto and atproto-js generate code from these lexicons to provide type-safe interfaces. This proposal aims to provide a similar capability while embracing Elixir idioms and the BEAM ecosystem.
 
 ## Goals
 
-- Provide a native Elixir implementation of the AT Protocol
-- Create an intuitive bot framework with support for both polling and firehose
-- Maintain feature parity with the JavaScript SDK
-- Leverage Elixir's concurrency model and OTP principles
-- Ensure type safety through generated structs and specs
-- Provide a minimal DSL for common operations
-
-## Non-Goals
-
-- Implementation of custom lexicon definitions
-- Web interface or dashboard for bot management
-- Direct compatibility with JavaScript SDK plugins
+- Provide an intuitive high-level API for common AT Protocol operations
+- Generate "parse, don't validate" code from Lexicons
+- Leverage Elixir's pipe operator and builder patterns
+- Support client apps
+- Enable easy bot development
+- Maintain extensibility for future AT Protocol features
+- Follow Elixir best practices and conventions
 
 ## Architecture Overview
 
 ### Core Components
 
-1. **XRPC Client**
-   - HTTP client wrapper with ATP-specific middleware
-   - Automatic retry mechanisms with exponential backoff
-   - Rate limiting handling
-   - Session management and auth token caching
-
-2. **Repository Layer**
-   - CRUD operations for repository data
-   - Commit handling and synchronization
-   - CAR file processing
-   - Data validation using generated schemas
-
-3. **Subscription System**
-   - Firehose connection management
-   - Event filtering and routing
-   - Backpressure handling
-   - Connection recovery
-
-4. **Bot Framework**
-   - Behavior definitions for bot implementations
-   - Event handling system
-   - State management
-   - Supervised bot processes
-
-### Component Details
-
-#### XRPC Client
+1. **Public API Module (`ProtoRune`)**
+   - Session management and authentication
+   - High-level record operations
+   - Social actions (post, like, follow)
+   - Rich text construction
+   - Bot creation and management
 
 ```elixir
-defmodule ProtoRune.XRPC do
-  @type options :: [
-    base_url: String.t(),
-    timeout: integer(),
-    retry_count: integer(),
-    retry_delay: integer()
-  ]
-
-  @callback query(procedure :: String.t(), params :: map(), opts :: options()) :: 
-    {:ok, term()} | {:error, term()}
-  
-  @callback procedure(procedure :: String.t(), data :: map(), opts :: options()) ::
-    {:ok, term()} | {:error, term()}
+# High-level API examples
+defmodule ProtoRune do
+  def create_session(identifier, password, opts \\ [])
+  def publish_post(session, params_or_builder, opts \\ []) 
+  def upload_blob(session, binary, opts \\ [])
+  def follow(session, target, opts \\ [])
 end
 ```
 
-#### Bot Framework Core
+2. **Core Protocol Layer (`ProtoRune.ATProto`)**
+   - Repository operations
+   - Identity resolution
+   - Record manipulation
+   - CBOR/CAR encoding
+   - DID operations
+
+```elixir
+defmodule ProtoRune.ATProto.Repo do
+  def create_record(session, collection, record, opts \\ [])
+  def get_record(session, collection, rkey, opts \\ [])
+  def list_records(session, collection, opts \\ [])
+end
+
+defmodule ProtoRune.ATProto.Identity do
+  def resolve_handle(handle)
+  def resolve_did(did)
+end
+```
+
+3. **App-Specific Layers (`ProtoRune.Bsky`, `ProtoRune.Ozone`)**
+   - App-specific record builders
+   - Feed algorithms
+   - Specialized queries
+   - Custom procedures
+
+```elixir
+defmodule ProtoRune.Bsky.Post do
+  def new do
+    %Post{}
+  end
+  
+  def with_text(post, text)
+  def with_image(post, image, alt)
+  def with_link(post, url, title \\ nil)
+end
+```
+
+4. **Generated Code (`ProtoRune.Lexicons`)**
+   - Record schemas and typespecs
+   - Query/procedure interfaces
+   - Validation logic
+
+```elixir
+# Generated from Lexicons
+defmodule ProtoRune.Lexicon.App.Bsky.Feed.Post do
+  use Ecto.Schema
+  
+  @primary_key false
+  embedded_schema do
+    field :text, :string
+    field :created_at, :utc_datetime
+    embeds_many :facets, Facet
+    embeds_one :embed, Embed
+  end
+  
+  @type t :: %__MODULE__{
+    text: String.t(),
+    created_at: DateTime.t(),
+    facets: [Facet.t()],
+    embed: Embed.t() | nil
+  }
+end
+```
+
+5. **Bot Framework (`ProtoRune.Bot`)**
+   - Event handling
+   - State management 
+   - Polling strategy
+   - Error recovery
 
 ```elixir
 defmodule ProtoRune.Bot do
-  @type strategy :: :polling | :firehose
-  @type bot_config :: [
-    name: module(),
-    strategy: strategy(),
-    polling_interval: integer(),
-    max_retries: integer()
-  ]
+  @callback handle_event(event :: Event.t(), state :: term) ::
+    {:ok, new_state} | {:error, reason}
+    
+  @callback get_identifier() :: String.t()
+  @callback get_password() :: String.t()
 end
 ```
 
-#### Event System
+6. **XRPC Client (`ProtoRune.XRPC`)**
+   - HTTP request handling
+   - Authentication
+   - Error mapping
+   - Rate limiting
+
+### Code Generation
+
+The code generator will produce:
+
+1. **Record Schemas**
+   - Ecto schemas for validation
+   - Typespecs for static analysis
+
+2. **Query/Procedure Modules**
+   - Ecto schemaless changesets parameters
+   - Response structs
+   - Error handling
+
+3. **Helper Functions**  
+   - Record creation
+   - Validation
+   - Format conversion
 
 ```elixir
-defmodule ProtoRune.Events do
-  @type event_type :: :post | :like | :repost | :follow | :profile_update
-  @type event :: {event_type(), map()}
-  @type handler :: (event() -> any())
+# Example generated code structure
+defmodule ProtoRune.Lexicon do
+  # Shared types across lexicons
+  
+  defmodule App.Bsky.Feed.Post do
+    # Record schema and types
+  end
+  
+  defmodule Com.ATProto.Repo.CreateRecord do
+    # Procedure definition
+  end
 end
-```
-
-## Public API
-
-### Bot Definition
-
-```elixir
-defmodule MyBot do
-  use ProtoRune.Bot,
-    strategy: :firehose,
-    filters: ["app.bsky.feed.post", "app.bsky.feed.like"]
-
-  # Required callbacks
-  def handle_event(:post, payload) do
-    # Handle post event
-  end
-
-  def handle_event(:like, payload) do
-    # Handle like event
-  end
-
-  # Optional initialization
-  def init do
-    # Setup bot state
-  end
-end
-```
-
-### Repository Operations
-
-```elixir
-# Create a post
-ProtoRune.post("Hello, World!")
-|> ProtoRune.with_images(["/path/to/image.jpg"])
-|> ProtoRune.publish()
-
-# Query the repository
-ProtoRune.Repository.list_records("app.bsky.feed.post", limit: 10)
-```
-
-### Firehose Subscription
-
-```elixir
-ProtoRune.Firehose.subscribe(["app.bsky.feed.post"], fn event ->
-  # Process event
-end)
 ```
 
 ## Implementation Details
 
-### Bot Supervision Strategy
+### Record Building
 
-The bot framework will utilize OTP supervision trees:
-
-```
-BotSupervisor
-├── Bot1
-│   ├── EventManager
-│   ├── ConnectionManager
-│   └── StateManager
-├── Bot2
-│   ├── EventManager
-│   ├── ConnectionManager
-│   └── StateManager
-└── ...
-```
-
-### Event Processing Pipeline
-
-1. Event Source (Firehose/Polling) → Raw Event
-2. Event Decoder → Decoded Event
-3. Event Filter → Filtered Event
-4. Event Handler → Processing Result
-5. Result Handler → Side Effects
-
-### State Management
-
-Bots can maintain state using either:
-- Process state (GenServer)
-- Distributed state (via :pg or similar)
-- External storage (configurable)
-
-## Migration Strategy
-
-1. Phase 1: Core XRPC Client
-2. Phase 2: Repository Layer
-3. Phase 3: Bot Framework (Polling)
-4. Phase 4: Firehose Support
-5. Phase 5: Advanced Features
-
-## Testing Strategy
-
-- Unit tests for individual components
-- Integration tests with mock ATP server
-- Property-based testing for protocol operations
-- Load testing for firehose consumption
-
-## Security Considerations
-
-- Secure storage of credentials
-- Rate limiting compliance
-- Content validation
-- Safe event handling
-
-## Performance Considerations
-
-- Connection pooling for XRPC clients
-- Batched repository operations
-- Efficient event filtering
-- Memory usage in firehose processing
-
-## Example Configurations
-
-### Minimal Bot
+Records should use a builder pattern that leverages pipes:
 
 ```elixir
-defmodule SimpleBot do
-  use ProtoRune.Bot,
-    strategy: :polling,
-    interval: 60_000
+alias ProtoRune.Bsky.Post
 
-  def handle_event(:post, %{author: author, content: content}) do
-    if String.contains?(content, "hello") do
-      ProtoRune.post("Hello, #{author}!")
-    end
-  end
-end
+Post.new()
+|> Post.with_text("Check out my new project!")
+|> Post.with_image("cat.jpg", "A cute cat")
+|> Post.with_link("https://example.com")
+|> then(&ProtoRune.publish_post(session, &1))
 ```
 
-### Firehose Consumer
+### Rich Text Construction
+
+Support both pipeline and sigil syntax:
 
 ```elixir
-defmodule AnalyticsBot do
-  use ProtoRune.Bot,
-    strategy: :firehose,
-    filters: ["app.bsky.feed.*"],
-    buffer_size: 1000,
-    workers: 4
+# Pipeline
+RichText.new()
+|> RichText.text("Hello ")
+|> RichText.mention("alice.sky")
 
-  def handle_event(event_type, payload) do
-    ProtoRune.Analytics.record(event_type, payload)
-  end
-end
+# Sigil
+~f"""
+Hello @alice.sky! 
+Check out my [new project](https://example.com)!
+"""
 ```
 
-## Future Considerations
+### Generated Code Usage
 
-1. GraphQL API support
-2. Custom lexicon definition support
-3. Plugin system
-4. Web dashboard integration
-5. Multi-node bot coordination
+Generated code provides type safety while remaining ergonomic:
+
+```elixir
+alias ProtoRune.Lexicon.App.Bsky.Feed.Post
+
+# Builder pattern, easier for embeds/facets
+Post.new()
+|> Post.with_text("Hello!")
+|> then(&ProtoRune.publish_post(session, &1))
+
+# directly passing parameters
+ProtoRune.publish_post(session, text: "Hello!")
+```
+
+## Future Considerations 
+
+1. Firehose support
+2. Jetstream support
+3. Custom lexicon compilation
+4. Federation tooling
+5. Multi-node coordination
+6. Web dashboard integration
 
 ## Timeline
 
-- Month 1: Core XRPC implementation
-- Month 2: Repository layer and basic bot framework
-- Month 3: Firehose support and advanced features
-- Month 4: Testing, documentation, and stability improvements
-
-## Open Questions
-
-1. Should we support both polling and firehose simultaneously?
-2. How should we handle schema versioning?
-3. What's the best approach for handling large CAR files?
-4. How should we implement rate limiting across multiple bots?
+- Month 1: Core XRPC and record handling
+- Month 2: Code generation and high-level API
+- Month 3: Bot framework and rich text
+- Month 4: Documentation and stability 
 
 ## References
 
 1. AT Protocol Specification
-2. Bluesky API Documentation
-3. JavaScript SDK Implementation
-4. Existing proto_rune Implementation
+2. Lexicon Documentation
+3. Existing SDKs (python, go, skyware, ...)

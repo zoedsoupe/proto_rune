@@ -1,18 +1,13 @@
-# ProtoRune
+<p align="center">
+  <h1>ProtoRune</h1>
+  <p><strong>A type-safe, well-documented AT Protocol SDK and bot framework for Elixir</strong></p>
+</p>
 
-**ProtoRune** is an Elixir framework and client library for building applications on top of the ATProtocol, including **Bluesky** integration. Whether you're developing **bots**, **labelers**, **moderators**, or custom **app views**, ProtoRune provides a flexible and powerful way to interact with the protocol using Elixir.
-
-## Features
-
-- **XRPC Client**: Interact with ATProto services through a simple, extensible XRPC client.
-- **Schema Generation**: Automatically generate schemas from ATProto `defs.json` files.
-- **Bots & Labelers**: Create bots for content moderation, automated interactions, and more.
-- **Moderation Tools**: Build labelers and moderation tools integrated with ATProto's labeling system.
-- **Flexible Framework**: Use ProtoRune to build custom ATProto applications, including custom feeds, notifications, and more.
+> [!WARNING]
+>
+> This library is under active development and isn't production ready, expect breaking chnages
 
 ## Installation
-
-Add ProtoRune to your `mix.exs`:
 
 ```elixir
 def deps do
@@ -22,96 +17,68 @@ def deps do
 end
 ```
 
-Run `mix deps.get` to install it.
-
-## Getting Started
-
-### 1. Setting Up a Simple Query
+## Quick Start
 
 ```elixir
-defmodule MyApp.ProfileFetcher do
-  alias ProtoRune.Session
-  alias ProtoRune.Bsky.Actor.Defs.Profile
+# Create a session
+{:ok, session} = ProtoRune.create_session("handle.bsky.social", "app-password")
 
-  @spec get_profile(Session.t, actor: String.t) :: {:ok, Profile.t} | {:error, term}
-  def get_profile(%Session{} = session, actor: actor) do
-    ProtoRune.Bsky.Actor.get_profile(session, actor: actor)
-  end
-end
-```
+# Post something
+{:ok, post} = ProtoRune.Client.create_post(session, "Hello from Elixir!")
 
-### 2. Creating a Bot
-
-```elixir
+# Create a bot
 defmodule MyBot do
-  use ProtoRune.Bot
+  use ProtoRune.Bot, name: :my_bot, strategy: :polling
 
   @impl true
-  def handle_message(%{text: "Hello"}) do
-    "Hi there!"
+  def handle_event(:like, %{uri: uri, user: user}) do
+    # Handle like event
   end
 end
+
+MyBot.start_link()
 ```
 
-### 3. Building Moderation Tools
+## Examples
 
-```elixir
-defmodule MyModerator do
-  use ProtoRune.Moderator
+- [Simple bot with event handling](examples/simple_bot.ex)
+- [Post with rich text and embeds](examples/rich_post.ex) 
+- [Custom feed generator](examples/feed_generator.ex)
+- [Firehose subscription](examples/firehose.ex)
 
-  def label_inappropriate_content(content) do
-    # Custom logic to label content
-    ProtoRune.Label.apply_label(content, :inappropriate)
-  end
-end
-```
+## Architecture
 
-Here's a section to add a roadmap to the README using checklists:
+ProtoRune is organized into focused modules:
 
-## Roadmap
+- `ATProto` - Core protocol implementation (repo, identity, etc)
+- `Bsky` - Bluesky-specific features (feed, graph, notifications) 
+- `Bot` - Bot framework with polling/firehose support
+- `XRPC` - Low-level XRPC client
+- `Lexicons` - Generated code from AT Protocol lexicons
 
-- [x] **Basic XRPC Client**
-    - Implement a client to interact with ATProto and Bluesky services via XRPC.
-- [ ] **Schemas Parsing and Definition**
-    - Define schemas like `ProfileBasicView` or even `Session` as structs
-- [ ] **Schema Generation**
-    - Automatically generate Elixir structs and typespecs from `defs.json` schema files.
-- [x] **Authenticated Queries**
-    - Support for authenticated queries using session tokens.
-- [x] **Flexible Query and Procedure Macros**
-    - Macros (`defquery` and `defprocedure`) to simplify the definition of queries and procedures.
-- [ ] **Custom Bots**
-    - Build an easy-to-use interface for creating bots that interact with ATProto services.
-- [ ] **Labeling and Moderation Tools**
-    - Provide built-in support for creating labelers and moderators for content on ATProto.
-- [ ] **Advanced Error Handling**
-    - Improve error handling for query execution and schema validation.
-- [ ] **App Views and Custom Feeds**
-    - Allow developers to create custom feeds and views based on the ATProto ecosystem.
-- [ ] **Documentation and Examples**
-    - Expand library documentation with detailed usage examples for bots, labelers, and moderators.
+> Other submodules do exist like `ProtoRune.HTTPClient` but it are to be used internally
 
-## Dynamic Schema Generation
+## Documentation
 
-ProtoRune includes tools for dynamically generating Elixir modules for ATProto schemas:
+Full documentation is available at [hexdocs.pm/proto_rune](https://hexdocs.pm/proto_rune).
 
-1. **Generate Schemas from defs.json**
-    - Use the built-in Mix task to generate Elixir structs and typespecs for the schemas defined in the `defs.json` file.
-    ```bash
-    mix proto_rune.gen.schemas
-    ```
-
-2. **Customizable Structs and Typespecs**
-    - ProtoRune generates user-friendly typespecs for all query and procedure parameters, ensuring type safety and ease of use.
+The guide covers:
+- [Getting Started](guides/getting_started.md)
+- [Bot Development](guides/bots.md)
+- [Working with Records](guides/records.md)
+- [XRPC Client Usage](guides/xrpc.md)
+- [Identity Management](guides/identity.md)
 
 ## Contributing
 
-1. Fork the repository.
-2. Create your feature branch (`git checkout -b feature/my-feature`).
-3. Commit your changes (`git commit -am 'Add new feature'`).
-4. Push to the branch (`git push origin feature/my-feature`).
-5. Create a new pull request.
+Pull requests welcome! See our [Contributing Guide](CONTRIBUTING.md).
+
+## Inspirations
+
+1. [Skyware](https://skyware.js.org/)
+2. [atcute](https://github.com/mary-ext/atcute)
+3. [Python AT Proto SDK](https://github.com/MarshalX/atproto)
 
 ## License
 
-ProtoRune is licensed under the MIT License.
+MIT License - see [LICENSE](./LICENSE) for details.

@@ -30,6 +30,7 @@ defmodule ProtoRune.MixProject do
     [
       {:peri, "~> 0.2"},
       {:req, "~> 0.5"},
+      {:ecto, "~> 3.12"},
       {:styler, "~> 1.3", only: [:dev, :test], runtime: false},
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
@@ -51,15 +52,29 @@ defmodule ProtoRune.MixProject do
   end
 
   defp docs do
+    guides = [
+          "guides/getting_started.md",
+          "guides/records.md",
+          "guides/xrpc.md",
+          "guides/bots.md",
+          "guides/identity.md"
+        ]
+
+    dev = ["README.md", "CONTRIBUTING.md", "LICENSE"]
+
     [
-      main: "readme",
-      extras: ["README.md"]
+      main: "getting_started",
+      extras: dev ++ guides,
+      groups_for_extras: [
+        "Guides": guides,
+        "Development": dev
+      ]
     ]
   end
 
   defp description do
     """
-    ATProtocol and Bluesky framework for Elixir
+    ATProtocol and Bluesky SDK and Bot framework for Elixir
     """
   end
 end
