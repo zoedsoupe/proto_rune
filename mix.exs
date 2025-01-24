@@ -1,7 +1,7 @@
 defmodule ProtoRune.MixProject do
   use Mix.Project
 
-  @version "0.1.1"
+  @version "0.1.2"
   @source_url "https://github.com/zoedsoupe/proto_rune"
 
   def project do
@@ -53,21 +53,21 @@ defmodule ProtoRune.MixProject do
 
   defp docs do
     guides = [
-          "guides/getting_started.md",
-          "guides/records.md",
-          "guides/xrpc.md",
-          "guides/bots.md",
-          "guides/identity.md"
-        ]
+      "guides/getting_started.md",
+      "guides/records.md",
+      "guides/xrpc.md",
+      "guides/bots.md",
+      "guides/identity.md"
+    ]
 
-    dev = ["README.md", "CONTRIBUTING.md", "LICENSE"]
+    dev = ["README.md", "CONTRIBUTING.md", "LICENSE", "rfc.md"]
 
     [
       main: "getting_started",
       extras: dev ++ guides,
       groups_for_extras: [
-        "Guides": guides,
-        "Development": dev
+        Guides: guides,
+        Development: dev
       ]
     ]
   end
