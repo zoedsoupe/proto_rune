@@ -20,6 +20,7 @@ defmodule ProtoRune.XRPC.Client do
   """
 
   alias ProtoRune.XRPC.Case
+  alias ProtoRune.XRPC.Error
   alias ProtoRune.XRPC.Procedure
   alias ProtoRune.XRPC.Query
 
@@ -28,8 +29,6 @@ defmodule ProtoRune.XRPC.Client do
     |> to_string()
     |> Req.get(headers: query.headers)
     |> parse_http()
-
-    # |> parse_schema(query)
   end
 
   def execute(%Procedure{} = proc) do
@@ -39,37 +38,17 @@ defmodule ProtoRune.XRPC.Client do
     |> to_string()
     |> Req.post(json: body, decode_json: [keys: :strings])
     |> parse_http()
-
-    # |> parse_schema(proc)
   end
 
   defp parse_http({:error, err}), do: {:error, err}
-  defp parse_http({:ok, %{status: 401}}), do: {:error, :unauthorized}
-  defp parse_http({:ok, %{status: 404}}), do: {:error, :not_found}
-  defp parse_http({:ok, %{status: 403}}), do: {:error, :forbidden}
-  defp parse_http({:ok, %{status: 413}}), do: {:error, :payload_too_large}
-  defp parse_http({:ok, %{status: 501}}), do: {:error, :not_implemented}
-  defp parse_http({:ok, %{status: 502}}), do: {:error, :bad_gateway}
-  defp parse_http({:ok, %{status: 503}}), do: {:error, :service_unavailable}
-  defp parse_http({:ok, %{status: 504}}), do: {:error, :gateway_timeout}
 
-  defp parse_http({:ok, %{status: 429} = resp}) do
-    retry_after = Req.Response.get_header(resp, "retry-after")
-    {:error, {:rate_limited, retry_after}}
-  end
-
-  defp parse_http({:ok, %{status: 500, body: body}}), do: {:error, {:server_error, body}}
-
-  defp parse_http({:ok, %{status: 400, body: error}}) do
-    {:error, apply_case_map(error, &Case.snakelize/1)}
+  defp parse_http({:ok, %{status: status} = resp}) when status >= 400 do
+    {:error, Error.from(resp)}
   end
 
   defp parse_http({:ok, %{status: status, body: body}}) when status in [200, 201] do
     {:ok, apply_case_map(body, &Case.snakelize/1)}
   end
-
-  # defp parse_schema({:error, _err} = err, _), do: err
-  # defp parse_schema({:ok, body}, %{schema: schema}), do: schema.parse(body)
 
   def apply_case_map(map, case_fun) when is_map(map) do
     Map.new(map, &apply_case_map_element(&1, case_fun))
