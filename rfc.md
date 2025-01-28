@@ -29,6 +29,9 @@ lib/
     repo/      # Repository operations
     identity/  # DID and handle resolution
     sync/      # Data synchronization primitives
+    server/    # 
+
+  proto_rune/  # 
     
   lexicon/     # Generated code from Lexicons
     app/

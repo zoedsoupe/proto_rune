@@ -19,7 +19,6 @@ defmodule ProtoRune.XRPC.Client do
   - For **procedures**, it performs a `POST` request and validates the request body.
   """
 
-  alias ProtoRune.XRPC.Case
   alias ProtoRune.XRPC.Error
   alias ProtoRune.XRPC.Procedure
   alias ProtoRune.XRPC.Query
@@ -32,7 +31,7 @@ defmodule ProtoRune.XRPC.Client do
   end
 
   def execute(%Procedure{} = proc) do
-    body = apply_case_map(proc.body, &Case.camelize/1)
+    body = ProtoRune.Case.camelize_enum(proc.body)
 
     proc
     |> to_string()
@@ -47,27 +46,6 @@ defmodule ProtoRune.XRPC.Client do
   end
 
   defp parse_http({:ok, %{status: status, body: body}}) when status in [200, 201] do
-    {:ok, apply_case_map(body, &Case.snakelize/1)}
-  end
-
-  def apply_case_map(map, case_fun) when is_map(map) do
-    Map.new(map, &apply_case_map_element(&1, case_fun))
-  end
-
-  def apply_case_map(elem, _fun), do: elem
-
-  defp apply_case_map_element({k, v}, case) when is_map(v) do
-    snake_key = case.(to_string(k))
-    {String.to_atom(snake_key), apply_case_map(v, case)}
-  end
-
-  defp apply_case_map_element({k, v}, case) when is_list(v) do
-    snake_key = case.(to_string(k))
-    {String.to_atom(snake_key), Enum.map(v, &apply_case_map(&1, case))}
-  end
-
-  defp apply_case_map_element({k, v}, case) do
-    snake_key = case.(to_string(k))
-    {String.to_atom(snake_key), v}
+    {:ok, ProtoRune.Case.snakelize_enum(body)}
   end
 end

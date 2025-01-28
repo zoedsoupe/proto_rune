@@ -39,8 +39,8 @@ end
 Configure your default service in `config/config.exs`:
 
 ```elixir
-config :proto_rune, 
-  default_service: "https://bsky.social",
+config :proto_rune,
+  service: "https://bsky.social",
   http_client: ProtoRune.HTTPClient.Adapters.Finch
 ```
 
@@ -49,13 +49,11 @@ config :proto_rune,
 AT Protocol uses sessions for authentication. ProtoRune wraps this in a Session struct:
 
 ```elixir
-alias ProtoRune.Session
-
 # Create session with handle (recommended for most users)
-{:ok, session} = ProtoRune.create_session("handle.bsky.social", "app-password")
+{:ok, session} = ATProto.create_session(identifier: "handle.bsky.social", password: "app-password")
 
 # Or with DID (for more advanced use cases)
-{:ok, session} = ProtoRune.create_session("did:plc:1234", "app-password")
+{:ok, session} = ATProto.create_session(identifier: "did:plc:1234", password: "app-password")
 ```
 
 ### Working with Records
@@ -63,8 +61,8 @@ alias ProtoRune.Session
 Records are the core data structures in AT Protocol. Each record type is represented as an Elixir struct with proper typespecs:
 
 ```elixir
-alias ProtoRune.Bsky.Post
-alias ProtoRune.Bsky.Profile
+alias Bluesky.Post
+alias Bluesky.Profile
 
 # Create and publish a post
 post = Post.new(text: "Hello from ProtoRune!")
@@ -87,7 +85,7 @@ import ProtoRune.RichText
 
 # Using the sigil for markdown-like syntax
 text = ~R"""
-Hello @alice.sky! 
+Hello @alice.sky!
 Check out this #elixir project at [ProtoRune](https://github.com/proto-rune)
 """
 

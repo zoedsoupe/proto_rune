@@ -1,8 +1,6 @@
 defmodule ProtoRune.XRPC.Error do
   @moduledoc false
 
-  alias ProtoRune.XRPC.Case
-
   @type reason ::
           :account_not_found
           | :account_takedown
@@ -67,7 +65,7 @@ defmodule ProtoRune.XRPC.Error do
 
   defp maybe_get_reason(%{body: %{"error" => reason}}) do
     reason
-    |> Case.snakelize()
+    |> ProtoRune.Case.snakelize()
     |> String.replace_prefix("_", "")
     |> String.to_atom()
   end
