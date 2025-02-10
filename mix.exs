@@ -28,7 +28,7 @@ defmodule ProtoRune.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:peri, "~> 0.2"},
+      {:peri, "~> 0.4.0-rc1"},
       {:req, "~> 0.5"},
       {:ecto, "~> 3.12"},
       {:styler, "~> 1.3", only: [:dev, :test], runtime: false},
