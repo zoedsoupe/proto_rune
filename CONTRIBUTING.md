@@ -47,16 +47,6 @@ PRs should:
 - Follow code style guidelines
 - Include documentation updates
 
-## Generated Code
-
-The `lib/proto_rune/lexicons` directory contains generated code from AT Protocol lexicons. To regenerate:
-
-```bash
-mix gen_schemas --path priv/lexicons/ --output lib/proto_rune/lexicons/
-```
-
-Do not modify generated code directly. Update the generator instead.
-
 ## Release Process 
 
 1. Update version in `mix.exs`
