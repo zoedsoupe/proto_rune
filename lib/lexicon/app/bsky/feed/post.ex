@@ -58,14 +58,21 @@ defmodule Lexicon.App.Bsky.Feed.Post do
   end
 
   defp validate_tags(changeset) do
-    if tags = get_field(changeset, :tags) do
-      Enum.reduce(tags, changeset, fn tag, acc ->
-        if String.length(tag) > 640 do
-          add_error(acc, :tags, "tag should be at most 640 character(s)")
-        else
-          acc
-        end
-      end)
+    case get_field(changeset, :tags) do
+      nil -> changeset
+      tags -> validate_tag_lengths(tags, changeset)
+    end
+  end
+
+  defp validate_tag_lengths(tags, changeset) do
+    Enum.reduce(tags, changeset, fn tag, acc ->
+      validate_tag_length(tag, acc)
+    end)
+  end
+
+  defp validate_tag_length(tag, changeset) do
+    if String.length(tag) > 640 do
+      add_error(changeset, :tags, "tag should be at most 640 character(s)")
     else
       changeset
     end

@@ -42,30 +42,23 @@ defmodule Lexicon.App.Bsky.Actor.SearchActors do
       |> cast(output, Map.keys(@output_types))
       |> validate_required([:actors])
 
-    case changeset do
-      %{valid?: true} = changeset ->
-        actors = get_field(changeset, :actors)
-
-        # Validate each actor profile in the list
-        validated_actors =
-          Enum.reduce_while(actors, {:ok, []}, fn actor, {:ok, acc} ->
-            case ProfileView.validate(actor) do
-              {:ok, validated_actor} -> {:cont, {:ok, [validated_actor | acc]}}
-              error -> {:halt, error}
-            end
-          end)
-
-        case validated_actors do
-          {:ok, validated_list} ->
-            validated_output = apply_changes(changeset)
-            {:ok, %{validated_output | actors: Enum.reverse(validated_list)}}
-
-          error ->
-            error
-        end
-
-      %{valid?: false} = changeset ->
-        {:error, changeset}
+    with %{valid?: true} = changeset <- changeset,
+         actors = get_field(changeset, :actors),
+         {:ok, validated_list} <- validate_actor_list(actors) do
+      validated_output = apply_changes(changeset)
+      {:ok, %{validated_output | actors: Enum.reverse(validated_list)}}
+    else
+      %{valid?: false} = changeset -> {:error, changeset}
+      error -> error
     end
+  end
+
+  defp validate_actor_list(actors) do
+    Enum.reduce_while(actors, {:ok, []}, fn actor, {:ok, acc} ->
+      case ProfileView.validate(actor) do
+        {:ok, validated_actor} -> {:cont, {:ok, [validated_actor | acc]}}
+        error -> {:halt, error}
+      end
+    end)
   end
 end

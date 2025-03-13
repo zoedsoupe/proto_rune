@@ -36,32 +36,42 @@ defmodule Lexicon.App.Bsky.Labeler.Service do
   end
 
   defp validate_labels(changeset) do
-    if labels = get_field(changeset, :labels) do
-      if is_map(labels) and Map.has_key?(labels, :values) do
-        values = Map.get(labels, :values)
+    case get_field(changeset, :labels) do
+      nil ->
+        changeset
 
-        if is_list(values) do
-          labels_valid =
-            Enum.all?(values, fn
-              %{val: val} when is_binary(val) -> true
-              _ -> false
-            end)
+      labels when not is_map(labels) ->
+        add_error(changeset, :labels, "must be a map")
 
-          if labels_valid do
-            changeset
-          else
-            add_error(changeset, :labels, "values must all contain a 'val' field")
-          end
+      labels ->
+        if Map.has_key?(labels, :values) do
+          validate_values_field(changeset, labels)
         else
-          add_error(changeset, :labels, "values must be a list")
+          add_error(changeset, :labels, "must contain a 'values' field")
         end
-      else
-        add_error(changeset, :labels, "must contain a 'values' field")
-      end
-    else
-      changeset
     end
   end
+
+  defp validate_values_field(changeset, %{values: values}) do
+    if is_list(values) do
+      validate_label_values(changeset, values)
+    else
+      add_error(changeset, :labels, "values must be a list")
+    end
+  end
+
+  defp validate_label_values(changeset, values) do
+    all_valid = Enum.all?(values, &valid_label_value?/1)
+
+    if all_valid do
+      changeset
+    else
+      add_error(changeset, :labels, "values must all contain a 'val' field")
+    end
+  end
+
+  defp valid_label_value?(%{val: val}) when is_binary(val), do: true
+  defp valid_label_value?(_), do: false
 
   @doc """
   Creates a new labeler service with the given attributes.

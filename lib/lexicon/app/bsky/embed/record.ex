@@ -31,31 +31,50 @@ defmodule Lexicon.App.Bsky.Embed.Record do
   end
 
   defp validate_record(changeset) do
-    if record = get_field(changeset, :record) do
-      cond do
-        not is_map(record) ->
-          add_error(changeset, :record, "must be a map")
+    case get_field(changeset, :record) do
+      nil ->
+        changeset
 
-        not Map.has_key?(record, :uri) ->
-          add_error(changeset, :record, "must have a URI")
+      record when not is_map(record) ->
+        add_error(changeset, :record, "must be a map")
 
-        not Map.has_key?(record, :cid) ->
-          add_error(changeset, :record, "must have a CID")
-
-        true ->
-          # Validate URI format
-          uri = Map.get(record, :uri)
-
-          if not is_binary(uri) or not String.match?(uri, ~r/^at:\/\//) do
-            add_error(changeset, :record, "must have a valid AT-URI")
-          else
-            changeset
-          end
-      end
-    else
-      changeset
+      record ->
+        validate_record_fields(changeset, record)
     end
   end
+
+  defp validate_record_fields(changeset, record) do
+    changeset
+    |> validate_record_has_uri(record)
+    |> validate_record_has_cid(record)
+    |> validate_record_uri_format(record)
+  end
+
+  defp validate_record_has_uri(changeset, record) do
+    if Map.has_key?(record, :uri) do
+      changeset
+    else
+      add_error(changeset, :record, "must have a URI")
+    end
+  end
+
+  defp validate_record_has_cid(changeset, record) do
+    if Map.has_key?(record, :cid) do
+      changeset
+    else
+      add_error(changeset, :record, "must have a CID")
+    end
+  end
+
+  defp validate_record_uri_format(changeset, %{uri: uri}) do
+    if is_binary(uri) and String.match?(uri, ~r/^at:\/\//) do
+      changeset
+    else
+      add_error(changeset, :record, "must have a valid AT-URI")
+    end
+  end
+
+  defp validate_record_uri_format(changeset, _), do: changeset
 
   @doc """
   Creates a new record embed with the given attributes.

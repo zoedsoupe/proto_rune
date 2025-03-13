@@ -27,21 +27,30 @@ defmodule Lexicon.App.Bsky.Actor.GetProfiles do
       |> cast(params, Map.keys(@param_types))
       |> validate_required([:actors])
       |> validate_length(:actors, min: 1, max: 25)
+      |> validate_actors()
 
-    # Validate that each actor is a handle or DID
-    if actors = get_field(changeset, :actors) do
-      actors
-      |> Enum.reduce_while(changeset, fn actor, acc ->
-        if is_binary(actor) && Regex.match?(~r/^(did:|@)/, actor) do
-          {:cont, acc}
-        else
-          {:halt, add_error(acc, :actors, "must all be handles or DIDs")}
-        end
-      end)
-      |> apply_action(:validate)
-    else
-      apply_action(changeset, :validate)
+    apply_action(changeset, :validate)
+  end
+
+  defp validate_actors(changeset) do
+    case get_field(changeset, :actors) do
+      nil -> changeset
+      actors -> validate_actor_identifiers(changeset, actors)
     end
+  end
+
+  defp validate_actor_identifiers(changeset, actors) do
+    Enum.reduce_while(actors, changeset, fn actor, acc ->
+      if valid_actor_id?(actor) do
+        {:cont, acc}
+      else
+        {:halt, add_error(acc, :actors, "must all be handles or DIDs")}
+      end
+    end)
+  end
+
+  defp valid_actor_id?(actor) do
+    is_binary(actor) && Regex.match?(~r/^(did:|@)/, actor)
   end
 
   @doc """
@@ -53,30 +62,23 @@ defmodule Lexicon.App.Bsky.Actor.GetProfiles do
       |> cast(output, Map.keys(@output_types))
       |> validate_required([:profiles])
 
-    case changeset do
-      %{valid?: true} = changeset ->
-        profiles = get_field(changeset, :profiles)
-
-        # Validate each profile in the list
-        validated_profiles =
-          Enum.reduce_while(profiles, {:ok, []}, fn profile, {:ok, acc} ->
-            case ProfileViewDetailed.validate(profile) do
-              {:ok, validated_profile} -> {:cont, {:ok, [validated_profile | acc]}}
-              error -> {:halt, error}
-            end
-          end)
-
-        case validated_profiles do
-          {:ok, validated_list} ->
-            validated_output = apply_changes(changeset)
-            {:ok, %{validated_output | profiles: Enum.reverse(validated_list)}}
-
-          error ->
-            error
-        end
-
-      %{valid?: false} = changeset ->
-        {:error, changeset}
+    with %{valid?: true} = changeset <- changeset,
+         profiles = get_field(changeset, :profiles),
+         {:ok, validated_list} <- validate_profile_list(profiles) do
+      validated_output = apply_changes(changeset)
+      {:ok, %{validated_output | profiles: Enum.reverse(validated_list)}}
+    else
+      %{valid?: false} = changeset -> {:error, changeset}
+      error -> error
     end
+  end
+
+  defp validate_profile_list(profiles) do
+    Enum.reduce_while(profiles, {:ok, []}, fn profile, {:ok, acc} ->
+      case ProfileViewDetailed.validate(profile) do
+        {:ok, validated_profile} -> {:cont, {:ok, [validated_profile | acc]}}
+        error -> {:halt, error}
+      end
+    end)
   end
 end

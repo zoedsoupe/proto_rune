@@ -30,18 +30,23 @@ defmodule Lexicon.App.Bsky.Graph.ListViewerState do
   end
 
   defp validate_blocked(changeset) do
-    if blocked = get_field(changeset, :blocked) do
-      if is_binary(blocked) do
-        if String.match?(blocked, ~r/^at:\/\//) do
-          changeset
-        else
-          add_error(changeset, :blocked, "must be an AT-URI")
-        end
-      else
+    case get_field(changeset, :blocked) do
+      nil ->
+        changeset
+
+      blocked when not is_binary(blocked) ->
         add_error(changeset, :blocked, "must be a string")
-      end
-    else
+
+      blocked ->
+        validate_blocked_uri(changeset, blocked)
+    end
+  end
+
+  defp validate_blocked_uri(changeset, blocked) do
+    if String.match?(blocked, ~r/^at:\/\//) do
       changeset
+    else
+      add_error(changeset, :blocked, "must be an AT-URI")
     end
   end
 

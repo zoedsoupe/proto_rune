@@ -26,20 +26,29 @@ defmodule Lexicon.App.Bsky.Feed.GetPosts do
       |> validate_required([:uris])
       |> validate_length(:uris, min: 1, max: 25)
 
-    # Validate that each URI is properly formatted
-    if uris = get_field(changeset, :uris) do
-      uris
-      |> Enum.reduce(changeset, fn uri, acc ->
-        if is_binary(uri) && Regex.match?(~r/^at:/, uri) do
-          acc
-        else
-          add_error(acc, :uris, "must all be AT URIs")
-        end
-      end)
-      |> apply_action(:validate)
-    else
-      apply_action(changeset, :validate)
+    changeset = validate_uris(changeset)
+    apply_action(changeset, :validate)
+  end
+
+  defp validate_uris(changeset) do
+    case get_field(changeset, :uris) do
+      nil -> changeset
+      uris -> validate_uri_formats(changeset, uris)
     end
+  end
+
+  defp validate_uri_formats(changeset, uris) do
+    Enum.reduce(uris, changeset, fn uri, acc ->
+      if valid_uri?(uri) do
+        acc
+      else
+        add_error(acc, :uris, "must all be AT URIs")
+      end
+    end)
+  end
+
+  defp valid_uri?(uri) do
+    is_binary(uri) && Regex.match?(~r/^at:/, uri)
   end
 
   @doc """

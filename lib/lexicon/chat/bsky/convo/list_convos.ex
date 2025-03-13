@@ -39,30 +39,23 @@ defmodule Lexicon.Chat.Bsky.Convo.ListConvos do
       |> cast(output, Map.keys(@output_types))
       |> validate_required([:convos])
 
-    case changeset do
-      %{valid?: true} = changeset ->
-        convos = get_field(changeset, :convos)
-
-        # Validate each conversation in the list
-        validated_convos =
-          Enum.reduce_while(convos, {:ok, []}, fn convo, {:ok, acc} ->
-            case ConvoView.validate(convo) do
-              {:ok, validated_convo} -> {:cont, {:ok, [validated_convo | acc]}}
-              error -> {:halt, error}
-            end
-          end)
-
-        case validated_convos do
-          {:ok, validated_list} ->
-            validated_output = apply_changes(changeset)
-            {:ok, %{validated_output | convos: Enum.reverse(validated_list)}}
-
-          error ->
-            error
-        end
-
-      %{valid?: false} = changeset ->
-        {:error, changeset}
+    with %{valid?: true} = changeset <- changeset,
+         convos = get_field(changeset, :convos),
+         {:ok, validated_list} <- validate_convo_list(convos) do
+      validated_output = apply_changes(changeset)
+      {:ok, %{validated_output | convos: Enum.reverse(validated_list)}}
+    else
+      %{valid?: false} = changeset -> {:error, changeset}
+      error -> error
     end
+  end
+
+  defp validate_convo_list(convos) do
+    Enum.reduce_while(convos, {:ok, []}, fn convo, {:ok, acc} ->
+      case ConvoView.validate(convo) do
+        {:ok, validated_convo} -> {:cont, {:ok, [validated_convo | acc]}}
+        error -> {:halt, error}
+      end
+    end)
   end
 end

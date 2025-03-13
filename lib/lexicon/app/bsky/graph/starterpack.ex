@@ -66,33 +66,33 @@ defmodule Lexicon.App.Bsky.Graph.Starterpack do
   end
 
   defp validate_feeds(changeset) do
-    if feeds = get_field(changeset, :feeds) do
-      if is_list(feeds) do
-        if length(feeds) > 3 do
-          add_error(changeset, :feeds, "cannot have more than 3 feeds")
-        else
-          feeds_valid =
-            Enum.all?(feeds, fn
-              %{uri: uri} when is_binary(uri) ->
-                String.match?(uri, ~r/^at:\/\//)
+    case get_field(changeset, :feeds) do
+      nil ->
+        changeset
 
-              _ ->
-                false
-            end)
-
-          if feeds_valid do
-            changeset
-          else
-            add_error(changeset, :feeds, "feed items must have a valid AT-URI")
-          end
-        end
-      else
+      feeds when not is_list(feeds) ->
         add_error(changeset, :feeds, "must be a list")
-      end
-    else
-      changeset
+
+      feeds when length(feeds) > 3 ->
+        add_error(changeset, :feeds, "cannot have more than 3 feeds")
+
+      feeds ->
+        validate_feed_uris(changeset, feeds)
     end
   end
+
+  defp validate_feed_uris(changeset, feeds) do
+    feeds_valid = Enum.all?(feeds, &valid_feed_item?/1)
+
+    if feeds_valid do
+      changeset
+    else
+      add_error(changeset, :feeds, "feed items must have a valid AT-URI")
+    end
+  end
+
+  defp valid_feed_item?(%{uri: uri}) when is_binary(uri), do: String.match?(uri, ~r/^at:\/\//)
+  defp valid_feed_item?(_), do: false
 
   # Helper function to validate graphemes count
   defp validate_graphemes(changeset, field, opts) do

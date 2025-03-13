@@ -117,7 +117,7 @@ defmodule ProtoRune.Bot.Server do
 
   @type polling_t :: %{
           optional(:interval) => integer,
-          optional(:process_from) => NaveDateTime.t()
+          optional(:process_from) => NaiveDateTime.t()
         }
 
   @type firehose_t :: %{
