@@ -18,8 +18,8 @@ defmodule ATProto.Identity do
   require Logger
 
   # Constants for timeouts and retries
-  @dns_timeout :timer.seconds(5)
-  @http_timeout :timer.seconds(10)
+  @dns_timeout to_timeout(second: 5)
+  @http_timeout to_timeout(second: 10)
 
   @impl true
   defguard is_did(term)
