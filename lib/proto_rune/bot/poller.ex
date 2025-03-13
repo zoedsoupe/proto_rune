@@ -221,14 +221,14 @@ defmodule ProtoRune.Bot.Poller do
     Logger.warning("[#{__MODULE__}] ==> Unhandled notification reason: #{inspect(reason)}")
   end
 
-  @max_backoff :timer.minutes(5)
+  @max_backoff to_timeout(minute: 5)
 
   # implement exponential backoff
   defp backoff(%State{interval: interval, attempt: attempt}) do
-    min(@max_backoff, :timer.seconds(interval) ** attempt)
+    min(@max_backoff, to_timeout(second: interval) ** attempt)
   end
 
   defp schedule_polling(%State{interval: interval}) do
-    Process.send_after(self(), :poll, :timer.seconds(interval))
+    Process.send_after(self(), :poll, to_timeout(second: interval))
   end
 end
