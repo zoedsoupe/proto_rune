@@ -1,6 +1,6 @@
 defmodule Lexicon.Chat.Bsky.Actor.DeclarationTest do
   use ExUnit.Case, async: true
-  
+
   alias Lexicon.Chat.Bsky.Actor.Declaration
 
   describe "changeset/2" do
@@ -14,13 +14,13 @@ defmodule Lexicon.Chat.Bsky.Actor.DeclarationTest do
       # Valid values
       changeset = Declaration.changeset(%Declaration{}, %{allow_incoming: :all})
       assert changeset.valid?
-      
+
       changeset = Declaration.changeset(%Declaration{}, %{allow_incoming: :none})
       assert changeset.valid?
-      
+
       changeset = Declaration.changeset(%Declaration{}, %{allow_incoming: :following})
       assert changeset.valid?
-      
+
       # Invalid value
       changeset = Declaration.changeset(%Declaration{}, %{allow_incoming: :invalid})
       refute changeset.valid?

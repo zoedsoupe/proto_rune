@@ -6,12 +6,13 @@ defmodule Lexicon.App.Bsky.Feed.NotFoundPost do
   """
 
   use Ecto.Schema
+
   import Ecto.Changeset
 
   @type t :: %__MODULE__{
-    uri: String.t(),
-    not_found: boolean()
-  }
+          uri: String.t(),
+          not_found: boolean()
+        }
 
   @primary_key false
   embedded_schema do

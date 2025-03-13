@@ -1,6 +1,6 @@
 defmodule Lexicon.App.Bsky.Actor.SearchActorsTest do
   use ExUnit.Case, async: true
-  
+
   alias Lexicon.App.Bsky.Actor.SearchActors
 
   describe "validate_params/1" do
@@ -8,11 +8,13 @@ defmodule Lexicon.App.Bsky.Actor.SearchActorsTest do
       assert {:ok, params} = SearchActors.validate_params(%{term: "search term"})
       assert params.term == "search term"
 
-      assert {:ok, params} = SearchActors.validate_params(%{
-        term: "search term",
-        limit: 20,
-        cursor: "next_page"
-      })
+      assert {:ok, params} =
+               SearchActors.validate_params(%{
+                 term: "search term",
+                 limit: 20,
+                 cursor: "next_page"
+               })
+
       assert params.term == "search term"
       assert params.limit == 20
       assert params.cursor == "next_page"
@@ -28,7 +30,8 @@ defmodule Lexicon.App.Bsky.Actor.SearchActorsTest do
       # Empty term
       assert {:error, changeset} = SearchActors.validate_params(%{term: ""})
       refute changeset.valid?
-      assert errors_on(changeset).term # Just check that there's an error
+      # Just check that there's an error
+      assert errors_on(changeset).term
 
       # Too long term
       long_term = String.duplicate("x", 101)
@@ -62,7 +65,7 @@ defmodule Lexicon.App.Bsky.Actor.SearchActorsTest do
         ],
         cursor: "next_page"
       }
-      
+
       assert {:ok, validated} = SearchActors.validate_output(output)
       assert length(validated.actors) == 2
       assert validated.cursor == "next_page"
@@ -70,7 +73,7 @@ defmodule Lexicon.App.Bsky.Actor.SearchActorsTest do
 
     test "validates output with empty actors list" do
       output = %{actors: []}
-      
+
       assert {:ok, validated} = SearchActors.validate_output(output)
       assert validated.actors == []
     end
@@ -85,16 +88,17 @@ defmodule Lexicon.App.Bsky.Actor.SearchActorsTest do
       # Invalid actor (missing required fields)
       output = %{
         actors: [
-          %{} # Missing did and handle
+          # Missing did and handle
+          %{}
         ]
       }
-      
+
       assert {:error, _} = SearchActors.validate_output(output)
     end
   end
 
   # Helper functions
-  
+
   defp errors_on(changeset) do
     Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
       Regex.replace(~r"%{(\w+)}", msg, fn _, key ->

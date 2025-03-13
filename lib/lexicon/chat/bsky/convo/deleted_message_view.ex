@@ -6,16 +6,17 @@ defmodule Lexicon.Chat.Bsky.Convo.DeletedMessageView do
   """
 
   use Ecto.Schema
+
   import Ecto.Changeset
 
   alias Lexicon.Chat.Bsky.Convo.MessageViewSender
 
   @type t :: %__MODULE__{
-    id: String.t(),
-    rev: String.t(),
-    sender: MessageViewSender.t(),
-    sent_at: DateTime.t()
-  }
+          id: String.t(),
+          rev: String.t(),
+          sender: MessageViewSender.t(),
+          sent_at: DateTime.t()
+        }
 
   @primary_key false
   embedded_schema do

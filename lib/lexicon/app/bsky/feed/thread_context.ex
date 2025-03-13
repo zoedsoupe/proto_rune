@@ -6,15 +6,17 @@ defmodule Lexicon.App.Bsky.Feed.ThreadContext do
   """
 
   use Ecto.Schema
+
   import Ecto.Changeset
 
   @type t :: %__MODULE__{
-    root_author_like: String.t() | nil
-  }
+          root_author_like: String.t() | nil
+        }
 
   @primary_key false
   embedded_schema do
-    field :root_author_like, :string # format: at-uri
+    # format: at-uri
+    field :root_author_like, :string
   end
 
   @doc """

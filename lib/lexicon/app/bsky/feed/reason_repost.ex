@@ -6,16 +6,19 @@ defmodule Lexicon.App.Bsky.Feed.ReasonRepost do
   """
 
   use Ecto.Schema
+
   import Ecto.Changeset
 
   @type t :: %__MODULE__{
-    by: map(), # app.bsky.actor.defs#profileViewBasic
-    indexed_at: DateTime.t()
-  }
+          # app.bsky.actor.defs#profileViewBasic
+          by: map(),
+          indexed_at: DateTime.t()
+        }
 
   @primary_key false
   embedded_schema do
-    field :by, :map # Reference to app.bsky.actor.defs#profileViewBasic
+    # Reference to app.bsky.actor.defs#profileViewBasic
+    field :by, :map
     field :indexed_at, :utc_datetime
   end
 

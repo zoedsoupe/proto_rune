@@ -6,18 +6,19 @@ defmodule Lexicon.Chat.Bsky.Actor.ProfileViewBasic do
   """
 
   use Ecto.Schema
+
   import Ecto.Changeset
 
   @type t :: %__MODULE__{
-    did: String.t(),
-    handle: String.t(),
-    display_name: String.t() | nil,
-    avatar: String.t() | nil,
-    associated: map() | nil, 
-    viewer: map() | nil,
-    labels: [map()] | nil,
-    chat_disabled: boolean() | nil
-  }
+          did: String.t(),
+          handle: String.t(),
+          display_name: String.t() | nil,
+          avatar: String.t() | nil,
+          associated: map() | nil,
+          viewer: map() | nil,
+          labels: [map()] | nil,
+          chat_disabled: boolean() | nil
+        }
 
   @primary_key false
   embedded_schema do
@@ -25,9 +26,12 @@ defmodule Lexicon.Chat.Bsky.Actor.ProfileViewBasic do
     field :handle, :string
     field :display_name, :string
     field :avatar, :string
-    field :associated, :map # Reference to app.bsky.actor.defs#profileAssociated
-    field :viewer, :map # Reference to app.bsky.actor.defs#viewerState
-    field :labels, {:array, :map} # Reference to com.atproto.label.defs#label
+    # Reference to app.bsky.actor.defs#profileAssociated
+    field :associated, :map
+    # Reference to app.bsky.actor.defs#viewerState
+    field :viewer, :map
+    # Reference to com.atproto.label.defs#label
+    field :labels, {:array, :map}
     field :chat_disabled, :boolean
   end
 

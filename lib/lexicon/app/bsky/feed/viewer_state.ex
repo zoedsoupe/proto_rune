@@ -7,21 +7,24 @@ defmodule Lexicon.App.Bsky.Feed.ViewerState do
   """
 
   use Ecto.Schema
+
   import Ecto.Changeset
 
   @type t :: %__MODULE__{
-    repost: String.t() | nil,
-    like: String.t() | nil,
-    thread_muted: boolean() | nil,
-    reply_disabled: boolean() | nil,
-    embedding_disabled: boolean() | nil,
-    pinned: boolean() | nil
-  }
+          repost: String.t() | nil,
+          like: String.t() | nil,
+          thread_muted: boolean() | nil,
+          reply_disabled: boolean() | nil,
+          embedding_disabled: boolean() | nil,
+          pinned: boolean() | nil
+        }
 
   @primary_key false
   embedded_schema do
-    field :repost, :string # format: at-uri
-    field :like, :string # format: at-uri
+    # format: at-uri
+    field :repost, :string
+    # format: at-uri
+    field :like, :string
     field :thread_muted, :boolean
     field :reply_disabled, :boolean
     field :embedding_disabled, :boolean

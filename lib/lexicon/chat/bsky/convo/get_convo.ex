@@ -14,7 +14,8 @@ defmodule Lexicon.Chat.Bsky.Convo.GetConvo do
   }
 
   @output_types %{
-    convo: :map # A ConvoView
+    # A ConvoView
+    convo: :map
   }
 
   @doc """
@@ -31,7 +32,7 @@ defmodule Lexicon.Chat.Bsky.Convo.GetConvo do
   Validates the output from getting a conversation.
   """
   def validate_output(output) when is_map(output) do
-    changeset = 
+    changeset =
       {%{}, @output_types}
       |> cast(output, Map.keys(@output_types))
       |> validate_required([:convo])
@@ -39,9 +40,8 @@ defmodule Lexicon.Chat.Bsky.Convo.GetConvo do
     with %{valid?: true} = changeset <- changeset,
          convo = get_field(changeset, :convo),
          {:ok, validated_convo} <- ConvoView.validate(convo) do
-      
       validated_output = apply_changes(changeset)
-      
+
       {:ok, %{validated_output | convo: validated_convo}}
     else
       %{valid?: false} = changeset -> {:error, changeset}

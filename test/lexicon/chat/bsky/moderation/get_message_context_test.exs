@@ -1,6 +1,6 @@
 defmodule Lexicon.Chat.Bsky.Moderation.GetMessageContextTest do
   use ExUnit.Case, async: true
-  
+
   alias Lexicon.Chat.Bsky.Moderation.GetMessageContext
 
   describe "validate_params/1" do
@@ -11,7 +11,7 @@ defmodule Lexicon.Chat.Bsky.Moderation.GetMessageContextTest do
         before: 10,
         after: 10
       }
-      
+
       assert {:ok, validated} = GetMessageContext.validate_params(params)
       assert validated.convo_id == "convo123"
       assert validated.message_id == "msg123"
@@ -23,36 +23,39 @@ defmodule Lexicon.Chat.Bsky.Moderation.GetMessageContextTest do
       params = %{
         message_id: "msg123"
       }
-      
+
       assert {:ok, validated} = GetMessageContext.validate_params(params)
       assert validated.message_id == "msg123"
     end
 
     test "validates non-negative before/after" do
       # Valid
-      assert {:ok, _} = GetMessageContext.validate_params(%{
-        message_id: "msg123",
-        before: 0,
-        after: 0
-      })
+      assert {:ok, _} =
+               GetMessageContext.validate_params(%{
+                 message_id: "msg123",
+                 before: 0,
+                 after: 0
+               })
 
       # Invalid before (negative)
-      assert {:error, changeset} = GetMessageContext.validate_params(%{
-        message_id: "msg123",
-        before: -1,
-        after: 0
-      })
-      
+      assert {:error, changeset} =
+               GetMessageContext.validate_params(%{
+                 message_id: "msg123",
+                 before: -1,
+                 after: 0
+               })
+
       refute changeset.valid?
       assert "must be greater than or equal to 0" in errors_on(changeset).before
 
       # Invalid after (negative)
-      assert {:error, changeset} = GetMessageContext.validate_params(%{
-        message_id: "msg123",
-        before: 0,
-        after: -1
-      })
-      
+      assert {:error, changeset} =
+               GetMessageContext.validate_params(%{
+                 message_id: "msg123",
+                 before: 0,
+                 after: -1
+               })
+
       refute changeset.valid?
       assert "must be greater than or equal to 0" in errors_on(changeset).after
     end
@@ -83,7 +86,7 @@ defmodule Lexicon.Chat.Bsky.Moderation.GetMessageContextTest do
           }
         ]
       }
-      
+
       assert {:ok, validated} = GetMessageContext.validate_output(output)
       assert length(validated.messages) == 2
     end
@@ -92,7 +95,7 @@ defmodule Lexicon.Chat.Bsky.Moderation.GetMessageContextTest do
       output = %{
         messages: []
       }
-      
+
       assert {:ok, validated} = GetMessageContext.validate_output(output)
       assert validated.messages == []
     end
@@ -105,7 +108,7 @@ defmodule Lexicon.Chat.Bsky.Moderation.GetMessageContextTest do
   end
 
   # Helper functions
-  
+
   defp errors_on(changeset) do
     Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
       Regex.replace(~r"%{(\w+)}", msg, fn _, key ->

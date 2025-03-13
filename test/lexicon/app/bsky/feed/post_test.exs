@@ -1,6 +1,6 @@
 defmodule Lexicon.App.Bsky.Feed.PostTest do
   use ProtoRune.DataCase
-  
+
   alias Lexicon.App.Bsky.Feed.Post
 
   describe "changeset/2" do
@@ -14,18 +14,24 @@ defmodule Lexicon.App.Bsky.Feed.PostTest do
     test "validates text length" do
       # Valid text
       valid_text = String.duplicate("x", 3000)
-      changeset = Post.changeset(%Post{}, %{
-        text: valid_text,
-        created_at: DateTime.utc_now()
-      })
+
+      changeset =
+        Post.changeset(%Post{}, %{
+          text: valid_text,
+          created_at: DateTime.utc_now()
+        })
+
       assert changeset.valid?
 
       # Invalid text (too long)
       long_text = String.duplicate("x", 3001)
-      changeset = Post.changeset(%Post{}, %{
-        text: long_text,
-        created_at: DateTime.utc_now()
-      })
+
+      changeset =
+        Post.changeset(%Post{}, %{
+          text: long_text,
+          created_at: DateTime.utc_now()
+        })
+
       refute changeset.valid?
       assert "should be at most 3000 character(s)" in errors_on(changeset).text
     end
@@ -37,6 +43,7 @@ defmodule Lexicon.App.Bsky.Feed.PostTest do
         langs: ["en", "fr", "es"],
         created_at: DateTime.utc_now()
       }
+
       changeset = Post.changeset(%Post{}, valid_attrs)
       assert changeset.valid?
 
@@ -46,6 +53,7 @@ defmodule Lexicon.App.Bsky.Feed.PostTest do
         langs: ["en", "fr", "es", "de"],
         created_at: DateTime.utc_now()
       }
+
       changeset = Post.changeset(%Post{}, invalid_attrs)
       refute changeset.valid?
       assert "should have at most 3 item(s)" in errors_on(changeset).langs
@@ -58,27 +66,32 @@ defmodule Lexicon.App.Bsky.Feed.PostTest do
         tags: ["tag1", "tag2"],
         created_at: DateTime.utc_now()
       }
+
       changeset = Post.changeset(%Post{}, valid_attrs)
       assert changeset.valid?
 
       # Invalid tags (too many)
       many_tags = for i <- 1..9, do: "tag#{i}"
+
       invalid_attrs = %{
         text: "Hello world",
         tags: many_tags,
         created_at: DateTime.utc_now()
       }
+
       changeset = Post.changeset(%Post{}, invalid_attrs)
       refute changeset.valid?
       assert "should have at most 8 item(s)" in errors_on(changeset).tags
 
       # Invalid tags (too long)
       long_tag = String.duplicate("x", 641)
+
       invalid_attrs = %{
         text: "Hello world",
         tags: ["tag1", long_tag],
         created_at: DateTime.utc_now()
       }
+
       changeset = Post.changeset(%Post{}, invalid_attrs)
       refute changeset.valid?
       assert "tag should be at most 640 character(s)" in errors_on(changeset).tags
@@ -93,11 +106,14 @@ defmodule Lexicon.App.Bsky.Feed.PostTest do
     end
 
     test "creates a post with custom created_at" do
-      created_at = DateTime.utc_now() |> DateTime.truncate(:second)
-      assert {:ok, post} = Post.new(%{
-        text: "Hello world",
-        created_at: created_at
-      })
+      created_at = DateTime.truncate(DateTime.utc_now(), :second)
+
+      assert {:ok, post} =
+               Post.new(%{
+                 text: "Hello world",
+                 created_at: created_at
+               })
+
       assert post.text == "Hello world"
       assert post.created_at == created_at
     end

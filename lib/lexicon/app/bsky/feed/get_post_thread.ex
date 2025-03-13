@@ -13,7 +13,8 @@ defmodule Lexicon.App.Bsky.Feed.GetPostThread do
   }
 
   @output_types %{
-    thread: :map # ThreadViewPost | NotFoundPost | BlockedPost
+    # ThreadViewPost | NotFoundPost | BlockedPost
+    thread: :map
   }
 
   @doc """
@@ -32,14 +33,14 @@ defmodule Lexicon.App.Bsky.Feed.GetPostThread do
   Validates the output from getting a post thread.
   """
   def validate_output(output) when is_map(output) do
-    changeset = 
+    changeset =
       {%{}, @output_types}
       |> cast(output, Map.keys(@output_types))
       |> validate_required([:thread])
 
     # Here we would validate the thread structure, but it's complex and could be
     # one of several types, so we'll just validate the basic structure.
-    
+
     case apply_action(changeset, :validate) do
       {:ok, validated} -> {:ok, validated}
       error -> error

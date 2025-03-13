@@ -1,6 +1,6 @@
 # Used by "mix format"
 [
-  import_deps: [:peri],
+  import_deps: [:peri, :ecto],
   plugins: [Styler],
   inputs: ["{mix,.formatter}.exs", "{config,lib,test}/**/*.{ex,exs}"],
   export: [

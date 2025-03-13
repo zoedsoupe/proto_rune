@@ -6,25 +6,30 @@ defmodule Lexicon.App.Bsky.Feed.ThreadViewPost do
   """
 
   use Ecto.Schema
+
   import Ecto.Changeset
 
   alias Lexicon.App.Bsky.Feed.PostView
   alias Lexicon.App.Bsky.Feed.ThreadContext
 
-  @type parent_union :: map() # Union of ThreadViewPost, NotFoundPost, or BlockedPost
-  @type replies_union :: map() # Union of ThreadViewPost, NotFoundPost, or BlockedPost
+  # Union of ThreadViewPost, NotFoundPost, or BlockedPost
+  @type parent_union :: map()
+  # Union of ThreadViewPost, NotFoundPost, or BlockedPost
+  @type replies_union :: map()
   @type t :: %__MODULE__{
-    post: PostView.t(),
-    parent: parent_union() | nil,
-    replies: [replies_union()] | nil,
-    thread_context: ThreadContext.t() | nil
-  }
+          post: PostView.t(),
+          parent: parent_union() | nil,
+          replies: [replies_union()] | nil,
+          thread_context: ThreadContext.t() | nil
+        }
 
   @primary_key false
   embedded_schema do
     embeds_one :post, PostView
-    field :parent, :map # Union of ThreadViewPost, NotFoundPost, or BlockedPost
-    field :replies, {:array, :map} # Array of ThreadViewPost, NotFoundPost, or BlockedPost
+    # Union of ThreadViewPost, NotFoundPost, or BlockedPost
+    field :parent, :map
+    # Array of ThreadViewPost, NotFoundPost, or BlockedPost
+    field :replies, {:array, :map}
     embeds_one :thread_context, ThreadContext
   end
 

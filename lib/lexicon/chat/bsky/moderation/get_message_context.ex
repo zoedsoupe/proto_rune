@@ -15,7 +15,8 @@ defmodule Lexicon.Chat.Bsky.Moderation.GetMessageContext do
   }
 
   @output_types %{
-    messages: {:array, :map} # Union of messageView and deletedMessageView
+    # Union of messageView and deletedMessageView
+    messages: {:array, :map}
   }
 
   @doc """
@@ -34,19 +35,21 @@ defmodule Lexicon.Chat.Bsky.Moderation.GetMessageContext do
   Validates the output from getting message context.
   """
   def validate_output(output) when is_map(output) do
-    changeset = 
+    changeset =
       {%{}, @output_types}
       |> cast(output, Map.keys(@output_types))
       |> validate_required([:messages])
 
-    with %{valid?: true} = changeset <- changeset do
-      # We don't validate the individual messages here because they could be
-      # either MessageView or DeletedMessageView, and that validation happens
-      # in the XRPC layer which understands the union types
-      
-      {:ok, apply_changes(changeset)}
-    else
-      %{valid?: false} = changeset -> {:error, changeset}
+    case changeset do
+      %{valid?: true} = changeset ->
+        # We don't validate the individual messages here because they could be
+        # either MessageView or DeletedMessageView, and that validation happens
+        # in the XRPC layer which understands the union types
+
+        {:ok, apply_changes(changeset)}
+
+      %{valid?: false} = changeset ->
+        {:error, changeset}
     end
   end
 end

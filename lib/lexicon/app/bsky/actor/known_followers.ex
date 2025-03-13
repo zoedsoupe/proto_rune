@@ -6,17 +6,20 @@ defmodule Lexicon.App.Bsky.Actor.KnownFollowers do
   """
 
   use Ecto.Schema
+
   import Ecto.Changeset
 
   @type t :: %__MODULE__{
-    count: integer(),
-    followers: [map()] # Array of ProfileViewBasic
-  }
+          count: integer(),
+          # Array of ProfileViewBasic
+          followers: [map()]
+        }
 
   @primary_key false
   embedded_schema do
     field :count, :integer
-    field :followers, {:array, :map} # Array of ProfileViewBasic
+    # Array of ProfileViewBasic
+    field :followers, {:array, :map}
   end
 
   @doc """

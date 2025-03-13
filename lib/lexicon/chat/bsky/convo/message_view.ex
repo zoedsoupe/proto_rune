@@ -6,27 +6,30 @@ defmodule Lexicon.Chat.Bsky.Convo.MessageView do
   """
 
   use Ecto.Schema
+
   import Ecto.Changeset
 
   alias Lexicon.Chat.Bsky.Convo.MessageViewSender
 
   @type t :: %__MODULE__{
-    id: String.t(),
-    rev: String.t(),
-    text: String.t(),
-    facets: [map()] | nil,
-    embed: map() | nil,
-    sender: MessageViewSender.t(),
-    sent_at: DateTime.t()
-  }
+          id: String.t(),
+          rev: String.t(),
+          text: String.t(),
+          facets: [map()] | nil,
+          embed: map() | nil,
+          sender: MessageViewSender.t(),
+          sent_at: DateTime.t()
+        }
 
   @primary_key false
   embedded_schema do
     field :id, :string
     field :rev, :string
     field :text, :string
-    field :facets, {:array, :map} # Reference to app.bsky.richtext.facet
-    field :embed, :map # Union of app.bsky.embed.record#view
+    # Reference to app.bsky.richtext.facet
+    field :facets, {:array, :map}
+    # Union of app.bsky.embed.record#view
+    field :embed, :map
     embeds_one :sender, MessageViewSender
     field :sent_at, :utc_datetime
   end
@@ -39,7 +42,7 @@ defmodule Lexicon.Chat.Bsky.Convo.MessageView do
     |> cast(attrs, [:id, :rev, :text, :facets, :embed, :sent_at])
     |> cast_embed(:sender)
     |> validate_required([:id, :rev, :text, :sender, :sent_at])
-    |> validate_length(:text, max: 10000)
+    |> validate_length(:text, max: 10_000)
   end
 
   @doc """

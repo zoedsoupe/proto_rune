@@ -6,15 +6,16 @@ defmodule Lexicon.App.Bsky.Feed.BlockedPost do
   """
 
   use Ecto.Schema
+
   import Ecto.Changeset
 
   alias Lexicon.App.Bsky.Feed.BlockedAuthor
 
   @type t :: %__MODULE__{
-    uri: String.t(),
-    blocked: boolean(),
-    author: BlockedAuthor.t()
-  }
+          uri: String.t(),
+          blocked: boolean(),
+          author: BlockedAuthor.t()
+        }
 
   @primary_key false
   embedded_schema do

@@ -1,6 +1,6 @@
 defmodule Lexicon.App.Bsky.Feed.LikeTest do
   use ProtoRune.DataCase
-  
+
   alias Lexicon.App.Bsky.Feed.Like
 
   describe "changeset/2" do
@@ -14,33 +14,43 @@ defmodule Lexicon.App.Bsky.Feed.LikeTest do
     test "validates subject structure" do
       # Valid subject
       valid_subject = %{uri: "at://did:plc:1234/post/1", cid: "bafyrei..."}
-      changeset = Like.changeset(%Like{}, %{
-        subject: valid_subject,
-        created_at: DateTime.utc_now()
-      })
+
+      changeset =
+        Like.changeset(%Like{}, %{
+          subject: valid_subject,
+          created_at: DateTime.utc_now()
+        })
+
       assert changeset.valid?
 
       # Invalid subject (not a map)
-      changeset = Like.changeset(%Like{}, %{
-        subject: "not-a-map",
-        created_at: DateTime.utc_now()
-      })
+      changeset =
+        Like.changeset(%Like{}, %{
+          subject: "not-a-map",
+          created_at: DateTime.utc_now()
+        })
+
       refute changeset.valid?
-      assert errors_on(changeset).subject # Just check that there's an error
+      # Just check that there's an error
+      assert errors_on(changeset).subject
 
       # Invalid subject (missing URI)
-      changeset = Like.changeset(%Like{}, %{
-        subject: %{cid: "bafyrei..."},
-        created_at: DateTime.utc_now()
-      })
+      changeset =
+        Like.changeset(%Like{}, %{
+          subject: %{cid: "bafyrei..."},
+          created_at: DateTime.utc_now()
+        })
+
       refute changeset.valid?
       assert "must have a URI" in errors_on(changeset).subject
 
       # Invalid subject (missing CID)
-      changeset = Like.changeset(%Like{}, %{
-        subject: %{uri: "at://did:plc:1234/post/1"},
-        created_at: DateTime.utc_now()
-      })
+      changeset =
+        Like.changeset(%Like{}, %{
+          subject: %{uri: "at://did:plc:1234/post/1"},
+          created_at: DateTime.utc_now()
+        })
+
       refute changeset.valid?
       assert "must have a CID" in errors_on(changeset).subject
     end
@@ -56,11 +66,14 @@ defmodule Lexicon.App.Bsky.Feed.LikeTest do
 
     test "creates a like with custom created_at" do
       subject = %{uri: "at://did:plc:1234/post/1", cid: "bafyrei..."}
-      created_at = DateTime.utc_now() |> DateTime.truncate(:second)
-      assert {:ok, like} = Like.new(%{
-        subject: subject,
-        created_at: created_at
-      })
+      created_at = DateTime.truncate(DateTime.utc_now(), :second)
+
+      assert {:ok, like} =
+               Like.new(%{
+                 subject: subject,
+                 created_at: created_at
+               })
+
       assert like.subject == subject
       assert like.created_at == created_at
     end

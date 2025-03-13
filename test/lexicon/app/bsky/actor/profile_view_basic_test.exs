@@ -1,6 +1,6 @@
 defmodule Lexicon.App.Bsky.Actor.ProfileViewBasicTest do
   use ExUnit.Case, async: true
-  
+
   alias Lexicon.App.Bsky.Actor.ProfileViewBasic
 
   describe "changeset/2" do
@@ -13,18 +13,22 @@ defmodule Lexicon.App.Bsky.Actor.ProfileViewBasicTest do
 
     test "validates did format" do
       # Invalid format
-      changeset = ProfileViewBasic.changeset(%ProfileViewBasic{}, %{
-        did: "not-a-did",
-        handle: "valid-handle"
-      })
+      changeset =
+        ProfileViewBasic.changeset(%ProfileViewBasic{}, %{
+          did: "not-a-did",
+          handle: "valid-handle"
+        })
+
       refute changeset.valid?
       assert "has invalid format" in errors_on(changeset).did
 
       # Valid format
-      changeset = ProfileViewBasic.changeset(%ProfileViewBasic{}, %{
-        did: "did:plc:1234",
-        handle: "valid-handle"
-      })
+      changeset =
+        ProfileViewBasic.changeset(%ProfileViewBasic{}, %{
+          did: "did:plc:1234",
+          handle: "valid-handle"
+        })
+
       assert changeset.valid?
     end
 
@@ -47,13 +51,15 @@ defmodule Lexicon.App.Bsky.Actor.ProfileViewBasicTest do
     end
 
     test "accepts optional fields" do
-      changeset = ProfileViewBasic.changeset(%ProfileViewBasic{}, %{
-        did: "did:plc:1234",
-        handle: "valid-handle",
-        display_name: "Test User",
-        avatar: "https://example.com/avatar.jpg",
-        created_at: DateTime.utc_now()
-      })
+      changeset =
+        ProfileViewBasic.changeset(%ProfileViewBasic{}, %{
+          did: "did:plc:1234",
+          handle: "valid-handle",
+          display_name: "Test User",
+          avatar: "https://example.com/avatar.jpg",
+          created_at: DateTime.utc_now()
+        })
+
       assert changeset.valid?
     end
   end
@@ -66,7 +72,7 @@ defmodule Lexicon.App.Bsky.Actor.ProfileViewBasicTest do
         display_name: "Test User",
         avatar: "https://example.com/avatar.jpg"
       }
-      
+
       assert {:ok, profile} = ProfileViewBasic.validate(valid_map)
       assert profile.did == "did:plc:1234"
       assert profile.handle == "valid-handle"
@@ -81,7 +87,7 @@ defmodule Lexicon.App.Bsky.Actor.ProfileViewBasicTest do
   end
 
   # Helper functions
-  
+
   defp errors_on(changeset) do
     Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
       Regex.replace(~r"%{(\w+)}", msg, fn _, key ->

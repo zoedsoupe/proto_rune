@@ -6,30 +6,36 @@ defmodule Lexicon.App.Bsky.Actor.ViewerState do
   """
 
   use Ecto.Schema
+
   import Ecto.Changeset
 
   alias Lexicon.App.Bsky.Actor.KnownFollowers
 
   @type t :: %__MODULE__{
-    muted: boolean() | nil,
-    muted_by_list: map() | nil,
-    blocked_by: boolean() | nil,
-    blocking: String.t() | nil,
-    blocking_by_list: map() | nil,
-    following: String.t() | nil,
-    followed_by: String.t() | nil,
-    known_followers: KnownFollowers.t() | nil
-  }
+          muted: boolean() | nil,
+          muted_by_list: map() | nil,
+          blocked_by: boolean() | nil,
+          blocking: String.t() | nil,
+          blocking_by_list: map() | nil,
+          following: String.t() | nil,
+          followed_by: String.t() | nil,
+          known_followers: KnownFollowers.t() | nil
+        }
 
   @primary_key false
   embedded_schema do
     field :muted, :boolean
-    field :muted_by_list, :map # Reference to app.bsky.graph.defs#listViewBasic
+    # Reference to app.bsky.graph.defs#listViewBasic
+    field :muted_by_list, :map
     field :blocked_by, :boolean
-    field :blocking, :string # format: at-uri
-    field :blocking_by_list, :map # Reference to app.bsky.graph.defs#listViewBasic
-    field :following, :string # format: at-uri
-    field :followed_by, :string # format: at-uri
+    # format: at-uri
+    field :blocking, :string
+    # Reference to app.bsky.graph.defs#listViewBasic
+    field :blocking_by_list, :map
+    # format: at-uri
+    field :following, :string
+    # format: at-uri
+    field :followed_by, :string
     embeds_one :known_followers, KnownFollowers
   end
 
@@ -38,8 +44,7 @@ defmodule Lexicon.App.Bsky.Actor.ViewerState do
   """
   def changeset(viewer_state, attrs) do
     viewer_state
-    |> cast(attrs, [:muted, :muted_by_list, :blocked_by, :blocking, 
-                   :blocking_by_list, :following, :followed_by])
+    |> cast(attrs, [:muted, :muted_by_list, :blocked_by, :blocking, :blocking_by_list, :following, :followed_by])
     |> cast_embed(:known_followers)
     |> validate_format(:blocking, ~r/^at:/, message: "must be an AT URI")
     |> validate_format(:following, ~r/^at:/, message: "must be an AT URI")

@@ -6,25 +6,28 @@ defmodule Lexicon.Chat.Bsky.Convo.ConvoView do
   """
 
   use Ecto.Schema
+
   import Ecto.Changeset
 
   @type last_message_type :: Lexicon.Chat.Bsky.Convo.MessageView.t() | Lexicon.Chat.Bsky.Convo.DeletedMessageView.t()
   @type t :: %__MODULE__{
-    id: String.t(),
-    rev: String.t(),
-    members: [Lexicon.Chat.Bsky.Actor.ProfileViewBasic.t()],
-    last_message: last_message_type | nil,
-    muted: boolean(),
-    opened: boolean() | nil,
-    unread_count: integer()
-  }
+          id: String.t(),
+          rev: String.t(),
+          members: [Lexicon.Chat.Bsky.Actor.ProfileViewBasic.t()],
+          last_message: last_message_type | nil,
+          muted: boolean(),
+          opened: boolean() | nil,
+          unread_count: integer()
+        }
 
   @primary_key false
   embedded_schema do
     field :id, :string
     field :rev, :string
-    field :members, {:array, :map} # Array of chat.bsky.actor.defs#profileViewBasic
-    field :last_message, :map # Union of messageView or deletedMessageView
+    # Array of chat.bsky.actor.defs#profileViewBasic
+    field :members, {:array, :map}
+    # Union of messageView or deletedMessageView
+    field :last_message, :map
     field :muted, :boolean
     field :opened, :boolean
     field :unread_count, :integer
@@ -42,7 +45,7 @@ defmodule Lexicon.Chat.Bsky.Convo.ConvoView do
 
   defp validate_members(changeset) do
     members = get_field(changeset, :members)
-    
+
     if is_list(members) && Enum.empty?(members) do
       add_error(changeset, :members, "cannot be empty")
     else

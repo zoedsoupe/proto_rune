@@ -12,14 +12,15 @@ defmodule Lexicon.App.Bsky.Feed.GetPosts do
   }
 
   @output_types %{
-    posts: {:array, :map} # Array of PostView
+    # Array of PostView
+    posts: {:array, :map}
   }
 
   @doc """
   Validates the parameters for getting posts.
   """
   def validate_params(params) when is_map(params) do
-    changeset = 
+    changeset =
       {%{}, @param_types}
       |> cast(params, Map.keys(@param_types))
       |> validate_required([:uris])
@@ -27,7 +28,8 @@ defmodule Lexicon.App.Bsky.Feed.GetPosts do
 
     # Validate that each URI is properly formatted
     if uris = get_field(changeset, :uris) do
-      Enum.reduce(uris, changeset, fn uri, acc ->
+      uris
+      |> Enum.reduce(changeset, fn uri, acc ->
         if is_binary(uri) && Regex.match?(~r/^at:/, uri) do
           acc
         else
@@ -44,14 +46,14 @@ defmodule Lexicon.App.Bsky.Feed.GetPosts do
   Validates the output from getting posts.
   """
   def validate_output(output) when is_map(output) do
-    changeset = 
+    changeset =
       {%{}, @output_types}
       |> cast(output, Map.keys(@output_types))
       |> validate_required([:posts])
 
     # Here we would validate each post view, but that's complex,
     # so we'll just validate the basic structure.
-    
+
     case apply_action(changeset, :validate) do
       {:ok, validated} -> {:ok, validated}
       error -> error

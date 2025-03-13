@@ -6,29 +6,40 @@ defmodule Lexicon.App.Bsky.Feed.Post do
   """
 
   use Ecto.Schema
+
   import Ecto.Changeset
 
   @type t :: %__MODULE__{
-    text: String.t(),
-    entities: [map()] | nil, # DEPRECATED
-    facets: [map()] | nil, # app.bsky.richtext.facet
-    reply: map() | nil, # replyRef
-    embed: map() | nil, # Union of various embeds
-    langs: [String.t()] | nil,
-    labels: map() | nil, # Union
-    tags: [String.t()] | nil,
-    created_at: DateTime.t()
-  }
+          text: String.t(),
+          # DEPRECATED
+          entities: [map()] | nil,
+          # app.bsky.richtext.facet
+          facets: [map()] | nil,
+          # replyRef
+          reply: map() | nil,
+          # Union of various embeds
+          embed: map() | nil,
+          langs: [String.t()] | nil,
+          # Union
+          labels: map() | nil,
+          tags: [String.t()] | nil,
+          created_at: DateTime.t()
+        }
 
   @primary_key false
   embedded_schema do
     field :text, :string
-    field :entities, {:array, :map} # DEPRECATED
-    field :facets, {:array, :map} # Reference to app.bsky.richtext.facet
-    field :reply, :map # Reference to #replyRef
-    field :embed, :map # Union of various embeds
+    # DEPRECATED
+    field :entities, {:array, :map}
+    # Reference to app.bsky.richtext.facet
+    field :facets, {:array, :map}
+    # Reference to #replyRef
+    field :reply, :map
+    # Union of various embeds
+    field :embed, :map
     field :langs, {:array, :string}
-    field :labels, :map # Union
+    # Union
+    field :labels, :map
     field :tags, {:array, :string}
     field :created_at, :utc_datetime
   end
@@ -65,7 +76,7 @@ defmodule Lexicon.App.Bsky.Feed.Post do
   """
   def new(attrs \\ %{}) do
     attrs = Map.put_new_lazy(attrs, :created_at, &DateTime.utc_now/0)
-    
+
     %__MODULE__{}
     |> changeset(attrs)
     |> apply_action(:insert)

@@ -15,7 +15,7 @@ defmodule Lexicon.App.Bsky.Actor.PutPreferences do
   Validates the input for putting preferences.
   """
   def validate_input(input) when is_map(input) do
-    changeset = 
+    changeset =
       {%{}, @input_types}
       |> cast(input, Map.keys(@input_types))
       |> validate_required([:preferences])
@@ -24,7 +24,8 @@ defmodule Lexicon.App.Bsky.Actor.PutPreferences do
       if is_list(prefs) && !Enum.empty?(prefs) do
         apply_action(changeset, :validate)
       else
-        add_error(changeset, :preferences, "cannot be empty")
+        changeset
+        |> add_error(:preferences, "cannot be empty")
         |> apply_action(:validate)
       end
     else

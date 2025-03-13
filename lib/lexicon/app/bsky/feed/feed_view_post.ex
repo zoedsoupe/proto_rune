@@ -6,24 +6,27 @@ defmodule Lexicon.App.Bsky.Feed.FeedViewPost do
   """
 
   use Ecto.Schema
+
   import Ecto.Changeset
 
   alias Lexicon.App.Bsky.Feed.PostView
   alias Lexicon.App.Bsky.Feed.ReplyRef
 
-  @type reason_union :: map() # Union of ReasonRepost or ReasonPin
+  # Union of ReasonRepost or ReasonPin
+  @type reason_union :: map()
   @type t :: %__MODULE__{
-    post: PostView.t(),
-    reply: ReplyRef.t() | nil,
-    reason: reason_union() | nil,
-    feed_context: String.t() | nil
-  }
+          post: PostView.t(),
+          reply: ReplyRef.t() | nil,
+          reason: reason_union() | nil,
+          feed_context: String.t() | nil
+        }
 
   @primary_key false
   embedded_schema do
     embeds_one :post, PostView
     embeds_one :reply, ReplyRef
-    field :reason, :map # Union of ReasonRepost or ReasonPin
+    # Union of ReasonRepost or ReasonPin
+    field :reason, :map
     field :feed_context, :string
   end
 

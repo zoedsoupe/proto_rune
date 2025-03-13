@@ -6,26 +6,27 @@ defmodule Lexicon.App.Bsky.Actor.ProfileViewDetailed do
   """
 
   use Ecto.Schema
+
   import Ecto.Changeset
 
   @type t :: %__MODULE__{
-    did: String.t(),
-    handle: String.t(),
-    display_name: String.t() | nil,
-    description: String.t() | nil,
-    avatar: String.t() | nil,
-    banner: String.t() | nil,
-    followers_count: integer() | nil,
-    follows_count: integer() | nil,
-    posts_count: integer() | nil,
-    associated: map() | nil,
-    joined_via_starter_pack: map() | nil,
-    indexed_at: DateTime.t() | nil,
-    created_at: DateTime.t() | nil,
-    viewer: map() | nil,
-    labels: [map()] | nil,
-    pinned_post: map() | nil
-  }
+          did: String.t(),
+          handle: String.t(),
+          display_name: String.t() | nil,
+          description: String.t() | nil,
+          avatar: String.t() | nil,
+          banner: String.t() | nil,
+          followers_count: integer() | nil,
+          follows_count: integer() | nil,
+          posts_count: integer() | nil,
+          associated: map() | nil,
+          joined_via_starter_pack: map() | nil,
+          indexed_at: DateTime.t() | nil,
+          created_at: DateTime.t() | nil,
+          viewer: map() | nil,
+          labels: [map()] | nil,
+          pinned_post: map() | nil
+        }
 
   @primary_key false
   embedded_schema do
@@ -38,13 +39,18 @@ defmodule Lexicon.App.Bsky.Actor.ProfileViewDetailed do
     field :followers_count, :integer
     field :follows_count, :integer
     field :posts_count, :integer
-    field :associated, :map # Reference to #profileAssociated
-    field :joined_via_starter_pack, :map # Reference to app.bsky.graph.defs#starterPackViewBasic
+    # Reference to #profileAssociated
+    field :associated, :map
+    # Reference to app.bsky.graph.defs#starterPackViewBasic
+    field :joined_via_starter_pack, :map
     field :indexed_at, :utc_datetime
     field :created_at, :utc_datetime
-    field :viewer, :map # Reference to #viewerState
-    field :labels, {:array, :map} # Reference to com.atproto.label.defs#label
-    field :pinned_post, :map # Reference to com.atproto.repo.strongRef
+    # Reference to #viewerState
+    field :viewer, :map
+    # Reference to com.atproto.label.defs#label
+    field :labels, {:array, :map}
+    # Reference to com.atproto.repo.strongRef
+    field :pinned_post, :map
   end
 
   @doc """
@@ -52,10 +58,24 @@ defmodule Lexicon.App.Bsky.Actor.ProfileViewDetailed do
   """
   def changeset(profile_view, attrs) do
     profile_view
-    |> cast(attrs, [:did, :handle, :display_name, :description, :avatar, :banner, 
-                   :followers_count, :follows_count, :posts_count, :associated,
-                   :joined_via_starter_pack, :indexed_at, :created_at, :viewer, 
-                   :labels, :pinned_post])
+    |> cast(attrs, [
+      :did,
+      :handle,
+      :display_name,
+      :description,
+      :avatar,
+      :banner,
+      :followers_count,
+      :follows_count,
+      :posts_count,
+      :associated,
+      :joined_via_starter_pack,
+      :indexed_at,
+      :created_at,
+      :viewer,
+      :labels,
+      :pinned_post
+    ])
     |> validate_required([:did, :handle])
     |> validate_format(:did, ~r/^did:/)
     |> validate_length(:display_name, max: 640)

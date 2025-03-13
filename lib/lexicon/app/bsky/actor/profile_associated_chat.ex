@@ -6,12 +6,13 @@ defmodule Lexicon.App.Bsky.Actor.ProfileAssociatedChat do
   """
 
   use Ecto.Schema
+
   import Ecto.Changeset
 
   @type allow_incoming_option :: :all | :none | :following
   @type t :: %__MODULE__{
-    allow_incoming: allow_incoming_option()
-  }
+          allow_incoming: allow_incoming_option()
+        }
 
   @primary_key false
   embedded_schema do

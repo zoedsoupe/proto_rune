@@ -6,17 +6,18 @@ defmodule Lexicon.App.Bsky.Actor.ProfileAssociated do
   """
 
   use Ecto.Schema
+
   import Ecto.Changeset
 
   alias Lexicon.App.Bsky.Actor.ProfileAssociatedChat
 
   @type t :: %__MODULE__{
-    lists: integer() | nil,
-    feedgens: integer() | nil,
-    starter_packs: integer() | nil,
-    labeler: boolean() | nil,
-    chat: ProfileAssociatedChat.t() | nil
-  }
+          lists: integer() | nil,
+          feedgens: integer() | nil,
+          starter_packs: integer() | nil,
+          labeler: boolean() | nil,
+          chat: ProfileAssociatedChat.t() | nil
+        }
 
   @primary_key false
   embedded_schema do

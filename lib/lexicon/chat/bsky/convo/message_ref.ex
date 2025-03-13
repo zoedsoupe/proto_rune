@@ -6,13 +6,14 @@ defmodule Lexicon.Chat.Bsky.Convo.MessageRef do
   """
 
   use Ecto.Schema
+
   import Ecto.Changeset
 
   @type t :: %__MODULE__{
-    did: String.t(),
-    convo_id: String.t(),
-    message_id: String.t()
-  }
+          did: String.t(),
+          convo_id: String.t(),
+          message_id: String.t()
+        }
 
   @primary_key false
   embedded_schema do

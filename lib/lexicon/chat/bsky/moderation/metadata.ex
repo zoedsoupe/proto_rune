@@ -6,14 +6,15 @@ defmodule Lexicon.Chat.Bsky.Moderation.Metadata do
   """
 
   use Ecto.Schema
+
   import Ecto.Changeset
 
   @type t :: %__MODULE__{
-    messages_sent: integer(),
-    messages_received: integer(),
-    convos: integer(),
-    convos_started: integer()
-  }
+          messages_sent: integer(),
+          messages_received: integer(),
+          convos: integer(),
+          convos_started: integer()
+        }
 
   @primary_key false
   embedded_schema do

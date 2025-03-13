@@ -15,7 +15,8 @@ defmodule Lexicon.App.Bsky.Feed.GetTimeline do
 
   @output_types %{
     cursor: :string,
-    feed: {:array, :map} # Array of FeedViewPost
+    # Array of FeedViewPost
+    feed: {:array, :map}
   }
 
   @doc """
@@ -32,7 +33,7 @@ defmodule Lexicon.App.Bsky.Feed.GetTimeline do
   Validates the output from getting a timeline.
   """
   def validate_output(output) when is_map(output) do
-    changeset = 
+    changeset =
       {%{}, @output_types}
       |> cast(output, Map.keys(@output_types))
       |> validate_required([:feed])
@@ -40,7 +41,7 @@ defmodule Lexicon.App.Bsky.Feed.GetTimeline do
     # Here we could validate each feed item, but that would be complex
     # since each item is a FeedViewPost with nested structures.
     # For simplicity, we'll just validate the basic structure.
-    
+
     case apply_action(changeset, :validate) do
       {:ok, validated} -> {:ok, validated}
       error -> error

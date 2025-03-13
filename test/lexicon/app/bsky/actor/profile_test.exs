@@ -1,6 +1,6 @@
 defmodule Lexicon.App.Bsky.Actor.ProfileTest do
   use ExUnit.Case, async: true
-  
+
   alias Lexicon.App.Bsky.Actor.Profile
 
   describe "changeset/2" do
@@ -40,19 +40,22 @@ defmodule Lexicon.App.Bsky.Actor.ProfileTest do
       invalid_avatar = "not-a-blob"
       changeset = Profile.changeset(%Profile{}, %{avatar: invalid_avatar})
       refute changeset.valid?
-      assert errors_on(changeset).avatar # Just check that there's an error, not the exact message
+      # Just check that there's an error, not the exact message
+      assert errors_on(changeset).avatar
     end
 
     test "accepts all fields" do
-      changeset = Profile.changeset(%Profile{}, %{
-        display_name: "Test User",
-        description: "This is a test profile",
-        avatar: %{data: <<1, 2, 3>>, mime_type: "image/jpeg"},
-        banner: %{data: <<4, 5, 6>>, mime_type: "image/png"},
-        labels: %{type: "com.atproto.label.defs#selfLabels", values: []},
-        pinned_post: %{uri: "at://did:plc:1234/app.bsky.feed.post/1", cid: "cid"},
-        created_at: DateTime.utc_now()
-      })
+      changeset =
+        Profile.changeset(%Profile{}, %{
+          display_name: "Test User",
+          description: "This is a test profile",
+          avatar: %{data: <<1, 2, 3>>, mime_type: "image/jpeg"},
+          banner: %{data: <<4, 5, 6>>, mime_type: "image/png"},
+          labels: %{type: "com.atproto.label.defs#selfLabels", values: []},
+          pinned_post: %{uri: "at://did:plc:1234/app.bsky.feed.post/1", cid: "cid"},
+          created_at: DateTime.utc_now()
+        })
+
       assert changeset.valid?
     end
   end
@@ -65,7 +68,7 @@ defmodule Lexicon.App.Bsky.Actor.ProfileTest do
     end
 
     test "creates a new profile with custom created_at" do
-      created_at = DateTime.utc_now() |> DateTime.truncate(:second)
+      created_at = DateTime.truncate(DateTime.utc_now(), :second)
       {:ok, profile} = Profile.new(%{display_name: "Test User", created_at: created_at})
       assert profile.display_name == "Test User"
       assert profile.created_at == created_at
@@ -79,7 +82,7 @@ defmodule Lexicon.App.Bsky.Actor.ProfileTest do
   end
 
   # Helper functions
-  
+
   defp errors_on(changeset) do
     Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
       Regex.replace(~r"%{(\w+)}", msg, fn _, key ->

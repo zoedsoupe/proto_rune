@@ -6,12 +6,13 @@ defmodule Lexicon.Chat.Bsky.Convo.LogLeaveConvo do
   """
 
   use Ecto.Schema
+
   import Ecto.Changeset
 
   @type t :: %__MODULE__{
-    rev: String.t(),
-    convo_id: String.t()
-  }
+          rev: String.t(),
+          convo_id: String.t()
+        }
 
   @primary_key false
   embedded_schema do

@@ -34,7 +34,7 @@ defmodule Lexicon.Chat.Bsky.Moderation.GetActorMetadata do
   Validates the output from getting actor metadata.
   """
   def validate_output(output) when is_map(output) do
-    changeset = 
+    changeset =
       {%{}, @output_types}
       |> cast(output, Map.keys(@output_types))
       |> validate_required([:day, :month, :all])
@@ -43,15 +43,15 @@ defmodule Lexicon.Chat.Bsky.Moderation.GetActorMetadata do
          {:ok, day} <- Metadata.validate(get_field(changeset, :day)),
          {:ok, month} <- Metadata.validate(get_field(changeset, :month)),
          {:ok, all} <- Metadata.validate(get_field(changeset, :all)) do
-      
       validated_output = apply_changes(changeset)
-      
-      {:ok, %{
-        validated_output | 
-        day: day, 
-        month: month, 
-        all: all
-      }}
+
+      {:ok,
+       %{
+         validated_output
+         | day: day,
+           month: month,
+           all: all
+       }}
     else
       %{valid?: false} = changeset -> {:error, changeset}
       {:error, reason} -> {:error, reason}

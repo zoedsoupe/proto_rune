@@ -1,6 +1,6 @@
 defmodule Lexicon.Chat.Bsky.Convo.ListConvosTest do
   use ExUnit.Case, async: true
-  
+
   alias Lexicon.Chat.Bsky.Convo.ListConvos
 
   describe "validate_params/1" do
@@ -14,7 +14,7 @@ defmodule Lexicon.Chat.Bsky.Convo.ListConvosTest do
         limit: 20,
         cursor: "next_page"
       }
-      
+
       assert {:ok, validated} = ListConvos.validate_params(params)
       assert validated.limit == 20
       assert validated.cursor == "next_page"
@@ -51,7 +51,7 @@ defmodule Lexicon.Chat.Bsky.Convo.ListConvosTest do
           }
         ]
       }
-      
+
       assert {:ok, validated} = ListConvos.validate_output(output)
       assert validated.cursor == "next_page"
       assert length(validated.convos) == 1
@@ -63,7 +63,7 @@ defmodule Lexicon.Chat.Bsky.Convo.ListConvosTest do
         cursor: "next_page",
         convos: []
       }
-      
+
       assert {:ok, validated} = ListConvos.validate_output(output)
       assert validated.cursor == "next_page"
       assert validated.convos == []
@@ -71,10 +71,11 @@ defmodule Lexicon.Chat.Bsky.Convo.ListConvosTest do
 
     test "returns error for missing required fields" do
       # Missing convos
-      assert {:error, changeset} = ListConvos.validate_output(%{
-        cursor: "next_page"
-      })
-      
+      assert {:error, changeset} =
+               ListConvos.validate_output(%{
+                 cursor: "next_page"
+               })
+
       refute changeset.valid?
       assert "can't be blank" in errors_on(changeset).convos
     end
@@ -84,16 +85,17 @@ defmodule Lexicon.Chat.Bsky.Convo.ListConvosTest do
       output = %{
         cursor: "next_page",
         convos: [
-          %{id: "convo123"} # Missing rev, members, muted, unread_count
+          # Missing rev, members, muted, unread_count
+          %{id: "convo123"}
         ]
       }
-      
+
       assert {:error, _} = ListConvos.validate_output(output)
     end
   end
 
   # Helper functions
-  
+
   defp errors_on(changeset) do
     Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
       Regex.replace(~r"%{(\w+)}", msg, fn _, key ->

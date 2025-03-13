@@ -1,6 +1,6 @@
 defmodule Lexicon.App.Bsky.Actor.GetProfileTest do
   use ExUnit.Case, async: true
-  
+
   alias Lexicon.App.Bsky.Actor.GetProfile
 
   describe "validate_params/1" do
@@ -35,7 +35,7 @@ defmodule Lexicon.App.Bsky.Actor.GetProfileTest do
         did: "did:plc:1234",
         handle: "user.bsky.social"
       }
-      
+
       assert {:ok, _} = GetProfile.validate_output(valid_output)
     end
 
@@ -46,7 +46,7 @@ defmodule Lexicon.App.Bsky.Actor.GetProfileTest do
   end
 
   # Helper functions
-  
+
   defp errors_on(changeset) do
     Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
       Regex.replace(~r"%{(\w+)}", msg, fn _, key ->

@@ -1,6 +1,6 @@
 defmodule Lexicon.App.Bsky.Feed.GetTimelineTest do
   use ProtoRune.DataCase
-  
+
   alias Lexicon.App.Bsky.Feed.GetTimeline
 
   describe "validate_params/1" do
@@ -25,11 +25,13 @@ defmodule Lexicon.App.Bsky.Feed.GetTimelineTest do
 
     test "accepts optional parameters" do
       # With algorithm and cursor
-      assert {:ok, params} = GetTimeline.validate_params(%{
-        algorithm: "reverse-chronological",
-        limit: 20,
-        cursor: "abc123"
-      })
+      assert {:ok, params} =
+               GetTimeline.validate_params(%{
+                 algorithm: "reverse-chronological",
+                 limit: 20,
+                 cursor: "abc123"
+               })
+
       assert params.algorithm == "reverse-chronological"
       assert params.limit == 20
       assert params.cursor == "abc123"
@@ -39,16 +41,20 @@ defmodule Lexicon.App.Bsky.Feed.GetTimelineTest do
   describe "validate_output/1" do
     test "validates required fields" do
       # Missing feed
-      assert {:error, changeset} = GetTimeline.validate_output(%{
-        cursor: "xyz789"
-      })
+      assert {:error, changeset} =
+               GetTimeline.validate_output(%{
+                 cursor: "xyz789"
+               })
+
       assert "can't be blank" in errors_on(changeset).feed
 
       # With required fields
-      assert {:ok, output} = GetTimeline.validate_output(%{
-        feed: [],
-        cursor: "xyz789"
-      })
+      assert {:ok, output} =
+               GetTimeline.validate_output(%{
+                 feed: [],
+                 cursor: "xyz789"
+               })
+
       assert output.feed == []
       assert output.cursor == "xyz789"
     end
@@ -63,11 +69,13 @@ defmodule Lexicon.App.Bsky.Feed.GetTimelineTest do
           indexedAt: "2023-01-01T00:00:01Z"
         }
       }
-      
-      assert {:ok, output} = GetTimeline.validate_output(%{
-        feed: [feed_item],
-        cursor: "xyz789"
-      })
+
+      assert {:ok, output} =
+               GetTimeline.validate_output(%{
+                 feed: [feed_item],
+                 cursor: "xyz789"
+               })
+
       assert length(output.feed) == 1
     end
   end

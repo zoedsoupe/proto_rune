@@ -6,11 +6,12 @@ defmodule Lexicon.App.Bsky.Feed.ReasonPin do
   """
 
   use Ecto.Schema
+
   import Ecto.Changeset
 
   @type t :: %__MODULE__{
-    # This type has no properties in the lexicon
-  }
+          # This type has no properties in the lexicon
+        }
 
   @primary_key false
   embedded_schema do

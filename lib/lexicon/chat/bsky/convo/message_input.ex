@@ -6,19 +6,22 @@ defmodule Lexicon.Chat.Bsky.Convo.MessageInput do
   """
 
   use Ecto.Schema
+
   import Ecto.Changeset
 
   @type t :: %__MODULE__{
-    text: String.t(),
-    facets: [map()] | nil,
-    embed: map() | nil
-  }
+          text: String.t(),
+          facets: [map()] | nil,
+          embed: map() | nil
+        }
 
   @primary_key false
   embedded_schema do
     field :text, :string
-    field :facets, {:array, :map} # Reference to app.bsky.richtext.facet
-    field :embed, :map # Union of app.bsky.embed.record
+    # Reference to app.bsky.richtext.facet
+    field :facets, {:array, :map}
+    # Union of app.bsky.embed.record
+    field :embed, :map
   end
 
   @doc """
@@ -28,7 +31,7 @@ defmodule Lexicon.Chat.Bsky.Convo.MessageInput do
     message_input
     |> cast(attrs, [:text, :facets, :embed])
     |> validate_required([:text])
-    |> validate_length(:text, max: 10000)
+    |> validate_length(:text, max: 10_000)
   end
 
   @doc """

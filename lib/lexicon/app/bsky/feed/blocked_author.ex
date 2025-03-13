@@ -6,17 +6,20 @@ defmodule Lexicon.App.Bsky.Feed.BlockedAuthor do
   """
 
   use Ecto.Schema
+
   import Ecto.Changeset
 
   @type t :: %__MODULE__{
-    did: String.t(),
-    viewer: map() | nil # app.bsky.actor.defs#viewerState
-  }
+          did: String.t(),
+          # app.bsky.actor.defs#viewerState
+          viewer: map() | nil
+        }
 
   @primary_key false
   embedded_schema do
     field :did, :string
-    field :viewer, :map # Reference to app.bsky.actor.defs#viewerState
+    # Reference to app.bsky.actor.defs#viewerState
+    field :viewer, :map
   end
 
   @doc """

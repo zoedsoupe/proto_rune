@@ -6,20 +6,22 @@ defmodule Lexicon.Chat.Bsky.Convo.LogDeleteMessage do
   """
 
   use Ecto.Schema
+
   import Ecto.Changeset
 
   @type message_type :: Lexicon.Chat.Bsky.Convo.MessageView.t() | Lexicon.Chat.Bsky.Convo.DeletedMessageView.t()
   @type t :: %__MODULE__{
-    rev: String.t(),
-    convo_id: String.t(),
-    message: message_type
-  }
+          rev: String.t(),
+          convo_id: String.t(),
+          message: message_type
+        }
 
   @primary_key false
   embedded_schema do
     field :rev, :string
     field :convo_id, :string
-    field :message, :map # Union of messageView or deletedMessageView
+    # Union of messageView or deletedMessageView
+    field :message, :map
   end
 
   @doc """

@@ -6,20 +6,21 @@ defmodule Lexicon.App.Bsky.Actor.ProfileView do
   """
 
   use Ecto.Schema
+
   import Ecto.Changeset
 
   @type t :: %__MODULE__{
-    did: String.t(),
-    handle: String.t(),
-    display_name: String.t() | nil,
-    description: String.t() | nil,
-    avatar: String.t() | nil,
-    associated: map() | nil,
-    indexed_at: DateTime.t() | nil,
-    created_at: DateTime.t() | nil,
-    viewer: map() | nil,
-    labels: [map()] | nil
-  }
+          did: String.t(),
+          handle: String.t(),
+          display_name: String.t() | nil,
+          description: String.t() | nil,
+          avatar: String.t() | nil,
+          associated: map() | nil,
+          indexed_at: DateTime.t() | nil,
+          created_at: DateTime.t() | nil,
+          viewer: map() | nil,
+          labels: [map()] | nil
+        }
 
   @primary_key false
   embedded_schema do
@@ -28,11 +29,14 @@ defmodule Lexicon.App.Bsky.Actor.ProfileView do
     field :display_name, :string
     field :description, :string
     field :avatar, :string
-    field :associated, :map # Reference to #profileAssociated
+    # Reference to #profileAssociated
+    field :associated, :map
     field :indexed_at, :utc_datetime
     field :created_at, :utc_datetime
-    field :viewer, :map # Reference to #viewerState
-    field :labels, {:array, :map} # Reference to com.atproto.label.defs#label
+    # Reference to #viewerState
+    field :viewer, :map
+    # Reference to com.atproto.label.defs#label
+    field :labels, {:array, :map}
   end
 
   @doc """
@@ -40,8 +44,18 @@ defmodule Lexicon.App.Bsky.Actor.ProfileView do
   """
   def changeset(profile_view, attrs) do
     profile_view
-    |> cast(attrs, [:did, :handle, :display_name, :description, :avatar, :associated, 
-                   :indexed_at, :created_at, :viewer, :labels])
+    |> cast(attrs, [
+      :did,
+      :handle,
+      :display_name,
+      :description,
+      :avatar,
+      :associated,
+      :indexed_at,
+      :created_at,
+      :viewer,
+      :labels
+    ])
     |> validate_required([:did, :handle])
     |> validate_format(:did, ~r/^did:/)
     |> validate_length(:display_name, max: 640)

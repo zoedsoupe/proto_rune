@@ -1,6 +1,6 @@
 defmodule Lexicon.Chat.Bsky.Moderation.MetadataTest do
   use ExUnit.Case, async: true
-  
+
   alias Lexicon.Chat.Bsky.Moderation.Metadata
 
   describe "changeset/2" do
@@ -15,30 +15,36 @@ defmodule Lexicon.Chat.Bsky.Moderation.MetadataTest do
 
     test "validates that counts are non-negative" do
       # Valid counts (all positive)
-      changeset = Metadata.changeset(%Metadata{}, %{
-        messages_sent: 10,
-        messages_received: 5,
-        convos: 3,
-        convos_started: 1
-      })
+      changeset =
+        Metadata.changeset(%Metadata{}, %{
+          messages_sent: 10,
+          messages_received: 5,
+          convos: 3,
+          convos_started: 1
+        })
+
       assert changeset.valid?
 
       # Valid counts (all zero)
-      changeset = Metadata.changeset(%Metadata{}, %{
-        messages_sent: 0,
-        messages_received: 0,
-        convos: 0,
-        convos_started: 0
-      })
+      changeset =
+        Metadata.changeset(%Metadata{}, %{
+          messages_sent: 0,
+          messages_received: 0,
+          convos: 0,
+          convos_started: 0
+        })
+
       assert changeset.valid?
 
       # Invalid count (negative)
-      changeset = Metadata.changeset(%Metadata{}, %{
-        messages_sent: -1,
-        messages_received: 5,
-        convos: 3,
-        convos_started: 1
-      })
+      changeset =
+        Metadata.changeset(%Metadata{}, %{
+          messages_sent: -1,
+          messages_received: 5,
+          convos: 3,
+          convos_started: 1
+        })
+
       refute changeset.valid?
       assert "must be greater than or equal to 0" in errors_on(changeset).messages_sent
     end
@@ -52,7 +58,7 @@ defmodule Lexicon.Chat.Bsky.Moderation.MetadataTest do
         convos: 3,
         convos_started: 1
       }
-      
+
       assert {:ok, metadata} = Metadata.validate(valid_map)
       assert metadata.messages_sent == 10
       assert metadata.messages_received == 5
@@ -67,7 +73,7 @@ defmodule Lexicon.Chat.Bsky.Moderation.MetadataTest do
   end
 
   # Helper functions
-  
+
   defp errors_on(changeset) do
     Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
       Regex.replace(~r"%{(\w+)}", msg, fn _, key ->

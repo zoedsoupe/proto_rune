@@ -6,11 +6,12 @@ defmodule Lexicon.Chat.Bsky.Convo.MessageViewSender do
   """
 
   use Ecto.Schema
+
   import Ecto.Changeset
 
   @type t :: %__MODULE__{
-    did: String.t()
-  }
+          did: String.t()
+        }
 
   @primary_key false
   embedded_schema do
