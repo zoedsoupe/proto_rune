@@ -20,7 +20,7 @@ defmodule ATProto.Identity.Cache do
 
   # Default TTLs
   @default_handle_ttl to_timeout(hour: 1)
-  @default_did_ttl to_timeout(hour: 24)
+  @default_did_ttl to_timeout(day: 1)
 
   # Server state
   defmodule State do
