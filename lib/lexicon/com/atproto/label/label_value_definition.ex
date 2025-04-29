@@ -9,7 +9,7 @@ defmodule Lexicon.Com.Atproto.Label.LabelValueDefinition do
 
   import Ecto.Changeset
 
-  alias Lexicon.Com.Atproto.Label.Defs
+  alias Lexicon.Com.Atproto.Label
   alias Lexicon.Com.Atproto.Label.LabelValueDefinitionStrings
 
   @type t :: %__MODULE__{
@@ -40,12 +40,12 @@ defmodule Lexicon.Com.Atproto.Label.LabelValueDefinition do
     |> validate_required([:identifier, :severity, :blurs, :locales])
     |> validate_length(:identifier, max: 100)
     |> validate_format(:identifier, ~r/^[a-z-]+$/, message: "must only include lowercase ascii and '-'")
-    |> validate_inclusion(:severity, [Defs.severity_inform(), Defs.severity_alert(), Defs.severity_none()])
-    |> validate_inclusion(:blurs, [Defs.blur_content(), Defs.blur_media(), Defs.blur_none()])
+    |> validate_inclusion(:severity, [Label.severity_inform(), Label.severity_alert(), Label.severity_none()])
+    |> validate_inclusion(:blurs, [Label.blur_content(), Label.blur_media(), Label.blur_none()])
     |> validate_inclusion(:default_setting, [
-      Defs.default_setting_ignore(),
-      Defs.default_setting_warn(),
-      Defs.default_setting_hide()
+      Label.default_setting_ignore(),
+      Label.default_setting_warn(),
+      Label.default_setting_hide()
     ])
     |> cast_embed(:locales, required: true)
   end
