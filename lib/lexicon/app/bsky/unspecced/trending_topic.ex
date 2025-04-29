@@ -51,4 +51,13 @@ defmodule Lexicon.App.Bsky.Unspecced.TrendingTopic do
       {:error, changeset} -> raise "Invalid trending topic: #{inspect(changeset.errors)}"
     end
   end
+
+  @doc """
+  Validates a trending topic structure.
+  """
+  def validate(data) when is_map(data) do
+    %__MODULE__{}
+    |> changeset(data)
+    |> apply_action(:validate)
+  end
 end

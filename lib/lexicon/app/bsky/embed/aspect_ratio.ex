@@ -50,4 +50,13 @@ defmodule Lexicon.App.Bsky.Embed.AspectRatio do
       {:error, changeset} -> raise "Invalid aspect ratio: #{inspect(changeset.errors)}"
     end
   end
+
+  @doc """
+  Validates an aspect ratio structure.
+  """
+  def validate(data) when is_map(data) do
+    %__MODULE__{}
+    |> changeset(data)
+    |> apply_action(:validate)
+  end
 end
