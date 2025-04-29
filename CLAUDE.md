@@ -2,12 +2,12 @@
 
 ## Build/Lint/Test Commands
 - Install dependencies: `mix deps.get`
-- Build: `mix compile`
+- Build: `mix compile --force --warnings-as-errors`
 - Format code: `mix format`
 - Run all tests: `mix test`
 - Run specific test: `mix test path/to/test.exs:line_number`
-- Lint code: `mix credo`
-- Type checking: `mix dialyxir`
+- Lint code: `mix credo --strict`
+- Type checking: `mix dialyzer`
 
 ## Code Style Guidelines
 - Follow standard Elixir conventions with snake_case for variables and functions
@@ -19,3 +19,5 @@
 - Follow consistent module organization pattern in lib/ directory structure
 - Use existing patterns and frameworks when adding new components
 - When implementing callbacks, follow existing implementation patterns
+- Only add code comments starting with `#` when **strictly** necessary, avoid them
+- All implementation should be compliant with atproto spec that lives on `.context/` folder
