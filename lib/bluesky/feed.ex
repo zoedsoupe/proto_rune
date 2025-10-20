@@ -240,10 +240,16 @@ defmodule ProtoRune.Bsky.Feed do
        ]}
 
     with {:ok, _} <- Peri.validate(schema, event) do
-      event
-      |> Kernel.in(@literal_interactions)
-      |> if(do: "interaction#{Macro.camelize(event)}", else: event)
-      |> then(&"app.bsky.feed.defs##{Macro.camelize(&1)}")
+      event_string = Atom.to_string(event)
+
+      prefixed_event =
+        if event in @literal_interactions do
+          "interaction#{Macro.camelize(event_string)}"
+        else
+          event_string
+        end
+
+      "app.bsky.feed.defs##{Macro.camelize(prefixed_event)}"
     end
   end
 

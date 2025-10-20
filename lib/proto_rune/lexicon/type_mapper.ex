@@ -45,48 +45,24 @@ defmodule ProtoRune.Lexicon.TypeMapper do
   - `{:error, reason}` if mapping fails
   """
   @spec map_type(atproto_type()) :: mapping_result()
-  def map_type(type_def) when is_map(type_def) do
-    case type_def do
-      %{"type" => "string"} = def ->
-        map_string_type(def)
+  def map_type(%{"type" => "string"} = def), do: map_string_type(def)
+  def map_type(%{"type" => "integer"} = def), do: map_integer_type(def)
+  def map_type(%{"type" => "float"} = def), do: map_float_type(def)
+  def map_type(%{"type" => "boolean"}), do: {:ok, :boolean}
+  def map_type(%{"type" => "bytes"}), do: {:ok, :string}
+  def map_type(%{"type" => "unknown"}), do: {:ok, :any}
+  def map_type(%{"type" => "blob"}), do: {:ok, :map}
 
-      %{"type" => "integer"} = def ->
-        map_integer_type(def)
-
-      %{"type" => "boolean"} ->
-        {:ok, :boolean}
-
-      %{"type" => "float"} = def ->
-        map_float_type(def)
-
-      %{"type" => "bytes"} ->
-        {:ok, :string}
-
-      %{"type" => "array", "items" => items} ->
-        with {:ok, item_type} <- map_type(items) do
-          {:ok, {:list, item_type}}
-        end
-
-      %{"type" => "object", "properties" => _props} ->
-        map_object_type(type_def)
-
-      %{"type" => "ref", "ref" => ref} ->
-        {:ok, {:ref, ref}}
-
-      %{"type" => "union", "refs" => refs} ->
-        map_union_type(refs)
-
-      %{"type" => "unknown"} ->
-        {:ok, :any}
-
-      %{"type" => "blob"} ->
-        {:ok, :map}
-
-      _ ->
-        {:error, {:unsupported_type, type_def}}
+  def map_type(%{"type" => "array", "items" => items}) do
+    with {:ok, item_type} <- map_type(items) do
+      {:ok, {:list, item_type}}
     end
   end
 
+  def map_type(%{"type" => "object"} = type_def), do: map_object_type(type_def)
+  def map_type(%{"type" => "ref", "ref" => ref}), do: {:ok, {:ref, ref}}
+  def map_type(%{"type" => "union", "refs" => refs}), do: map_union_type(refs)
+  def map_type(%{"type" => _} = type_def), do: {:error, {:unsupported_type, type_def}}
   def map_type(_), do: {:error, :invalid_type_definition}
 
   @doc """
@@ -179,23 +155,23 @@ defmodule ProtoRune.Lexicon.TypeMapper do
   end
 
   defp map_properties(properties, required) do
-    result =
-      Enum.reduce_while(properties, {:ok, %{}}, fn {key, type_def}, {:ok, acc} ->
-        key_atom = String.to_atom(key)
-        is_required = key in required
+    Enum.reduce_while(properties, {:ok, %{}}, fn {key, type_def}, {:ok, acc} ->
+      key_atom = String.to_atom(key)
+      is_required = key in required
 
-        case map_type(type_def) do
-          {:ok, peri_type} ->
-            final_type = if is_required, do: {:required, peri_type}, else: peri_type
-            {:cont, {:ok, Map.put(acc, key_atom, final_type)}}
+      case map_type(type_def) do
+        {:ok, peri_type} ->
+          final_type = wrap_if_required(peri_type, is_required)
+          {:cont, {:ok, Map.put(acc, key_atom, final_type)}}
 
-          {:error, reason} ->
-            {:halt, {:error, {:property_mapping_failed, key, reason}}}
-        end
-      end)
-
-    result
+        {:error, reason} ->
+          {:halt, {:error, {:property_mapping_failed, key, reason}}}
+      end
+    end)
   end
+
+  defp wrap_if_required(peri_type, true), do: {:required, peri_type}
+  defp wrap_if_required(peri_type, false), do: peri_type
 
   @doc """
   Extracts default value from an ATProto type definition if present.

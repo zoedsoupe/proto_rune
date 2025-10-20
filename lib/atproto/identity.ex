@@ -21,7 +21,7 @@ defmodule ProtoRune.Atproto.Identity do
   @dns_timeout to_timeout(second: 5)
   @http_timeout to_timeout(second: 10)
 
-  @impl true
+  # Guards for checking DID and handle formats (not part of behaviour callbacks)
   defguard is_did(term)
            when is_binary(term) and
                   byte_size(term) > 7 and
@@ -31,7 +31,6 @@ defmodule ProtoRune.Atproto.Identity do
   # Since handle validation is quite complex for guards alone,
   # we'll do basic structural validation in the guard and leave
   # complete validation for valid_handle?
-  @impl true
   defguard is_handle(term)
            # Must have at least one dot
            # Cannot start or end with hyphen

@@ -56,7 +56,13 @@ defmodule ProtoRune.Atproto.Identity.HandleResolver do
   # Private Functions
 
   defp do_resolve_dns(dns_name, timeout, retries) do
-    case :inet_res.lookup(to_charlist(dns_name), :in, :txt, timeout: timeout) do
+    records = :inet_res.lookup(to_charlist(dns_name), :in, :txt, timeout: timeout)
+
+    case records do
+      [] when retries > 0 ->
+        Logger.warning("DNS resolution failed for #{dns_name}, retrying...")
+        do_resolve_dns(dns_name, timeout, retries - 1)
+
       [] ->
         {:error, :not_found}
 
@@ -65,13 +71,6 @@ defmodule ProtoRune.Atproto.Identity.HandleResolver do
         |> Enum.map(&List.to_string/1)
         |> find_did_record()
         |> handle_did_record()
-
-      _ when retries > 0 ->
-        Logger.warning("DNS resolution failed for #{dns_name}, retrying...")
-        do_resolve_dns(dns_name, timeout, retries - 1)
-
-      _ ->
-        {:error, :network_error}
     end
   end
 

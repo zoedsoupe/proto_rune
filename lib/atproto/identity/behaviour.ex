@@ -71,16 +71,6 @@ defmodule ProtoRune.Atproto.Identity.Behaviour do
   @callback refresh_did(did()) :: :ok
 
   @doc """
-  Guards for checking if a string is a valid handle format.
-  """
-  @callback is_handle(term()) :: boolean()
-
-  @doc """
-  Guards for checking if a string is a valid DID format.
-  """
-  @callback is_did(term()) :: boolean()
-
-  @doc """
   Runtime check for valid handle format, syntactically.
   """
   @callback valid_handle?(term()) :: boolean()

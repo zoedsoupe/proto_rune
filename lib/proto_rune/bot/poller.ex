@@ -162,6 +162,7 @@ defmodule ProtoRune.Bot.Poller do
   end
 
   defp dispatch_notification(%State{} = state, %{reason: "reply", uri: uri}) do
+    # credo:disable-for-next-line Credo.Check.Design.TagTODO
     # TODO ignore replies that aren't to the bot
     case Bsky.Feed.get_post_thread(state.session, uri: uri) do
       {:ok, data} -> send(state.server_pid, {:handle_event, :reply, data})

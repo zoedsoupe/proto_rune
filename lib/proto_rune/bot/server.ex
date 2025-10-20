@@ -117,7 +117,7 @@ defmodule ProtoRune.Bot.Server do
 
   @type polling_t :: %{
           optional(:interval) => integer,
-          optional(:process_from) => NaveDateTime.t()
+          optional(:process_from) => NaiveDateTime.t()
         }
 
   @type firehose_t :: %{
@@ -150,6 +150,8 @@ defmodule ProtoRune.Bot.Server do
         }
 
   @type options_t :: kwargs | mapargs
+
+  @dialyzer {:nowarn_function, options_t_changeset: 1}
 
   defschema(:options_t, %{
     name: {:required, :atom},

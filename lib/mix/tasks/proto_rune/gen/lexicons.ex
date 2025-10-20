@@ -176,12 +176,8 @@ defmodule Mix.Tasks.ProtoRune.Gen.Lexicons do
 
   defp format_error({:output_dir_exists, dir}), do: "Output directory already exists: #{dir}. Use --force to overwrite."
 
-  defp format_error({:directory_error, dir, reason}), do: "Cannot access directory #{dir}: #{inspect(reason)}"
-
   defp format_error({:generation_failed, message}), do: "Generation failed: #{message}"
 
-  defp format_error({:mkdir_failed, reason}), do: "Failed to create directory: #{inspect(reason)}"
-
-  defp format_error(reason) when is_binary(reason), do: reason
+  defp format_error(%Jason.DecodeError{} = error), do: "JSON decode error: #{Exception.message(error)}"
   defp format_error(reason), do: inspect(reason)
 end

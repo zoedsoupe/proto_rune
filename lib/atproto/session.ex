@@ -1,6 +1,19 @@
 defmodule ProtoRune.Atproto.Session do
   @moduledoc false
 
+  @type t :: %__MODULE__{
+          access_jwt: String.t(),
+          refresh_jwt: String.t(),
+          handle: String.t(),
+          did: String.t(),
+          service_url: String.t() | nil,
+          active: boolean() | nil,
+          email: String.t() | nil,
+          email_auth_factor: boolean() | nil,
+          email_confirmed: boolean() | nil,
+          did_doc: map() | nil
+        }
+
   @t %{
     access_jwt: {:required, :string},
     refresh_jwt: {:required, :string},
