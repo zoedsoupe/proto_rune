@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Users/zoedsoupe/dev/oss/jacquard/**)",
+      "Read(//Users/zoedsoupe/dev/oss/peri/**)",
+      "WebSearch",
+      "Bash(cat:*)",
+      "Bash(git submodule:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

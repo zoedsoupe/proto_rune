@@ -27,3 +27,5 @@ atproto-*.tar
 
 .env
 .aider*
+
+/.expert/
