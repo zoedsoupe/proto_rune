@@ -53,17 +53,18 @@ defmodule ProtoRune.MixProject do
 
   defp docs do
     guides = [
-      "guides/getting_started.md",
-      "guides/records.md",
-      "guides/xrpc.md",
-      "guides/bots.md",
-      "guides/identity.md"
+      "guides/getting-started.md",
+      "guides/authentication.md",
+      "guides/posting-content.md",
+      "guides/bot-development.md",
+      "guides/repository-operations.md",
+      "guides/xrpc.md"
     ]
 
     dev = ["README.md", "CONTRIBUTING.md", "LICENSE", "rfc.md"]
 
     [
-      main: "getting_started",
+      main: "readme",
       extras: dev ++ guides,
       groups_for_extras: [
         Guides: guides,

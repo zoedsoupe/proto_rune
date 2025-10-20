@@ -13,6 +13,7 @@ XRPC (Cross-server Remote Procedure Call) is AT Protocol's approach to HTTP APIs
 ## XRPC in ProtoRune
 
 While ProtoRune provides high-level abstractions like `ProtoRune.create_session/2`, understanding the XRPC layer helps when:
+
 - Building custom features
 - Working with new Lexicons
 - Debugging issues
@@ -92,15 +93,15 @@ XRPC provides structured errors:
 
 ```elixir
 case ProtoRune.XRPC.query(session, "app.bsky.feed.getPost", %{uri: invalid_uri}) do
-  {:ok, post} -> 
+  {:ok, post} ->
     # Handle success
-  
+
   {:error, %ProtoRune.XRPC.Error{
     code: :not_found,
     message: "Post not found"
   }} ->
     # Handle specific error
-    
+
   {:error, %ProtoRune.XRPC.Error{code: :rate_limit}} ->
     # Handle rate limiting
 end
@@ -125,7 +126,7 @@ defmodule ProtoRune.Lexicons.ATProto.Repo.CreateRecord do
     uri: String.t(),
     cid: String.t()
   }
-  
+
   def path, do: "com.atproto.repo.createRecord"
   def method, do: :post
 end
@@ -145,7 +146,7 @@ defmodule MyApp.CustomMethod do
   @type params :: %{
     customField: String.t()
   }
-  
+
   @type response :: %{
     result: String.t()
   }
@@ -181,10 +182,10 @@ Process raw responses:
 case ProtoRune.XRPC.raw_query(session, "app.bsky.feed.getTimeline") do
   {:ok, %{status: 200, body: body}} ->
     # Handle raw response
-    
+
   {:ok, %{status: status}} when status in 400..499 ->
     # Handle client error
-    
+
   {:error, _reason} ->
     # Handle network error
 end

@@ -10,7 +10,7 @@
 
 ```
 lib/proto_rune/
-├── atproto/      # Core AT Protocol 
+├── atproto/      # Core AT Protocol
 ├── bsky/         # Bluesky app features
 ├── bot/          # Bot framework
 ├── lexicons/     # Generated code
@@ -19,7 +19,7 @@ lib/proto_rune/
 
 ## Code Style
 
-- Run `mix format` before committing 
+- Run `mix format` before committing
 - Ensure 100% type coverage with dialyzer
 - Keep functions focused and small
 - Document public functions with `@doc` and `@moduledoc`
@@ -35,12 +35,13 @@ lib/proto_rune/
 ## Pull Requests
 
 1. Create a branch from `main`
-2. Write descriptive commit messages 
+2. Write descriptive commit messages
 3. Add tests for new functionality
 4. Update documentation as needed
 5. Submit PR with description of changes
 
 PRs should:
+
 - Have a clear purpose
 - Include relevant tests
 - Pass CI checks
@@ -57,7 +58,7 @@ mix gen_schemas --path priv/lexicons/ --output lib/proto_rune/lexicons/
 
 Do not modify generated code directly. Update the generator instead.
 
-## Release Process 
+## Release Process
 
 1. Update version in `mix.exs`
 2. Update CHANGELOG.md

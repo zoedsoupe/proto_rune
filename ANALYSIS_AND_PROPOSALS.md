@@ -36,6 +36,7 @@ After analyzing proto_rune alongside jacquard (Rust), peri (Elixir), and atcute 
 ### ProtoRune Structure (v0.1.2)
 
 **Strengths:**
+
 - Excellent RFC document (`rfc.md`) with clear architectural vision
 - Good domain organization following ATProto's layers:
   - `lib/atproto/` - Core protocol (identity, repo, session)
@@ -48,6 +49,7 @@ After analyzing proto_rune alongside jacquard (Rust), peri (Elixir), and atcute 
 - Peri v0.4.0-rc1 already as dependency (mix.exs:31)
 
 **Current Challenges:**
+
 ```elixir
 # From lib/proto_rune/lexicon/loader.ex
 defp normalize_type_specific("record", def) do
@@ -57,6 +59,7 @@ defp normalize_type_specific("record", def) do
   }
 end
 ```
+
 - ❌ Incomplete code generation - no actual module generation
 - ❌ Attempted Ecto embedded schemas but got too complex
 - ❌ Missing high-level public API (no `ProtoRune.Bsky.post/2`)
@@ -64,6 +67,7 @@ end
 - ❌ Bot framework incomplete
 
 **Lexicon Submodule:**
+
 - `priv/atproto/lexicons/` contains official ATProto lexicons as git submodule
 - Structure: `app/bsky/feed/post.json`, `com/atproto/repo/createRecord.json`, etc.
 
@@ -93,6 +97,7 @@ jacquard/
 **Key Design Patterns:**
 
 1. **Zero-Copy Deserialization** (from README):
+
 ```rust
 // Types can borrow from response buffer
 let post: Post<'_> = response.parse()?;
@@ -100,6 +105,7 @@ let post: Post<'_> = response.parse()?;
 ```
 
 2. **Lexicon Configuration** (from `lexicons.kdl`):
+
 ```kdl
 output {
     lexicons "crates/jacquard-api/lexicons"
@@ -119,6 +125,7 @@ source "leaflet" type="git" priority=100 {
 ```
 
 3. **Agent Pattern** (from README example):
+
 ```rust
 // Simple OAuth login + API call
 let oauth = OAuthClient::with_default_config(FileAuthStore::new(&args.store));
@@ -132,6 +139,7 @@ let timeline = agent
 ```
 
 **Lessons for ProtoRune:**
+
 - ✅ Modular crate structure → modular Elixir apps
 - ✅ Agent pattern for session management
 - ✅ Builder pattern for complex types (timeline query)
@@ -184,6 +192,7 @@ changeset = MySchemas.user_changeset(user_data)
 **Key Features for ATProto:**
 
 1. **Union Types** (line 84-85):
+
 ```elixir
 @type schema_def ::
   :any | :atom | :boolean | :map | :pid |
@@ -197,6 +206,7 @@ changeset = MySchemas.user_changeset(user_data)
 ```
 
 2. **Permissive Mode** (line 314-319):
+
 ```elixir
 # Strict mode (default) - only schema fields
 Peri.validate(schema, data, mode: :strict)
@@ -208,6 +218,7 @@ Peri.validate(schema, data, mode: :permissive)
 ```
 
 3. **Ecto Integration** (line 1417-1436):
+
 ```elixir
 # Optional Ecto integration
 defschema :user, %{
@@ -222,6 +233,7 @@ end
 ```
 
 4. **Transform Support** (line 857-907):
+
 ```elixir
 # Transform validated data
 {:string, {:transform, &String.upcase/1}}
@@ -229,6 +241,7 @@ end
 ```
 
 **Why Peri is Perfect for ATProto:**
+
 - ✅ Handles `"unknown"` types (`:any`)
 - ✅ Union types via `:oneof` (ATProto has many unions)
 - ✅ Dynamic types via `:dependent` (conditional schemas)
@@ -244,6 +257,7 @@ end
 **Key Insights from Web Research:**
 
 **Architecture:**
+
 ```typescript
 // Modular package structure
 @atcute/client          // XRPC client
@@ -254,28 +268,31 @@ end
 ```
 
 **API Design Philosophy:**
+
 - Lightweight packages - use only what you need
 - Type-safe XRPC calls
 - Simple client creation
 - Focus on developer experience
 
 **Example Usage Pattern:**
-```typescript
-import { Client } from '@atcute/client'
 
-const client = new Client()
+```typescript
+import { Client } from "@atcute/client";
+
+const client = new Client();
 await client.login({
-  identifier: 'handle.bsky.social',
-  password: 'app-password'
-})
+  identifier: "handle.bsky.social",
+  password: "app-password",
+});
 
 // Type-safe API calls
-const timeline = await client.call('app.bsky.feed.getTimeline', {
-  limit: 10
-})
+const timeline = await client.call("app.bsky.feed.getTimeline", {
+  limit: 10,
+});
 ```
 
 **Lessons:**
+
 - ✅ Simple, explicit client management
 - ✅ Modular architecture
 - ✅ Developer-friendly defaults
@@ -288,6 +305,7 @@ const timeline = await client.call('app.bsky.feed.getTimeline', {
 ### Why Peri Instead of Ecto?
 
 **Ecto Approach (Your Original Attempt):**
+
 ```elixir
 # Complex, rigid, database-focused
 defmodule Lexicon.App.Bsky.Feed.Post do
@@ -313,6 +331,7 @@ end
 ```
 
 **Problems:**
+
 - ❌ Ecto expects database persistence
 - ❌ Union types require custom Ecto.Type
 - ❌ "unknown" type doesn't map to Ecto
@@ -320,6 +339,7 @@ end
 - ❌ Heavy boilerplate
 
 **Peri Approach (Proposed):**
+
 ```elixir
 # Flexible, protocol-focused
 defmodule ProtoRune.Lexicon.App.Bsky.Feed.Post do
@@ -365,6 +385,7 @@ end
 ```
 
 **Benefits:**
+
 - ✅ Clean, simple code
 - ✅ Union types via `:oneof`
 - ✅ "unknown" types via `:any`
@@ -1040,6 +1061,7 @@ changeset = Post.main_changeset(post_data)
 ### Inspiration: atcute + jacquard
 
 **Design Principles:**
+
 1. **Progressive Disclosure**: Simple tasks simple, complex tasks possible
 2. **Layered API**: High-level → Mid-level → Low-level
 3. **Explicit Sessions**: Functional style, pass session explicitly
@@ -1552,7 +1574,7 @@ end
 
 Based on jacquard's excellent structure:
 
-```markdown
+````markdown
 # ProtoRune
 
 [![Hex.pm](https://img.shields.io/hexpm/v/proto_rune.svg)](https://hex.pm/packages/proto_rune)
@@ -1585,6 +1607,7 @@ def deps do
   ]
 end
 ```
+````
 
 ### Your First Post
 
@@ -1647,18 +1670,18 @@ end
 - ✅ **Rich Text Builder**: Mentions, links, hashtags with automatic facet generation
 - ✅ **Thread Management**: Reply to posts, fetch threads
 - ✅ **Notifications**: Subscribe to mentions, likes, follows
-- ⏳ **Feed Generators**: Build custom feeds *(coming soon)*
+- ⏳ **Feed Generators**: Build custom feeds _(coming soon)_
 
 ### Low-Level API
 
 - ✅ **XRPC Client**: Direct access to any ATProto endpoint
 - ✅ **Repository Operations**: Create, update, delete records
 - ✅ **Identity Resolution**: Resolve DIDs and handles
-- ⏳ **OAuth Support**: Full OAuth implementation *(coming soon)*
+- ⏳ **OAuth Support**: Full OAuth implementation _(coming soon)_
 
 ### Bot Framework
 
-- ✅ **Multiple Strategies**: Polling, Firehose *(coming soon)*, Jetstream *(coming soon)*
+- ✅ **Multiple Strategies**: Polling, Firehose _(coming soon)_, Jetstream _(coming soon)_
 - ✅ **Event Handling**: Declarative event handlers
 - ✅ **Supervision**: Built-in crash recovery via OTP
 - ✅ **Rate Limiting**: Automatic backoff and retry
@@ -1677,8 +1700,8 @@ Browse the [examples/](./examples/) directory:
 - [simple_post.ex](./examples/simple_post.ex) - Basic posting
 - [rich_text_post.ex](./examples/rich_text_post.ex) - Rich text with mentions and links
 - [reply_bot.ex](./examples/reply_bot.ex) - Bot that replies to mentions
-- [firehose_filter.ex](./examples/firehose_filter.ex) - Filter firehose events *(coming soon)*
-- [feed_generator.ex](./examples/feed_generator.ex) - Custom feed algorithm *(coming soon)*
+- [firehose_filter.ex](./examples/firehose_filter.ex) - Filter firehose events _(coming soon)_
+- [feed_generator.ex](./examples/feed_generator.ex) - Custom feed algorithm _(coming soon)_
 
 ## Architecture
 
@@ -1695,6 +1718,7 @@ lib/
 ```
 
 **Module Guide:**
+
 - `ProtoRune.Bsky.*` - High-level Bluesky operations
 - `ProtoRune.ATProto.*` - Low-level protocol operations
 - `ProtoRune.Bot` - Bot behavior for event-driven apps
@@ -1706,26 +1730,28 @@ lib/
 Full documentation is available at [hexdocs.pm/proto_rune](https://hexdocs.pm/proto_rune).
 
 **Guides:**
+
 - [Getting Started](https://hexdocs.pm/proto_rune/getting_started.html)
 - [Authentication](https://hexdocs.pm/proto_rune/authentication.html)
 - [Rich Text](https://hexdocs.pm/proto_rune/rich_text.html)
 - [Bot Development](https://hexdocs.pm/proto_rune/bots.html)
-- [Repository Operations](https://hexdocs.pm/proto_rune/repositories.html) *(Advanced)*
-- [Code Generation](https://hexdocs.pm/proto_rune/code_generation.html) *(Advanced)*
+- [Repository Operations](https://hexdocs.pm/proto_rune/repositories.html) _(Advanced)_
+- [Code Generation](https://hexdocs.pm/proto_rune/code_generation.html) _(Advanced)_
 
 ## Comparison with Other Libraries
 
-| Feature | ProtoRune | atproto (Python) | atcute (TS) | jacquard (Rust) |
-|---------|-----------|------------------|-------------|-----------------|
-| Language | Elixir | Python | TypeScript | Rust |
-| Type Safety | ✅ Runtime | ⚠️ Optional | ✅ Compile | ✅ Compile |
-| Bot Framework | ✅ OTP-based | ❌ | ❌ | ❌ |
-| Code Gen | ✅ Peri schemas | ⚠️ Limited | ✅ | ✅ |
-| Performance | ⚡ BEAM VM | 🐌 | 🚀 | 🚀🚀 |
-| Concurrency | ✅ Actor model | ⚠️ asyncio | ⚠️ Promise | ⚠️ Tokio |
-| Hot Reload | ✅ | ❌ | ❌ | ❌ |
+| Feature       | ProtoRune       | atproto (Python) | atcute (TS) | jacquard (Rust) |
+| ------------- | --------------- | ---------------- | ----------- | --------------- |
+| Language      | Elixir          | Python           | TypeScript  | Rust            |
+| Type Safety   | ✅ Runtime      | ⚠️ Optional      | ✅ Compile  | ✅ Compile      |
+| Bot Framework | ✅ OTP-based    | ❌               | ❌          | ❌              |
+| Code Gen      | ✅ Peri schemas | ⚠️ Limited       | ✅          | ✅              |
+| Performance   | ⚡ BEAM VM      | 🐌               | 🚀          | 🚀🚀            |
+| Concurrency   | ✅ Actor model  | ⚠️ asyncio       | ⚠️ Promise  | ⚠️ Tokio        |
+| Hot Reload    | ✅              | ❌               | ❌          | ❌              |
 
 **When to use ProtoRune:**
+
 - Building Bluesky bots that need reliability
 - Applications requiring hot code reloading
 - Services with high concurrency needs
@@ -1770,13 +1796,14 @@ MIT License - see [LICENSE](./LICENSE) for details.
 
 ## Community
 
-- **Discord**: [Join our community](https://discord.gg/proto-rune) *(coming soon)*
+- **Discord**: [Join our community](https://discord.gg/proto-rune) _(coming soon)_
 - **Forum**: [Discuss on GitHub Discussions](https://github.com/zoedsoupe/proto_rune/discussions)
 - **Blog**: [Read about ProtoRune](https://zoedsoupe.dev/blog/proto-rune)
 
 ---
 
 **Built with ❤️ by [@zoedsoupe](https://github.com/zoedsoupe) and contributors**
+
 ```
 
 ---
@@ -1991,3 +2018,4 @@ Ready to ship a solid MVP! 🚀
 **Document Version**: 1.0
 **Last Updated**: October 2025
 **Status**: Proposal for Review
+```
