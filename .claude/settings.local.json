@@ -7,7 +7,8 @@
       "Bash(cat:*)",
       "Bash(git submodule:*)",
       "Bash(mix test:*)",
-      "Bash(coderabbit review:*)"
+      "Bash(coderabbit review:*)",
+      "Bash(mix compile:*)"
     ],
     "deny": [],
     "ask": []
