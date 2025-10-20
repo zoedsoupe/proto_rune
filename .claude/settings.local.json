@@ -5,7 +5,8 @@
       "Read(//Users/zoedsoupe/dev/oss/peri/**)",
       "WebSearch",
       "Bash(cat:*)",
-      "Bash(git submodule:*)"
+      "Bash(git submodule:*)",
+      "Bash(mix test:*)"
     ],
     "deny": [],
     "ask": []

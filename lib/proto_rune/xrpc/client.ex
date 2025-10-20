@@ -19,24 +19,50 @@ defmodule ProtoRune.XRPC.Client do
   - For **procedures**, it performs a `POST` request and validates the request body.
   """
 
+  alias ProtoRune.HTTPClient
   alias ProtoRune.XRPC.Error
   alias ProtoRune.XRPC.Procedure
   alias ProtoRune.XRPC.Query
 
+  @doc """
+  Executes an XRPC query or procedure.
+
+  Dispatches to the appropriate HTTP method based on the type:
+  - Query: GET request
+  - Procedure: POST request
+
+  ## Examples
+
+      # Execute a query
+      query = Query.new("app.bsky.actor.getProfile")
+      {:ok, response} = Client.execute(query)
+
+      # Execute a procedure
+      proc = Procedure.new("com.atproto.server.createSession")
+      {:ok, response} = Client.execute(proc)
+  """
   def execute(%Query{} = query) do
-    query
-    |> to_string()
-    |> Req.get(headers: query.headers)
+    url = to_string(query)
+    headers = format_headers(query.headers)
+
+    :get
+    |> HTTPClient.request(url, headers: headers)
     |> parse_http()
   end
 
   def execute(%Procedure{} = proc) do
+    url = to_string(proc)
     body = ProtoRune.Case.camelize_enum(proc.body)
+    headers = format_headers(proc.headers)
 
-    proc
-    |> to_string()
-    |> Req.post(json: body, decode_json: [keys: :strings])
+    :post
+    |> HTTPClient.request(url, json: body, headers: headers)
     |> parse_http()
+  end
+
+  # Convert headers map to list of tuples for HTTPClient
+  defp format_headers(headers) when is_map(headers) do
+    Enum.map(headers, fn {k, v} -> {to_string(k), v} end)
   end
 
   defp parse_http({:error, err}), do: {:error, err}

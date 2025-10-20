@@ -44,18 +44,28 @@ defmodule ProtoRune.XRPC.Query do
   ```
   """
 
-  defstruct [:method, :params, :parser, :headers]
+  defstruct [:method, :params, :parser, :headers, :base_url]
 
-  def new(method) when is_binary(method) do
-    %__MODULE__{method: method, params: %{}, headers: %{}}
-  end
+  @doc """
+  Creates a new query with the given method.
 
-  def new(method, from: parser) when is_binary(method) do
+  ## Options
+
+  - `:from` - Parser module for parameter validation
+  - `:base_url` - Service base URL (e.g., "https://bsky.social")
+
+  ## Examples
+
+      Query.new("app.bsky.actor.getProfile")
+      Query.new("app.bsky.actor.getProfile", from: parser, base_url: "https://bsky.social")
+  """
+  def new(method, opts \\ []) when is_binary(method) do
     %__MODULE__{
       method: method,
-      parser: parser,
+      parser: Keyword.get(opts, :from),
       params: %{},
-      headers: %{}
+      headers: %{},
+      base_url: Keyword.get(opts, :base_url)
     }
   end
 
@@ -73,12 +83,26 @@ defmodule ProtoRune.XRPC.Query do
     put_in(query, [Access.key!(:headers), key], value)
   end
 
+  @doc """
+  Sets the base URL for the query.
+
+  ## Examples
+
+      query = Query.new("app.bsky.actor.getProfile")
+      query = Query.put_base_url(query, "https://bsky.social")
+  """
+  def put_base_url(%__MODULE__{} = query, base_url) when is_binary(base_url) do
+    %{query | base_url: base_url}
+  end
+
   defimpl String.Chars, for: __MODULE__ do
     alias ProtoRune.XRPC.Config
     alias ProtoRune.XRPC.Query
 
     def to_string(%Query{} = query) do
-      base = Path.join(Config.get(:base_url), query.method)
+      # Use explicit base_url if provided, otherwise fall back to config
+      base_url = query.base_url || Config.get(:base_url) || "https://bsky.social/xrpc"
+      base = Path.join(base_url, query.method)
 
       if Enum.empty?(query.params) do
         base

@@ -87,9 +87,12 @@ defmodule ProtoRune.XRPC.DSL do
 
     quote do
       if unquote(authenticated?) do
-        def unquote(fun)(%{access_jwt: access_token}) do
+        def unquote(fun)(%{access_jwt: access_token} = session) do
+          # Extract service_url from session if present
+          base_url = Map.get(session, :service_url)
+
           unquote(method)
-          |> Query.new()
+          |> Query.new(base_url: base_url)
           |> Query.put_header(:authorization, "Bearer #{access_token}")
           |> Client.execute()
         end
@@ -114,8 +117,10 @@ defmodule ProtoRune.XRPC.DSL do
       unquote(block)
 
       if unquote(authenticated) do
-        def unquote(fun)(%{access_jwt: access_token}, params) do
-          query = Query.new(unquote(method), from: Map.new(@param))
+        def unquote(fun)(%{access_jwt: access_token} = session, params) do
+          # Extract service_url from session if present
+          base_url = Map.get(session, :service_url)
+          query = Query.new(unquote(method), from: Map.new(@param), base_url: base_url)
 
           with {:ok, query} <- Query.add_params(query, params) do
             query
@@ -146,8 +151,10 @@ defmodule ProtoRune.XRPC.DSL do
     quote do
       cond do
         unquote(authenticated) ->
-          def unquote(fun)(%{access_jwt: access_token}, params) do
-            proc = Procedure.new(unquote(method))
+          def unquote(fun)(%{access_jwt: access_token} = session, params) do
+            # Extract service_url from session if present
+            base_url = Map.get(session, :service_url)
+            proc = Procedure.new(unquote(method), base_url: base_url)
 
             with {:ok, proc} <- Procedure.put_body(proc, params) do
               proc
@@ -157,8 +164,10 @@ defmodule ProtoRune.XRPC.DSL do
           end
 
         unquote(refresh) ->
-          def unquote(fun)(%{refresh_jwt: refresh}) do
-            proc = Procedure.new(unquote(method))
+          def unquote(fun)(%{refresh_jwt: refresh} = session) do
+            # Extract service_url from session if present
+            base_url = Map.get(session, :service_url)
+            proc = Procedure.new(unquote(method), base_url: base_url)
 
             proc
             |> Procedure.put_header(:authorization, "Bearer #{refresh}")
@@ -188,8 +197,10 @@ defmodule ProtoRune.XRPC.DSL do
       unquote(block)
 
       if unquote(authenticated) do
-        def unquote(fun)(%{access_jwt: access_token}, params) do
-          proc = Procedure.new(unquote(method), from: Map.new(@param))
+        def unquote(fun)(%{access_jwt: access_token} = session, params) do
+          # Extract service_url from session if present
+          base_url = Map.get(session, :service_url)
+          proc = Procedure.new(unquote(method), from: Map.new(@param), base_url: base_url)
 
           with {:ok, proc} <- Procedure.put_body(proc, params) do
             proc

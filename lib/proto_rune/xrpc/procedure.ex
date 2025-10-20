@@ -30,14 +30,29 @@ defmodule ProtoRune.XRPC.Procedure do
   Validates the body using the specified parser and updates the procedure via [peri](https://hexdocs.pm/peri).
   """
 
-  defstruct [:method, :body, :parser, :headers]
+  defstruct [:method, :body, :parser, :headers, :base_url]
 
-  def new(method, from: parser) when is_binary(method) do
-    %__MODULE__{method: method, parser: parser, body: %{}, headers: %{}}
-  end
+  @doc """
+  Creates a new procedure with the given method.
 
-  def new(method) when is_binary(method) do
-    %__MODULE__{method: method, body: %{}, headers: %{}}
+  ## Options
+
+  - `:from` - Parser module for body validation
+  - `:base_url` - Service base URL (e.g., "https://bsky.social")
+
+  ## Examples
+
+      Procedure.new("app.bsky.feed.post")
+      Procedure.new("app.bsky.feed.post", from: parser, base_url: "https://bsky.social")
+  """
+  def new(method, opts \\ []) when is_binary(method) do
+    %__MODULE__{
+      method: method,
+      parser: Keyword.get(opts, :from),
+      body: %{},
+      headers: %{},
+      base_url: Keyword.get(opts, :base_url)
+    }
   end
 
   def put_body(%__MODULE__{} = proc, body) do
@@ -50,12 +65,26 @@ defmodule ProtoRune.XRPC.Procedure do
     put_in(proc, [Access.key!(:headers), key], value)
   end
 
+  @doc """
+  Sets the base URL for the procedure.
+
+  ## Examples
+
+      proc = Procedure.new("app.bsky.feed.post")
+      proc = Procedure.put_base_url(proc, "https://bsky.social")
+  """
+  def put_base_url(%__MODULE__{} = proc, base_url) when is_binary(base_url) do
+    %{proc | base_url: base_url}
+  end
+
   defimpl String.Chars, for: __MODULE__ do
     alias ProtoRune.XRPC.Config
     alias ProtoRune.XRPC.Procedure
 
     def to_string(%Procedure{} = proc) do
-      Path.join(Config.get(:base_url), proc.method)
+      # Use explicit base_url if provided, otherwise fall back to config
+      base_url = proc.base_url || Config.get(:base_url) || "https://bsky.social/xrpc"
+      Path.join(base_url, proc.method)
     end
   end
 end

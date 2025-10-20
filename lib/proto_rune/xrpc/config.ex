@@ -1,21 +1,18 @@
 defmodule ProtoRune.XRPC.Config do
-  @moduledoc false
+  @moduledoc """
+  Provides fallback configuration for XRPC when service URL is not explicit.
+  """
 
-  def get(key) when is_atom(key) do
-    env = Application.get_env(:proto_rune, :env, :dev)
+  @default_base_url "https://bsky.social/xrpc"
 
-    xrpc_config(env, key)
+  @doc """
+  Gets the configured base URL or returns the default.
+  """
+  def get(:base_url) do
+    Application.get_env(:proto_rune, :base_url, @default_base_url)
   end
 
-  @dev_config [
-    base_url: "https://bsky.social/xrpc"
-  ]
-
-  defp xrpc_config(:dev, key) do
-    Keyword.get(@dev_config, key)
-  end
-
-  defp xrpc_config(:prod, key) do
+  def get(key) do
     Application.get_env(:proto_rune, key)
   end
 end
