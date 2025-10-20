@@ -123,13 +123,18 @@ defmodule ProtoRune.Lexicon.TypeMapperTest do
 
   describe "map_type/1 - float with constraints" do
     test "maps float with range" do
-      assert {:ok, {:float, {:range, {0.0, 1.0}}}} =
+      assert {:ok, {:float, {:range, {min, max}}}} =
                TypeMapper.map_type(%{"type" => "float", "minimum" => 0.0, "maximum" => 1.0})
+
+      assert min == 0.0
+      assert max == 1.0
     end
 
     test "maps float with minimum" do
-      assert {:ok, {:float, {:gte, 0.0}}} =
+      assert {:ok, {:float, {:gte, min}}} =
                TypeMapper.map_type(%{"type" => "float", "minimum" => 0.0})
+
+      assert min == 0.0
     end
 
     test "maps float with maximum" do

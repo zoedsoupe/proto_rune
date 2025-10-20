@@ -95,9 +95,7 @@ defmodule ProtoRune.Lexicon.TypeMapper do
   @spec map_object_type(atproto_type()) :: mapping_result()
   def map_object_type(%{"properties" => properties, "required" => required})
       when is_map(properties) and is_list(required) do
-    with {:ok, schema_map} <- map_properties(properties, required) do
-      {:ok, schema_map}
-    end
+    map_properties(properties, required)
   end
 
   def map_object_type(%{"properties" => properties}) when is_map(properties) do

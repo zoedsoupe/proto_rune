@@ -19,8 +19,8 @@ defmodule ATProto.Identity.Cache do
   @type ttl :: non_neg_integer()
 
   # Default TTLs
-  @default_handle_ttl :timer.hours(1)
-  @default_did_ttl :timer.hours(24)
+  @default_handle_ttl to_timeout(hour: 1)
+  @default_did_ttl to_timeout(day: 1)
 
   # Server state
   defmodule State do
@@ -173,7 +173,7 @@ defmodule ATProto.Identity.Cache do
   end
 
   defp schedule_cleanup do
-    Process.send_after(self(), :cleanup, :timer.minutes(5))
+    Process.send_after(self(), :cleanup, to_timeout(minute: 5))
   end
 
   defp cleanup_expired(table) do

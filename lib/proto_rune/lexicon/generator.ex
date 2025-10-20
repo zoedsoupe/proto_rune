@@ -34,21 +34,20 @@ defmodule ProtoRune.Lexicon.Generator do
   """
   @spec generate_module(lexicon()) :: generation_result()
   def generate_module(%{"id" => id, "defs" => defs} = lexicon) do
-    try do
-      module_name = id_to_module_name(id)
-      schemas = generate_schemas(defs)
+    module_name = id_to_module_name(id)
+    schemas = generate_schemas(defs)
 
-      source = build_module_source(
+    source =
+      build_module_source(
         module_name,
         id,
         lexicon["description"],
         schemas
       )
 
-      {:ok, source}
-    rescue
-      error -> {:error, {:generation_failed, Exception.message(error)}}
-    end
+    {:ok, source}
+  rescue
+    error -> {:error, {:generation_failed, Exception.message(error)}}
   end
 
   def generate_module(_), do: {:error, :invalid_lexicon_format}
@@ -102,13 +101,14 @@ defmodule ProtoRune.Lexicon.Generator do
 
   defp generate_schema_for_def(name, %{"type" => "record", "record" => record_def} = def) do
     with {:ok, schema} <- TypeMapper.map_type(record_def) do
-      {:ok, %{
-        name: name,
-        type: :record,
-        schema: schema,
-        description: def["description"],
-        key: def["key"]
-      }}
+      {:ok,
+       %{
+         name: name,
+         type: :record,
+         schema: schema,
+         description: def["description"],
+         key: def["key"]
+       }}
     end
   end
 
@@ -125,13 +125,14 @@ defmodule ProtoRune.Lexicon.Generator do
 
     with {:ok, params} <- params_schema,
          {:ok, output} <- output_schema do
-      {:ok, %{
-        name: name,
-        type: :query,
-        parameters: params,
-        output: output,
-        description: def["description"]
-      }}
+      {:ok,
+       %{
+         name: name,
+         type: :query,
+         parameters: params,
+         output: output,
+         description: def["description"]
+       }}
     end
   end
 
@@ -148,36 +149,39 @@ defmodule ProtoRune.Lexicon.Generator do
 
     with {:ok, input} <- input_schema,
          {:ok, output} <- output_schema do
-      {:ok, %{
-        name: name,
-        type: :procedure,
-        input: input,
-        output: output,
-        description: def["description"]
-      }}
+      {:ok,
+       %{
+         name: name,
+         type: :procedure,
+         input: input,
+         output: output,
+         description: def["description"]
+       }}
     end
   end
 
   defp generate_schema_for_def(name, %{"type" => "object"} = def) do
     with {:ok, schema} <- TypeMapper.map_object_type(def) do
-      {:ok, %{
-        name: name,
-        type: :object,
-        schema: schema,
-        description: def["description"]
-      }}
+      {:ok,
+       %{
+         name: name,
+         type: :object,
+         schema: schema,
+         description: def["description"]
+       }}
     end
   end
 
   defp generate_schema_for_def(name, def) do
     # For other types (token, subscription, etc.), try to map as-is
     with {:ok, schema} <- TypeMapper.map_type(def) do
-      {:ok, %{
-        name: name,
-        type: :other,
-        schema: schema,
-        description: def["description"]
-      }}
+      {:ok,
+       %{
+         name: name,
+         type: :other,
+         schema: schema,
+         description: def["description"]
+       }}
     end
   end
 
@@ -211,11 +215,9 @@ defmodule ProtoRune.Lexicon.Generator do
   end
 
   defp build_schemas_code(schemas) do
-    schemas
-    |> Enum.map(fn {name, schema_def} ->
+    Enum.map_join(schemas, "\n\n", fn {name, schema_def} ->
       build_schema_code(name, schema_def)
     end)
-    |> Enum.join("\n\n")
   end
 
   defp build_schema_code(name, %{type: :record, schema: schema, description: desc}) do
@@ -326,9 +328,8 @@ defmodule ProtoRune.Lexicon.Generator do
   def generate_all(lexicons_dir, output_dir) do
     with {:ok, files} <- list_lexicon_files(lexicons_dir),
          {:ok, lexicons} <- parse_lexicons(files),
-         :ok <- ensure_output_dir(output_dir),
-         {:ok, count} <- generate_and_write_modules(lexicons, output_dir) do
-      {:ok, count}
+         :ok <- ensure_output_dir(output_dir) do
+      generate_and_write_modules(lexicons, output_dir)
     end
   end
 
@@ -350,9 +351,8 @@ defmodule ProtoRune.Lexicon.Generator do
   defp parse_lexicons(files) do
     results =
       Enum.map(files, fn file ->
-        with {:ok, content} <- File.read(file),
-             {:ok, json} <- Jason.decode(content) do
-          {:ok, json}
+        with {:ok, content} <- File.read(file) do
+          Jason.decode(content)
         end
       end)
 

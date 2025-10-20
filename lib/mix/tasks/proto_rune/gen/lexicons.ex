@@ -1,9 +1,11 @@
 defmodule Mix.Tasks.ProtoRune.Gen.Lexicons do
+  @shortdoc "Generates Peri schema modules from ATProto lexicon files"
+
   @moduledoc """
   Generates Peri schema modules from ATProto lexicon JSON files.
 
   This task reads lexicon definitions from `priv/atproto/lexicons` and generates
-  corresponding Elixir modules with Peri schemas in `lib/proto_rune/lexicon/generated`.
+  corresponding Elixir modules with Peri schemas in `lib/proto_rune/lexicon/`.
 
   ## Usage
 
@@ -12,7 +14,7 @@ defmodule Mix.Tasks.ProtoRune.Gen.Lexicons do
   ## Options
 
     * `--lexicons-dir` - Directory containing lexicon JSON files (default: priv/atproto/lexicons)
-    * `--output-dir` - Directory where generated modules will be written (default: lib/proto_rune/lexicon/generated)
+    * `--output-dir` - Directory where generated modules will be written (default: lib/proto_rune/lexicon/)
     * `--recursive` - Recursively search for lexicon files in subdirectories (default: true)
     * `--force` - Force regeneration even if output files exist (default: false)
 
@@ -31,7 +33,7 @@ defmodule Mix.Tasks.ProtoRune.Gen.Lexicons do
 
   For each lexicon file `app.bsky.feed.post.json`, this task will generate:
 
-    * `lib/proto_rune/lexicon/generated/app/bsky/feed/post.ex`
+    * `lib/proto_rune/lexicon/app/bsky/feed/post.ex`
 
   Each generated module will contain:
 
@@ -50,10 +52,8 @@ defmodule Mix.Tasks.ProtoRune.Gen.Lexicons do
 
   alias ProtoRune.Lexicon.Generator
 
-  @shortdoc "Generates Peri schema modules from ATProto lexicon files"
-
   @default_lexicons_dir "priv/atproto/lexicons"
-  @default_output_dir "lib/proto_rune/lexicon/generated"
+  @default_output_dir "lib/proto_rune/lexicon"
 
   @impl Mix.Task
   def run(args) do
@@ -172,20 +172,15 @@ defmodule Mix.Tasks.ProtoRune.Gen.Lexicons do
     |> File.mkdir_p()
   end
 
-  defp format_error({:no_lexicons_dir, dir}),
-    do: "Lexicons directory does not exist: #{dir}"
+  defp format_error({:no_lexicons_dir, dir}), do: "Lexicons directory does not exist: #{dir}"
 
-  defp format_error({:output_dir_exists, dir}),
-    do: "Output directory already exists: #{dir}. Use --force to overwrite."
+  defp format_error({:output_dir_exists, dir}), do: "Output directory already exists: #{dir}. Use --force to overwrite."
 
-  defp format_error({:directory_error, dir, reason}),
-    do: "Cannot access directory #{dir}: #{inspect(reason)}"
+  defp format_error({:directory_error, dir, reason}), do: "Cannot access directory #{dir}: #{inspect(reason)}"
 
-  defp format_error({:generation_failed, message}),
-    do: "Generation failed: #{message}"
+  defp format_error({:generation_failed, message}), do: "Generation failed: #{message}"
 
-  defp format_error({:mkdir_failed, reason}),
-    do: "Failed to create directory: #{inspect(reason)}"
+  defp format_error({:mkdir_failed, reason}), do: "Failed to create directory: #{inspect(reason)}"
 
   defp format_error(reason) when is_binary(reason), do: reason
   defp format_error(reason), do: inspect(reason)

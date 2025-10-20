@@ -277,6 +277,6 @@ defmodule ProtoRune.Bot.Server do
   def format_status(key), do: key
 
   defp schedule_refresh_session do
-    Process.send_after(self(), :refresh_session, :timer.minutes(5))
+    Process.send_after(self(), :refresh_session, to_timeout(minute: 5))
   end
 end
