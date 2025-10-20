@@ -6,7 +6,8 @@
       "WebSearch",
       "Bash(cat:*)",
       "Bash(git submodule:*)",
-      "Bash(mix test:*)"
+      "Bash(mix test:*)",
+      "Bash(coderabbit review:*)"
     ],
     "deny": [],
     "ask": []

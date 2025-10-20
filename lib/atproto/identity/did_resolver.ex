@@ -1,4 +1,4 @@
-defmodule ATProto.Identity.DIDResolver do
+defmodule ProtoRune.Atproto.Identity.DIDResolver do
   @moduledoc """
   Handles DID resolution for AT Protocol identities.
 

@@ -1,4 +1,4 @@
-defmodule ATProto.Identity.Cache do
+defmodule ProtoRune.Atproto.Identity.Cache do
   @moduledoc """
   Provides caching for AT Protocol identity resolution results.
 

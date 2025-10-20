@@ -1,4 +1,4 @@
-defmodule ATProto.Identity.Behaviour do
+defmodule ProtoRune.Atproto.Identity.Behaviour do
   @moduledoc """
   Defines the behaviour for AT Protocol identity management operations.
 

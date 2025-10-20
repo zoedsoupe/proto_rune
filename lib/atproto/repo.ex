@@ -34,6 +34,11 @@ defmodule ProtoRune.Atproto.Repo do
     created_at: {:naive_datetime, {:default, &NaiveDateTime.utc_now/0}}
   }
 
+  @doc """
+  Create a single new repository record. Requires auth, implemented by PDS.
+
+  https://docs.bsky.app/docs/api/com-atproto-repo-create-record
+  """
   defprocedure "com.atproto.repo.createRecord", authenticated: true do
     param :repo, {:required, :string}
     param :rkey, {:string, {:max, 15}}
@@ -45,6 +50,59 @@ defmodule ProtoRune.Atproto.Repo do
 
     param :record,
           {:required, {:dependent, {__MODULE__, :parse_record_schema}}}
+  end
+
+  @doc """
+  Get a single record from a repository. Does not require auth.
+
+  https://docs.bsky.app/docs/api/com-atproto-repo-get-record
+  """
+  defquery "com.atproto.repo.getRecord", authenticated: true do
+    param :repo, {:required, :string}
+    param :collection, {:required, :string}
+    param :rkey, {:required, :string}
+    param :cid, :string
+  end
+
+  @doc """
+  Write a repository record, creating or updating it as needed. Requires auth, implemented by PDS.
+
+  https://docs.bsky.app/docs/api/com-atproto-repo-put-record
+  """
+  defprocedure "com.atproto.repo.putRecord", authenticated: true do
+    param :repo, {:required, :string}
+    param :collection, {:required, :string}
+    param :rkey, {:required, :string}
+    param :validate, :boolean
+    param :record, {:required, :map}
+    param :swap_record, :string
+    param :swap_commit, :string
+  end
+
+  @doc """
+  Delete a repository record, or ensure it doesn't exist. Requires auth, implemented by PDS.
+
+  https://docs.bsky.app/docs/api/com-atproto-repo-delete-record
+  """
+  defprocedure "com.atproto.repo.deleteRecord", authenticated: true do
+    param :repo, {:required, :string}
+    param :collection, {:required, :string}
+    param :rkey, {:required, :string}
+    param :swap_record, :string
+    param :swap_commit, :string
+  end
+
+  @doc """
+  List a range of records in a repository, matching a specific collection. Does not require auth.
+
+  https://docs.bsky.app/docs/api/com-atproto-repo-list-records
+  """
+  defquery "com.atproto.repo.listRecords", authenticated: true do
+    param :repo, {:required, :string}
+    param :collection, {:required, :string}
+    param :limit, {:integer, {:range, {1, 100}}}
+    param :cursor, :string
+    param :reverse, :boolean
   end
 
   def encode_collection(col), do: "app.bsky.feed.#{col}"

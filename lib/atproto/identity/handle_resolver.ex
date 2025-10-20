@@ -1,4 +1,4 @@
-defmodule ATProto.Identity.HandleResolver do
+defmodule ProtoRune.Atproto.Identity.HandleResolver do
   @moduledoc """
   Handles AT Protocol handle resolution to DIDs through DNS and HTTPS methods.
 

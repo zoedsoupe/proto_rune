@@ -1,4 +1,4 @@
-defmodule ATProto.Identity do
+defmodule ProtoRune.Atproto.Identity do
   @moduledoc """
   Implements AT Protocol identity management operations.
 
@@ -9,11 +9,11 @@ defmodule ATProto.Identity do
   - Verifying signatures
   """
 
-  @behaviour ATProto.Identity.Behaviour
+  @behaviour ProtoRune.Atproto.Identity.Behaviour
 
-  alias ATProto.Identity.Cache
-  alias ATProto.Identity.DIDResolver
-  alias ATProto.Identity.HandleResolver
+  alias ProtoRune.Atproto.Identity.Cache
+  alias ProtoRune.Atproto.Identity.DIDResolver
+  alias ProtoRune.Atproto.Identity.HandleResolver
 
   require Logger
 
@@ -54,25 +54,23 @@ defmodule ATProto.Identity do
   """
   @impl true
   def valid_handle?(term) when is_handle(term) do
-    segments = String.split(term, ".")
-
-    # Must have at least 2 segments
-    if length(segments) < 2, do: false
-
-    # Last segment cannot start with digit
-    [last_segment | other_segments] = Enum.reverse(segments)
-
-    case String.first(last_segment) do
-      <<char>> when char in ?0..?9 ->
-        false
-
-      _ ->
-        # Validate each segment
-        Enum.all?([last_segment | other_segments], &valid_segment?/1)
-    end
+    term
+    |> String.split(".")
+    |> validate_segments()
   end
 
   def valid_handle?(_), do: false
+
+  defp validate_segments(segments) when length(segments) < 2, do: false
+
+  defp validate_segments(segments) do
+    [last | rest] = Enum.reverse(segments)
+
+    case String.first(last) do
+      <<char>> when char in ?0..?9 -> false
+      _ -> Enum.all?([last | rest], &valid_segment?/1)
+    end
+  end
 
   @doc """
   Performs complete syntactic validation of a DID according to AT Protocol specifications.
