@@ -34,6 +34,7 @@ defmodule ProtoRune.MixProject do
     [
       {:peri, "~> 0.9"},
       {:req, "~> 0.7"},
+      {:gun, "~> 2.2"},
       {:ecto, "~> 3.14"},
       {:styler, "~> 1.3", only: [:dev, :test], runtime: false},
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
