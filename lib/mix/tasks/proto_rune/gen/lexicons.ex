@@ -151,7 +151,7 @@ defmodule Mix.Tasks.ProtoRune.Gen.Lexicons do
     Mix.shell().info("[#{index}/#{total}] Processing #{relative_path}...")
 
     with {:ok, content} <- File.read(file),
-         {:ok, lexicon} <- Jason.decode(content),
+         {:ok, lexicon} <- JSON.decode(content),
          {:ok, source} <- Generator.generate_module(lexicon),
          file_path = Generator.module_file_path(lexicon["id"], output_dir),
          :ok <- ensure_parent_dir(file_path),
@@ -178,6 +178,6 @@ defmodule Mix.Tasks.ProtoRune.Gen.Lexicons do
 
   defp format_error({:generation_failed, message}), do: "Generation failed: #{message}"
 
-  defp format_error(%Jason.DecodeError{} = error), do: "JSON decode error: #{Exception.message(error)}"
+  defp format_error(%JSON.DecodeError{} = error), do: "JSON decode error: #{Exception.message(error)}"
   defp format_error(reason), do: inspect(reason)
 end

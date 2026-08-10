@@ -352,7 +352,7 @@ defmodule ProtoRune.Lexicon.Generator do
     results =
       Enum.map(files, fn file ->
         with {:ok, content} <- File.read(file) do
-          Jason.decode(content)
+          JSON.decode(content)
         end
       end)
 

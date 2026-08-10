@@ -135,7 +135,7 @@ defmodule ProtoRune.Atproto.Identity.DIDResolver do
   end
 
   defp decode_did_document(body) do
-    case Jason.decode(body, keys: :atoms) do
+    case JSON.decode(body) do
       {:ok, doc} -> {:ok, ProtoRune.Case.snakelize_enum(doc)}
       _ -> {:error, :invalid_format}
     end

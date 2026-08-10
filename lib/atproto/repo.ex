@@ -1,5 +1,14 @@
 defmodule ProtoRune.Atproto.Repo do
-  @moduledoc false
+  @moduledoc """
+  Low-level `com.atproto.repo` operations.
+
+  Create, read, update, delete, and list records in a repository.
+  All functions require an authenticated `ProtoRune.Atproto.Session`.
+
+  For common Bluesky actions (posting, liking, reposting) prefer the
+  high-level `ProtoRune` API, which wraps these calls with the right
+  collections and record schemas.
+  """
 
   import ProtoRune.XRPC.DSL
 

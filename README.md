@@ -255,6 +255,6 @@ MIT License - see [LICENSE](./LICENSE) for details.
 ## Support
 
 - **Issues**: [GitHub Issues](https://github.com/zoedsoupe/proto_rune/issues)
-- **Documentation**: [guides/](guides/) and [hexdocs.pm/proto_rune](https://hexdocs.pm/proto_rune)
+- **Documentation**: [guides](guides/getting-started.md) and [hexdocs.pm/proto_rune](https://hexdocs.pm/proto_rune)
 
 Built love by [@zoedsoupe](https://github.com/zoedsoupe).

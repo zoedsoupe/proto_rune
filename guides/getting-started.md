@@ -125,7 +125,6 @@ end
 - Explore [posting content and rich text](posting-content.md)
 - Build [bots with the bot framework](bot-development.md)
 - Understand [repository operations](repository-operations.md) for advanced use cases
-- Review [error handling patterns](error-handling.md)
 
 ## Configuration
 

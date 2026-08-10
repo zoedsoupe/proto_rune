@@ -12,7 +12,7 @@ XRPC (Cross-server Remote Procedure Call) is AT Protocol's approach to HTTP APIs
 
 ## XRPC in ProtoRune
 
-While ProtoRune provides high-level abstractions like `ProtoRune.create_session/2`, understanding the XRPC layer helps when:
+While ProtoRune provides high-level abstractions like `ProtoRune.login/2`, understanding the XRPC layer helps when:
 
 - Building custom features
 - Working with new Lexicons
@@ -22,10 +22,10 @@ While ProtoRune provides high-level abstractions like `ProtoRune.create_session/
 Here's how the layers connect:
 
 ```elixir
-{:ok, session} = ProtoRune.create_session("identifier", "password")
+{:ok, session} = ProtoRune.login("identifier", "password")
 
 # High-level API (recommended for most uses)
-{:ok, post} = ProtoRune.ATProto.create_record(text: "Hello world!")
+{:ok, post} = ProtoRune.post(session, "Hello world!")
 
 # Is equivalent to:
 ProtoRune.XRPC.procedure(session,

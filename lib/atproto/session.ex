@@ -1,5 +1,16 @@
 defmodule ProtoRune.Atproto.Session do
-  @moduledoc false
+  @moduledoc """
+  An authenticated AT Protocol session.
+
+  Returned by `ProtoRune.login/2` and `ProtoRune.refresh_session/1`.
+  Carries the access and refresh JWTs, the account's `handle` and `did`,
+  and the `service_url` of the PDS resolved from the DID document, so
+  requests are routed to the right server.
+
+  Treat it as an opaque value: pass it as the first argument to any
+  function that requires authentication, and refresh it with
+  `ProtoRune.refresh_session/1` when the access token expires.
+  """
 
   @type t :: %__MODULE__{
           access_jwt: String.t(),

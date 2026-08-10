@@ -362,12 +362,12 @@ defmodule ProtoRune.Lexicon.GeneratorTest do
       # Create test lexicon files
       File.write!(
         Path.join(lexicons_dir, "post.json"),
-        Jason.encode!(@simple_lexicon)
+        JSON.encode!(@simple_lexicon)
       )
 
       File.write!(
         Path.join(lexicons_dir, "complex.json"),
-        Jason.encode!(@complex_lexicon)
+        JSON.encode!(@complex_lexicon)
       )
 
       assert {:ok, 2} = Generator.generate_all(lexicons_dir, output_dir)
@@ -388,7 +388,7 @@ defmodule ProtoRune.Lexicon.GeneratorTest do
     } do
       File.write!(
         Path.join(lexicons_dir, "post.json"),
-        Jason.encode!(@complex_lexicon)
+        JSON.encode!(@complex_lexicon)
       )
 
       assert {:ok, 1} = Generator.generate_all(lexicons_dir, output_dir)

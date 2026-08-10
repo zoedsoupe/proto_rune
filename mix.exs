@@ -65,7 +65,7 @@ defmodule ProtoRune.MixProject do
       "guides/xrpc.md"
     ]
 
-    dev = ["README.md", "CONTRIBUTING.md", "LICENSE", "rfc.md"]
+    dev = ["README.md", "CONTRIBUTING.md", "LICENSE"]
 
     [
       main: "readme",

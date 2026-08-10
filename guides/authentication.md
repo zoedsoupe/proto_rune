@@ -100,7 +100,7 @@ defmodule MyApp.SessionStore do
     # Store refresh_jwt securely
     # Never store in version control
     # Consider encryption for sensitive storage
-    File.write!("session.json", Jason.encode!(%{
+    File.write!("session.json", JSON.encode!(%{
       refresh_jwt: session.refresh_jwt,
       access_jwt: session.access_jwt,
       did: session.did
@@ -110,7 +110,7 @@ defmodule MyApp.SessionStore do
   def load_session do
     case File.read("session.json") do
       {:ok, content} ->
-        data = Jason.decode!(content)
+        data = JSON.decode!(content)
         {:ok, Map.new(data, fn {k, v} -> {String.to_atom(k), v} end)}
 
       {:error, _} ->
