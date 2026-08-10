@@ -8,6 +8,18 @@ defmodule ProtoRune.Atproto.Identity.Cache do
 
   The cache automatically expires entries and provides
   concurrent access with proper cleanup.
+
+  ## Supervision
+
+  ProtoRune is a library and starts no processes of its own. To enable
+  identity caching, add the cache to your application's supervision tree:
+
+      children = [
+        ProtoRune.Atproto.Identity.Cache
+      ]
+
+  When the cache is not running, lookups behave as misses and writes are
+  dropped, so resolution still works (uncached).
   """
 
   use GenServer
@@ -164,6 +176,8 @@ defmodule ProtoRune.Atproto.Identity.Cache do
       [] ->
         {:error, :not_found}
     end
+  rescue
+    ArgumentError -> {:error, :not_found}
   end
 
   defp expired?(%{expires_at: expires_at}) do
