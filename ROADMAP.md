@@ -76,7 +76,7 @@
   - PKCE support for public clients
   - Token exchange and refresh
   - Redirect URI handling
-- [ ] Improved rate limiting and backoff (issue #30)
+- [x] Improved rate limiting and backoff (issue #30)
   - Track requests per minute
   - Exponential backoff on rate limits
   - Configurable retry logic
