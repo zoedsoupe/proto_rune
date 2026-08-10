@@ -73,17 +73,13 @@ defmodule ProtoRune.Bsky do
       created_at: opts |> Keyword.get(:created_at, DateTime.utc_now()) |> DateTime.to_iso8601()
     }
 
-    record =
-      case Keyword.get(opts, :reply_to) do
-        nil -> record
-        uri -> Map.put(record, :reply, build_reply(uri))
-      end
-
-    Repo.create_record(session, %{
-      repo: session.did,
-      collection: "app.bsky.feed.post",
-      record: record
-    })
+    with {:ok, record} <- maybe_put_reply(session, record, opts) do
+      Repo.create_record(session, %{
+        repo: session.did,
+        collection: "app.bsky.feed.post",
+        record: record
+      })
+    end
   end
 
   def post(session, %{text: text, facets: facets}, opts) when is_binary(text) and is_list(facets) do
@@ -95,17 +91,13 @@ defmodule ProtoRune.Bsky do
       created_at: opts |> Keyword.get(:created_at, DateTime.utc_now()) |> DateTime.to_iso8601()
     }
 
-    record =
-      case Keyword.get(opts, :reply_to) do
-        nil -> record
-        uri -> Map.put(record, :reply, build_reply(uri))
-      end
-
-    Repo.create_record(session, %{
-      repo: session.did,
-      collection: "app.bsky.feed.post",
-      record: record
-    })
+    with {:ok, record} <- maybe_put_reply(session, record, opts) do
+      Repo.create_record(session, %{
+        repo: session.did,
+        collection: "app.bsky.feed.post",
+        record: record
+      })
+    end
   end
 
   @doc """
@@ -480,16 +472,40 @@ defmodule ProtoRune.Bsky do
     Identity.resolve_handle(handle)
   end
 
-  # NOTE: Simplified MVP implementation
-  # For proper reply threading, this should:
-  # 1. Fetch the parent post to get its CID
-  # 2. Determine the thread root (parent.reply.root or parent itself)
-  # For now, returns stub values - replies will work but without proper threading
-  defp build_reply(_uri) do
-    %{
-      root: %{uri: "", cid: ""},
-      parent: %{uri: "", cid: ""}
-    }
+  defp maybe_put_reply(session, record, opts) do
+    case Keyword.get(opts, :reply_to) do
+      nil ->
+        {:ok, record}
+
+      uri ->
+        case build_reply(session, uri) do
+          {:ok, reply} -> {:ok, Map.put(record, :reply, reply)}
+          {:error, _} = error -> error
+        end
+    end
+  end
+
+  # Fetches the parent post, then builds strong refs from the pure reply_refs/3.
+  defp build_reply(session, uri) do
+    with {:ok, {repo, collection, rkey}} <- parse_at_uri(uri),
+         {:ok, %{cid: cid, value: value}} <-
+           Repo.get_record(session, repo: repo, collection: collection, rkey: rkey) do
+      {:ok, reply_refs(uri, cid, value)}
+    end
+  end
+
+  # Root comes from the parent's own reply.root when the parent is itself a
+  # reply, otherwise the parent is the root.
+  defp reply_refs(parent_uri, parent_cid, parent_value) do
+    parent = %{uri: parent_uri, cid: parent_cid}
+
+    root =
+      case parent_value do
+        %{reply: %{root: root}} -> root
+        _ -> parent
+      end
+
+    %{root: root, parent: parent}
   end
 
   defp parse_at_uri("at://" <> rest) do
