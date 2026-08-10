@@ -73,6 +73,17 @@ defmodule ProtoRune.XRPC.ProcedureTest do
     end
   end
 
+  describe "put_raw_body/2" do
+    test "sets a raw binary body without validation" do
+      proc = Procedure.new("com.atproto.repo.uploadBlob")
+
+      updated_proc = Procedure.put_raw_body(proc, <<0, 1, 2>>)
+
+      assert updated_proc.body == <<0, 1, 2>>
+      assert updated_proc.raw_body == true
+    end
+  end
+
   describe "put_header/3" do
     test "adds a header to the procedure" do
       proc =

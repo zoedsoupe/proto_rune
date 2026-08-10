@@ -204,6 +204,21 @@ defmodule ProtoRune.Bsky.Feed do
     param :cursor, :string
   end
 
+  defquery "app.bsky.feed.searchPosts", authenticated: true do
+    param :q, {:required, :string}
+    param :sort, {:enum, [:top, :latest]}
+    param :since, :date
+    param :until, :date
+    param :mentions, {:list, :string}
+    param :author, :string
+    param :lang, :string
+    param :domain, :string
+    param :url, :string
+    param :tag, {:list, :string}
+    param :limit, :integer
+    param :cursor, :string
+  end
+
   @literal_interactions [:seen, :like, :repost, :reply, :quote, :share]
 
   @interaction %{

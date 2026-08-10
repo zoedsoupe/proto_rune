@@ -50,6 +50,15 @@ defmodule ProtoRune.XRPC.Client do
     |> parse_http()
   end
 
+  def execute(%Procedure{raw_body: true} = proc) do
+    url = to_string(proc)
+    headers = format_headers(proc.headers)
+
+    :post
+    |> HTTPClient.request(url, body: proc.body, headers: headers)
+    |> parse_http()
+  end
+
   def execute(%Procedure{} = proc) do
     url = to_string(proc)
     body = ProtoRune.Case.camelize_enum(proc.body)

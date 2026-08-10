@@ -82,4 +82,10 @@ defmodule ProtoRune.Bsky.Actor do
     param :limit, :integer
     param :cursor, :string
   end
+
+  defquery "app.bsky.actor.searchActors", authenticated: true do
+    param :q, :string
+    param :limit, :integer
+    param :cursor, :string
+  end
 end

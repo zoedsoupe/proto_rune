@@ -12,6 +12,9 @@ defmodule ProtoRune.Atproto.Repo do
 
   import ProtoRune.XRPC.DSL
 
+  alias ProtoRune.XRPC.Client
+  alias ProtoRune.XRPC.Procedure
+
   @collections [:generator, :like, :post, :postgate, :repost, :threadgate]
 
   @strong_ref_t %{uri: {:required, :string}, cid: {:required, :string}}
@@ -118,4 +121,31 @@ defmodule ProtoRune.Atproto.Repo do
 
   def parse_record_schema(%{collection: :post}), do: {:ok, @post_t}
   def parse_record_schema(%{collection: :like}), do: {:ok, @like_t}
+
+  @doc """
+  Upload a blob of binary data to be stored with the account, for later
+  reference in repository records (for example, a profile avatar).
+  Requires auth, implemented by PDS.
+
+  Returns `{:ok, %{blob: blob}}` where `blob` is a blob reference map
+  suitable for embedding in a record.
+
+  https://docs.bsky.app/docs/api/com-atproto-repo-upload-blob
+
+  ## Examples
+
+      {:ok, %{blob: blob}} = Repo.upload_blob(session, image_data, "image/png")
+  """
+  @spec upload_blob(map(), binary(), String.t()) :: {:ok, map()} | {:error, term()}
+  def upload_blob(%{access_jwt: access_token} = session, data, content_type)
+      when is_binary(data) and is_binary(content_type) do
+    base_url = Map.get(session, :service_url)
+
+    "com.atproto.repo.uploadBlob"
+    |> Procedure.new(base_url: base_url)
+    |> Procedure.put_raw_body(data)
+    |> Procedure.put_header(:authorization, "Bearer #{access_token}")
+    |> Procedure.put_header("content-type", content_type)
+    |> Client.execute()
+  end
 end

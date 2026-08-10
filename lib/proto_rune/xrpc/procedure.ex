@@ -30,7 +30,7 @@ defmodule ProtoRune.XRPC.Procedure do
   Validates the body using the specified parser and updates the procedure via [peri](https://hexdocs.pm/peri).
   """
 
-  defstruct [:method, :body, :parser, :headers, :base_url]
+  defstruct [:method, :body, :parser, :headers, :base_url, raw_body: false]
 
   @doc """
   Creates a new procedure with the given method.
@@ -59,6 +59,20 @@ defmodule ProtoRune.XRPC.Procedure do
     with {:ok, body} <- Peri.validate(proc.parser, body) do
       {:ok, %{proc | body: Map.new(body)}}
     end
+  end
+
+  @doc """
+  Attaches a raw binary body to the procedure, skipping schema validation.
+
+  Used by endpoints that expect a non-JSON payload, such as
+  `com.atproto.repo.uploadBlob`.
+
+  ```elixir
+  proc = Procedure.put_raw_body(proc, <<0, 1, 2>>)
+  ```
+  """
+  def put_raw_body(%__MODULE__{} = proc, body) when is_binary(body) do
+    %{proc | body: body, raw_body: true}
   end
 
   def put_header(%__MODULE__{} = proc, key, value) do
