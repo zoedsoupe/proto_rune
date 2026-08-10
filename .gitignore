@@ -31,3 +31,5 @@ atproto-*.tar
 /.expert/
 
 /priv/plts/
+
+.DS_Store
