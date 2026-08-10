@@ -265,7 +265,7 @@ defmodule ProtoRune.Lexicon.TypeMapperTest do
     end
 
     test "returns error for missing type field" do
-      assert {:error, {:unsupported_type, %{"foo" => "bar"}}} =
+      assert {:error, :invalid_type_definition} =
                TypeMapper.map_type(%{"foo" => "bar"})
     end
   end

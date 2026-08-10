@@ -26,9 +26,9 @@ defmodule ProtoRune.Lexicon do
 
   @type definition_type :: :record | :object | :query | :procedure
 
-  @type definition :: record() | object() | query() | procedure() | subscription()
+  @type definition :: at_record() | object() | query() | procedure() | subscription()
 
-  @type record :: %{
+  @type at_record :: %{
           type: :record,
           # Record key type (e.g., "tid")
           key: key_type(),

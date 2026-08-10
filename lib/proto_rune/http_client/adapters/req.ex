@@ -15,7 +15,6 @@ defmodule ProtoRune.HTTPClient.Adapters.Req do
       connect_options: [timeout: timeout[:timeout]]
     ]
     |> Keyword.merge(opts)
-    |> Req.new()
     |> Req.request()
   end
 end

@@ -101,7 +101,7 @@ defmodule Mix.Tasks.ProtoRune.Gen.Lexicons do
 
   defp has_files?(dir) do
     case File.ls(dir) do
-      {:ok, files} -> length(files) > 0
+      {:ok, files} -> files != []
       _ -> false
     end
   end

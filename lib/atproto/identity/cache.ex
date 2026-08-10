@@ -12,8 +12,6 @@ defmodule ProtoRune.Atproto.Identity.Cache do
 
   use GenServer
 
-  require Logger
-
   @type cache_key :: String.t()
   @type cache_value :: term()
   @type ttl :: non_neg_integer()

@@ -15,8 +15,6 @@ defmodule ProtoRune.Atproto.Identity do
   alias ProtoRune.Atproto.Identity.DIDResolver
   alias ProtoRune.Atproto.Identity.HandleResolver
 
-  require Logger
-
   # Constants for timeouts and retries
   @dns_timeout to_timeout(second: 5)
   @http_timeout to_timeout(second: 10)
