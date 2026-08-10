@@ -8,7 +8,7 @@ defmodule ProtoRune.MixProject do
     [
       app: :proto_rune,
       version: @version,
-      elixir: "~> 1.17",
+      elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       docs: docs(),
@@ -25,15 +25,14 @@ defmodule ProtoRune.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
-      extra_applications: [:logger],
-      mod: {ProtoRune.Application, []}
+      extra_applications: [:logger]
     ]
   end
 
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:peri, "~> 0.4.0-rc1"},
+      {:peri, "~> 0.4.0"},
       {:req, "~> 0.5"},
       {:ecto, "~> 3.12"},
       {:styler, "~> 1.3", only: [:dev, :test], runtime: false},

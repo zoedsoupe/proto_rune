@@ -1,7 +1,7 @@
 {
   description = "ATProtocol and BlueSky SDK and bot framework for Elixir";
 
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05-small";
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11-small";
   inputs.elixir-overlay.url = "github:zoedsoupe/elixir-overlay";
 
   outputs = {
@@ -21,7 +21,7 @@
     devShells = forAllSystems (pkgs: {
       default = pkgs.mkShell {
         name = "proto-rune-dev";
-        packages = with pkgs; [erlang_28 (elixir-with-otp erlang_28).latest aider-chat];
+        packages = with pkgs; [erlang_28 (elixir-with-otp erlang_28).latest];
       };
     });
   };
