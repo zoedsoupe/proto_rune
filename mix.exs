@@ -38,7 +38,7 @@ defmodule ProtoRune.MixProject do
       {:styler, "~> 1.3", only: [:dev, :test], runtime: false},
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
-      {:dialyxir, "~> 1.3", only: [:dev], runtime: false}
+      {:dialyxir, "~> 1.3", only: [:dev, :test], runtime: false}
     ]
   end
 
