@@ -1,6 +1,6 @@
 # Authentication
 
-ProtoRune supports password-based authentication with app passwords. OAuth support is planned for future releases.
+ProtoRune supports password-based authentication with app passwords and OAuth 2.0 for applications.
 
 ## App Passwords
 
@@ -272,13 +272,43 @@ defmodule MyApp.Test do
 end
 ```
 
-## OAuth (Future)
+## OAuth
 
-OAuth support is planned for v0.3.0. This will enable:
+OAuth is the recommended flow for applications acting on behalf of users, since tokens are granted without sharing a password. ProtoRune implements the AT Protocol OAuth profile for public clients: authorization code flow with PAR, PKCE and DPoP, using only `:crypto` (no JWT dependency).
 
-- Web application authentication flows
-- Token-based access without password sharing
-- PKCE support for public clients
-- Authorization code flow for server applications
+### Requirements
 
-Check the roadmap for OAuth implementation status.
+Your application must serve a client metadata document at its `client_id` URL declaring the redirect URIs and scope. See the [AT Protocol OAuth spec](https://atproto.com/specs/oauth) for the document format.
+
+### Flow
+
+```elixir
+alias ProtoRune.Atproto.OAuth
+alias ProtoRune.Atproto.OAuth.Client
+
+# 1. Configure the client (a DPoP key pair is generated for you)
+{:ok, client} =
+  Client.new(
+    client_id: "https://myapp.example.com/oauth/client-metadata.json",
+    redirect_uri: "https://myapp.example.com/oauth/callback"
+  )
+
+# 2. Send the user to their authorization server
+{:ok, url, pending} = OAuth.authorization_url(client, "alice.bsky.social")
+# Redirect the user to `url` and persist `pending` (e.g. in the web session)
+
+# 3. On the callback, exchange the code for tokens
+{:ok, session} = OAuth.exchange_code(client, pending, conn.query_params)
+
+# 4. Refresh when the access token expires
+{:ok, fresh_session} = OAuth.refresh(client, session)
+```
+
+The `pending` map and the returned session contain the DPoP private key: persist them securely and never expose them to the browser.
+
+To keep the DPoP key across restarts, store `client.dpop_key` (a 32-byte binary) and pass it back with `dpop_key:` when rebuilding the client.
+
+### Current limitations
+
+- OAuth access tokens are DPoP-bound, so they cannot be passed to the XRPC functions yet (those expect app-password `Bearer` sessions). Use the OAuth session with the token endpoints for now; XRPC integration is planned.
+- Only public clients are supported (no `private_key_jwt` confidential clients).
