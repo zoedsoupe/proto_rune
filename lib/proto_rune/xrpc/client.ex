@@ -68,10 +68,14 @@ defmodule ProtoRune.XRPC.Client do
   defp parse_http({:error, err}), do: {:error, err}
 
   defp parse_http({:ok, %{status: status} = resp}) when status >= 400 do
-    {:error, Error.from(resp)}
+    {:error, Error.from(%{resp | body: decode_body(resp.body)})}
   end
 
   defp parse_http({:ok, %{status: status, body: body}}) when status in [200, 201] do
-    {:ok, ProtoRune.Case.snakelize_enum(body)}
+    {:ok, body |> decode_body() |> ProtoRune.Case.snakelize_enum()}
   end
+
+  defp decode_body(body) when body in ["", nil], do: %{}
+  defp decode_body(body) when is_binary(body), do: JSON.decode!(body)
+  defp decode_body(body), do: body
 end
