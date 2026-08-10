@@ -178,6 +178,5 @@ defmodule Mix.Tasks.ProtoRune.Gen.Lexicons do
 
   defp format_error({:generation_failed, message}), do: "Generation failed: #{message}"
 
-  defp format_error(%JSON.DecodeError{} = error), do: "JSON decode error: #{Exception.message(error)}"
   defp format_error(reason), do: inspect(reason)
 end
