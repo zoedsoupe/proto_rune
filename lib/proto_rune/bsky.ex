@@ -26,6 +26,7 @@ defmodule ProtoRune.Bsky do
   alias ProtoRune.Bsky.Feed
   alias ProtoRune.Bsky.Graph
   alias ProtoRune.Bsky.Notification
+  alias ProtoRune.XRPC.Error
 
   @type session :: map()
 
@@ -298,6 +299,108 @@ defmodule ProtoRune.Bsky do
   end
 
   @doc """
+  Updates the authenticated user's profile.
+
+  Fetches the current `app.bsky.actor.profile` record, merges the given
+  changes, and writes it back, so fields not mentioned are preserved.
+
+  ## Options
+
+  - `:display_name` - New display name
+  - `:description` - New profile description (bio)
+  - `:avatar` - `{data, content_type}` tuple with the raw image bytes and
+    its MIME type. The data is uploaded as a blob and linked in the record.
+
+  ## Examples
+
+      {:ok, _} = Bsky.update_profile(session, display_name: "Alice")
+
+      {:ok, _} =
+        Bsky.update_profile(session,
+          display_name: "Alice",
+          description: "Posting about Elixir",
+          avatar: {File.read!("avatar.png"), "image/png"}
+        )
+  """
+  @spec update_profile(session(), keyword()) :: {:ok, map()} | {:error, term()}
+  def update_profile(session, updates) when is_list(updates) do
+    with {:ok, current} <- current_profile(session),
+         {:ok, avatar} <- maybe_upload_avatar(session, Keyword.get(updates, :avatar)) do
+      record =
+        current
+        |> maybe_update(:display_name, Keyword.get(updates, :display_name))
+        |> maybe_update(:description, Keyword.get(updates, :description))
+        |> maybe_update(:avatar, avatar)
+        |> Map.put(:"$type", "app.bsky.actor.profile")
+
+      Repo.put_record(session, %{
+        repo: session.did,
+        collection: "app.bsky.actor.profile",
+        rkey: "self",
+        record: record
+      })
+    end
+  end
+
+  @doc """
+  Searches for posts matching a query.
+
+  ## Options
+
+  - `:sort` - `:top` or `:latest`
+  - `:since` - Only posts after this `Date`
+  - `:until` - Only posts before this `Date`
+  - `:author` - Restrict to posts by this actor (handle or DID)
+  - `:lang` - Restrict to this language code
+  - `:domain` - Restrict to posts linking to this domain
+  - `:url` - Restrict to posts linking to this URL
+  - `:mentions` - Restrict to posts mentioning these actors
+  - `:tag` - Restrict to posts with these hashtags
+  - `:limit` - Number of posts (default: 25, max: 100)
+  - `:cursor` - Pagination cursor
+
+  ## Examples
+
+      {:ok, %{posts: posts}} = Bsky.search_posts(session, "elixir lang")
+      {:ok, %{posts: latest}} = Bsky.search_posts(session, "elixir", sort: :latest)
+  """
+  @spec search_posts(session(), String.t(), keyword()) :: {:ok, map()} | {:error, term()}
+  def search_posts(session, query, opts \\ []) when is_binary(query) do
+    params =
+      opts
+      |> Keyword.take([:sort, :since, :until, :author, :lang, :domain, :url, :mentions, :tag, :limit, :cursor])
+      |> Map.new()
+      |> Map.put(:q, query)
+      |> Map.put_new(:limit, 25)
+
+    Feed.search_posts(session, params)
+  end
+
+  @doc """
+  Searches for actors (profiles) matching a query.
+
+  ## Options
+
+  - `:limit` - Number of actors (default: 25, max: 100)
+  - `:cursor` - Pagination cursor
+
+  ## Examples
+
+      {:ok, %{actors: actors}} = Bsky.search_actors(session, "alice")
+  """
+  @spec search_actors(session(), String.t(), keyword()) :: {:ok, map()} | {:error, term()}
+  def search_actors(session, query, opts \\ []) when is_binary(query) do
+    params =
+      opts
+      |> Keyword.take([:limit, :cursor])
+      |> Map.new()
+      |> Map.put(:q, query)
+      |> Map.put_new(:limit, 25)
+
+    Actor.search_actors(session, params)
+  end
+
+  @doc """
   Blocks an actor.
 
   ## Examples
@@ -471,6 +574,31 @@ defmodule ProtoRune.Bsky do
   defp resolve_actor(handle) do
     Identity.resolve_handle(handle)
   end
+
+  # A missing profile record means the account has no profile yet, so the
+  # update starts from an empty record.
+  defp current_profile(session) do
+    case Repo.get_record(session,
+           repo: session.did,
+           collection: "app.bsky.actor.profile",
+           rkey: "self"
+         ) do
+      {:ok, %{value: value}} -> {:ok, value}
+      {:error, %Error{reason: reason}} when reason in [:not_found, :record_not_found] -> {:ok, %{}}
+      {:error, _} = error -> error
+    end
+  end
+
+  defp maybe_upload_avatar(_session, nil), do: {:ok, nil}
+
+  defp maybe_upload_avatar(session, {data, content_type}) do
+    with {:ok, %{blob: blob}} <- Repo.upload_blob(session, data, content_type) do
+      {:ok, blob}
+    end
+  end
+
+  defp maybe_update(record, _key, nil), do: record
+  defp maybe_update(record, key, value), do: Map.put(record, key, value)
 
   defp maybe_put_reply(session, record, opts) do
     case Keyword.get(opts, :reply_to) do
