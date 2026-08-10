@@ -24,29 +24,25 @@ defmodule ProtoRune.Case do
   end
 
   def camelize_enum(enum) do
-    normalized = apply_case_enum(enum, &camelize/1)
-
-    if is_map(enum), do: Map.new(normalized), else: normalized
+    apply_case_enum(enum, &camelize/1)
   end
 
   def snakelize_enum(enum) do
-    normalized = apply_case_enum(enum, &snakelize/1)
-    if is_map(enum), do: Map.new(normalized), else: normalized
+    apply_case_enum(enum, &snakelize/1)
   end
 
-  defp apply_case_enum(enum, case_fun) when is_map(enum) or is_list(enum) do
-    Enum.map(enum, &apply_case_enum_element(&1, case_fun))
+  defp apply_case_enum(map, case_fun) when is_map(map) do
+    Map.new(map, &apply_case_enum_element(&1, case_fun))
+  end
+
+  defp apply_case_enum(list, case_fun) when is_list(list) do
+    Enum.map(list, &apply_case_enum(&1, case_fun))
   end
 
   defp apply_case_enum(elem, _), do: elem
 
-  defp apply_case_enum_element({k, v}, case) when is_list(v) or is_map(v) do
-    snake_key = case.(to_string(k))
-    {String.to_atom(snake_key), Enum.map(v, &apply_case_enum(&1, case))}
-  end
-
   defp apply_case_enum_element({k, v}, case) do
-    snake_key = case.(to_string(k))
-    {String.to_atom(snake_key), v}
+    case_key = k |> to_string() |> case.() |> String.to_atom()
+    {case_key, apply_case_enum(v, case)}
   end
 end
