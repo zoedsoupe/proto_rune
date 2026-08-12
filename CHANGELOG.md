@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/zoedsoupe/proto_rune/compare/v0.3.0...v0.3.1) (2026-08-12)
+
+
+### Bug Fixes
+
+* **bsky:** align post, like and repost with createRecord schemas ([881b0f1](https://github.com/zoedsoupe/proto_rune/commit/881b0f1372c245321ad2c522643d200c90f1e8a0))
+
 ## [0.3.0](https://github.com/zoedsoupe/proto_rune/compare/v0.2.0...v0.3.0) (2026-08-12)
 
 
