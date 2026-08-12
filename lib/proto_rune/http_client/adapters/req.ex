@@ -9,8 +9,14 @@ defmodule ProtoRune.HTTPClient.Adapters.Req do
   def request(method, url, opts) do
     {timeout, opts} = Keyword.split(opts, [:timeout])
 
+    connect_options =
+      case timeout[:timeout] do
+        nil -> []
+        ms -> [timeout: ms]
+      end
+
     Req.request(
-      [method: method, url: url, decode_body: false, connect_options: [timeout: timeout[:timeout]]],
+      [method: method, url: url, decode_body: false, connect_options: connect_options],
       opts
     )
   end
