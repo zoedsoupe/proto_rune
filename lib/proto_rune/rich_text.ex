@@ -4,6 +4,10 @@ defmodule ProtoRune.RichText do
 
   Handles byte offset calculation and facet generation for mentions, links, and hashtags.
 
+  Facets use snake_case atom keys internally (`byte_start`, `byte_end`,
+  `:"$type"`). The XRPC client camelizes them to the wire format
+  (`byteStart`, `byteEnd`, `"$type"`) when posting.
+
   ## Examples
 
       # Build rich text with mentions and links
@@ -78,16 +82,8 @@ defmodule ProtoRune.RichText do
     case Identity.resolve_handle(handle) do
       {:ok, did} ->
         facet = %{
-          index: %{
-            byteStart: byte_start,
-            byteEnd: byte_end
-          },
-          features: [
-            %{
-              "$type" => "app.bsky.richtext.facet#mention",
-              did: did
-            }
-          ]
+          index: %{byte_start: byte_start, byte_end: byte_end},
+          features: [%{"$type": "app.bsky.richtext.facet#mention", did: did}]
         }
 
         %{rt | text: rt.text <> mention_text, facets: rt.facets ++ [facet]}
@@ -114,16 +110,8 @@ defmodule ProtoRune.RichText do
     byte_end = byte_start + byte_size(link_text)
 
     facet = %{
-      index: %{
-        byteStart: byte_start,
-        byteEnd: byte_end
-      },
-      features: [
-        %{
-          "$type" => "app.bsky.richtext.facet#link",
-          uri: url
-        }
-      ]
+      index: %{byte_start: byte_start, byte_end: byte_end},
+      features: [%{"$type": "app.bsky.richtext.facet#link", uri: url}]
     }
 
     %{rt | text: rt.text <> link_text, facets: rt.facets ++ [facet]}
@@ -146,16 +134,8 @@ defmodule ProtoRune.RichText do
     byte_end = byte_start + byte_size(tag_text)
 
     facet = %{
-      index: %{
-        byteStart: byte_start,
-        byteEnd: byte_end
-      },
-      features: [
-        %{
-          "$type" => "app.bsky.richtext.facet#tag",
-          tag: tag
-        }
-      ]
+      index: %{byte_start: byte_start, byte_end: byte_end},
+      features: [%{"$type": "app.bsky.richtext.facet#tag", tag: tag}]
     }
 
     %{rt | text: rt.text <> tag_text, facets: rt.facets ++ [facet]}

@@ -68,7 +68,7 @@ defmodule ProtoRune.Bsky do
 
   def post(session, text, opts) when is_binary(text) do
     record = %{
-      "$type" => "app.bsky.feed.post",
+      "$type": "app.bsky.feed.post",
       text: text,
       langs: Keyword.get(opts, :langs, ["en"]),
       created_at: opts |> Keyword.get(:created_at, DateTime.utc_now()) |> DateTime.to_iso8601()
@@ -77,7 +77,7 @@ defmodule ProtoRune.Bsky do
     with {:ok, record} <- maybe_put_reply(session, record, opts) do
       Repo.create_record(session, %{
         repo: session.did,
-        collection: "app.bsky.feed.post",
+        collection: :post,
         record: record
       })
     end
@@ -85,7 +85,7 @@ defmodule ProtoRune.Bsky do
 
   def post(session, %{text: text, facets: facets}, opts) when is_binary(text) and is_list(facets) do
     record = %{
-      "$type" => "app.bsky.feed.post",
+      "$type": "app.bsky.feed.post",
       text: text,
       facets: facets,
       langs: Keyword.get(opts, :langs, ["en"]),
@@ -95,7 +95,7 @@ defmodule ProtoRune.Bsky do
     with {:ok, record} <- maybe_put_reply(session, record, opts) do
       Repo.create_record(session, %{
         repo: session.did,
-        collection: "app.bsky.feed.post",
+        collection: :post,
         record: record
       })
     end
@@ -111,14 +111,14 @@ defmodule ProtoRune.Bsky do
   @spec like(session(), String.t(), String.t()) :: {:ok, map()} | {:error, term()}
   def like(session, uri, cid) when is_binary(uri) and is_binary(cid) do
     record = %{
-      "$type" => "app.bsky.feed.like",
+      "$type": "app.bsky.feed.like",
       subject: %{uri: uri, cid: cid},
       created_at: DateTime.to_iso8601(DateTime.utc_now())
     }
 
     Repo.create_record(session, %{
       repo: session.did,
-      collection: "app.bsky.feed.like",
+      collection: :like,
       record: record
     })
   end
@@ -153,14 +153,14 @@ defmodule ProtoRune.Bsky do
   @spec repost(session(), String.t(), String.t()) :: {:ok, map()} | {:error, term()}
   def repost(session, uri, cid) when is_binary(uri) and is_binary(cid) do
     record = %{
-      "$type" => "app.bsky.feed.repost",
+      "$type": "app.bsky.feed.repost",
       subject: %{uri: uri, cid: cid},
       created_at: DateTime.to_iso8601(DateTime.utc_now())
     }
 
     Repo.create_record(session, %{
       repo: session.did,
-      collection: "app.bsky.feed.repost",
+      collection: :repost,
       record: record
     })
   end
