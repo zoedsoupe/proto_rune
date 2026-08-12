@@ -7,7 +7,8 @@ defmodule ProtoRune.Bot.Server do
 
   The bot server can operate in two modes:
   - **Polling**: Periodically fetches notifications using the `ProtoRune.Bot.Poller` module.
-  - **Firehose**: (Not yet implemented) Stream real-time events using a websocket-like connection.
+  - **Firehose**: Streams real-time repo events over a WebSocket connection using the
+    `ProtoRune.Bot.Firehose` module.
 
   ## Features
 
@@ -27,7 +28,7 @@ defmodule ProtoRune.Bot.Server do
   - `:identifier` - The bot's login identifier (e.g., email or username).
   - `:password` - The bot's password for login.
   - `:polling` - Polling configuration (e.g., interval and process_from).
-  - `:firehose` - Firehose configuration (not implemented yet).
+  - `:firehose` - Firehose configuration (e.g., relay_uri, cursor and auto_reconnect).
   - `:strategy` - The bot's strategy for receiving notifications (`:polling` or `:firehose`).
 
   ## Polling Configuration
@@ -46,13 +47,25 @@ defmodule ProtoRune.Bot.Server do
   )
   ```
 
-  ## Firehose Configuration (Not Implemented)
+  ## Firehose Configuration
 
-  While not yet available, the firehose strategy will enable real-time notifications using a
-  websocket connection. Firehose configuration includes:
-  - `:relay_uri` - The WebSocket URI for the relay server.
+  The firehose strategy streams real-time repo events using a WebSocket connection to a
+  relay. Firehose configuration includes:
+  - `:relay_uri` - The WebSocket URI for the relay server (default: `"wss://bsky.network"`).
   - `:auto_reconnect` - Automatically reconnect if the connection drops (default: true).
-  - `:cursor` - The starting cursor for reading the stream.
+  - `:cursor` - The starting sequence number for reading the stream, used to backfill
+    events missed while disconnected. Accepts an integer, a numeric string or `"latest"`
+    (default: `"latest"`).
+
+  Example:
+  ```elixir
+  ProtoRune.Bot.Server.start_link(
+    name: :my_bot,
+    strategy: :firehose,
+    service: "https://bsky.social",
+    firehose: %{cursor: 32_625_482_169}
+  )
+  ```
 
   ## Functions
 
@@ -110,6 +123,7 @@ defmodule ProtoRune.Bot.Server do
   import Peri
 
   alias ProtoRune.Atproto
+  alias ProtoRune.Bot.Firehose
   alias ProtoRune.Bot.Poller
   alias ProtoRune.Bsky
 
@@ -123,7 +137,7 @@ defmodule ProtoRune.Bot.Server do
   @type firehose_t :: %{
           optional(:relay_uri) => String.t(),
           optional(:auto_reconnect) => boolean,
-          optional(:cursor) => String.t()
+          optional(:cursor) => String.t() | non_neg_integer
         }
 
   @type option ::
@@ -172,16 +186,12 @@ defmodule ProtoRune.Bot.Server do
   defschema(:firehose_t, %{
     relay_uri: {:string, {:default, "wss://bsky.network"}},
     auto_reconnect: {:boolean, {:default, true}},
-    cursor: {:string, {:default, "latest"}}
+    cursor: {{:either, {:string, :integer}}, {:default, "latest"}}
   })
 
   @spec start_link(options_t) :: {:ok, pid} | {:error, term}
   def start_link(opts) do
     data = options_t!(opts)
-
-    if data[:strategy] == :firehose do
-      raise "Firehose strategy not implemented yet."
-    end
 
     GenServer.start_link(__MODULE__, data, name: data[:name])
   end
@@ -238,6 +248,21 @@ defmodule ProtoRune.Bot.Server do
     {:noreply, Map.put(state, :poller, pid)}
   end
 
+  def handle_continue(:start_listener, %{strategy: :firehose} = state) do
+    name = :"#{state[:name]}_firehose"
+
+    {:ok, pid} =
+      Firehose.start_link(
+        server_pid: self(),
+        name: name,
+        relay: state[:firehose][:relay_uri],
+        cursor: state[:firehose][:cursor],
+        auto_reconnect: state[:firehose][:auto_reconnect]
+      )
+
+    {:noreply, Map.put(state, :firehose, pid)}
+  end
+
   @impl true
   def handle_cast({:handle_message, message}, %{name: bot} = state) do
     bot.handle_message(message)
@@ -262,7 +287,7 @@ defmodule ProtoRune.Bot.Server do
 
     case Atproto.Server.refresh_session(state[:session]) do
       {:ok, session} ->
-        send(state[:poller], {:refresh_session, session})
+        if state[:poller], do: send(state[:poller], {:refresh_session, session})
         schedule_refresh_session()
         {:noreply, Map.put(state, :session, Map.take(session, [:access_jwt, :refresh_jwt]))}
 

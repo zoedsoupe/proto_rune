@@ -7,7 +7,7 @@ defmodule ProtoRune.Bot do
 
   The bot system integrates with the `ProtoRune.Bot.Server` to manage bot lifecycles, handle
   events, and manage sessions. Bots can use different strategies for receiving notifications,
-  such as polling or firehose (currently under development).
+  such as polling or firehose.
 
   ## Usage
 
@@ -179,7 +179,9 @@ defmodule ProtoRune.Bot do
 
   ## Notes
 
-  - The current implementation supports the polling strategy for fetching notifications. Firehose-based notifications are not yet implemented.
+  - The polling strategy fetches the bot's notifications periodically, while the firehose
+    strategy streams real-time repo events; see `ProtoRune.Bot.Firehose` for the events it
+    dispatches.
   - Bots should be designed to handle events and messages in a non-blocking manner for efficient performance.
   """
 
