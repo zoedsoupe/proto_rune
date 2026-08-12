@@ -161,6 +161,12 @@ High-level functions for common Bluesky operations:
 {:ok, _} = ProtoRune.Bsky.mute(session, "noisy.bsky.social")
 ```
 
+## Examples
+
+See the [Bluesky cheatsheet](guides/cheatsheets/bluesky.cheatmd) for
+runnable snippets covering common tasks: logging in, posting, rich text,
+reading the timeline, and building a bot.
+
 ## Architecture
 
 ProtoRune follows AT Protocol's layered architecture:

@@ -1,0 +1,147 @@
+# Bluesky with proto_rune
+
+Common Bluesky tasks with the `ProtoRune` and `ProtoRune.Bsky` APIs.
+All authenticated calls take the `session` returned by `ProtoRune.login/3`
+as their first argument.
+
+## Credentials
+{:.col-2}
+
+### Environment variables
+
+| Variable | Purpose |
+| -------- | ------- |
+| `BSKY_HANDLE` | Your handle, e.g. `you.bsky.social` |
+| `BSKY_APP_PASSWORD` | An app password, not your main password |
+| `BSKY_SERVICE` | Optional PDS URL, defaults to `https://bsky.social` |
+
+Create app passwords at `https://bsky.app/settings/app-passwords`.
+
+### Logging in
+
+```elixir
+{:ok, session} =
+  ProtoRune.login(
+    System.fetch_env!("BSKY_HANDLE"),
+    System.fetch_env!("BSKY_APP_PASSWORD")
+  )
+
+session.handle # => "you.bsky.social"
+session.did    # => "did:plc:..."
+```
+
+Refresh an expired session with `ProtoRune.refresh_session/1`.
+
+## Posting
+{:.col-2}
+
+### Simple post
+
+```elixir
+{:ok, post} = ProtoRune.post(session, "Hello Bluesky!")
+
+post.uri # => "at://did:plc:.../app.bsky.feed.post/..."
+post.cid # => "bafy..."
+```
+
+Options: `:langs` (default `["en"]`), `:reply_to` (an AT-URI),
+`:created_at` (default `DateTime.utc_now()`).
+
+### Rich text post
+
+```elixir
+alias ProtoRune.RichText
+
+{:ok, rt} =
+  RichText.new()
+  |> RichText.text("Hello ")
+  |> RichText.mention("alice.bsky.social")
+  |> RichText.text("! Check out ")
+  |> RichText.link("proto_rune", "https://github.com/zoedsoupe/proto_rune")
+  |> RichText.text(" ")
+  |> RichText.hashtag("elixir")
+  |> RichText.build()
+
+{:ok, post} = ProtoRune.Bsky.post(session, rt)
+```
+
+The builder resolves mention handles to DIDs and computes facet byte
+offsets for you.
+
+### Interactions
+
+```elixir
+{:ok, _} = ProtoRune.Bsky.like(session, post.uri, post.cid)
+{:ok, _} = ProtoRune.Bsky.repost(session, post.uri, post.cid)
+{:ok, _} = ProtoRune.Bsky.follow(session, "alice.bsky.social")
+:ok = ProtoRune.Bsky.delete_post(session, post.uri)
+```
+
+## Reading
+{:.col-2}
+
+### Timeline
+
+```elixir
+{:ok, %{feed: items, cursor: cursor}} =
+  ProtoRune.Bsky.get_timeline(session, limit: 25)
+
+for item <- items do
+  IO.puts("@#{item.post.author.handle}: #{item.post.record.text}")
+end
+
+# Next page
+{:ok, %{feed: more}} =
+  ProtoRune.Bsky.get_timeline(session, limit: 25, cursor: cursor)
+```
+
+### Profiles and threads
+
+```elixir
+{:ok, profile} = ProtoRune.Bsky.get_profile(session, "bob.bsky.social")
+{:ok, thread} = ProtoRune.Bsky.get_post_thread(session, post.uri)
+{:ok, %{posts: posts}} = ProtoRune.Bsky.search_posts(session, "elixir")
+```
+
+## Bots
+{:.col-2}
+
+### Defining a bot
+
+```elixir
+defmodule GreeterBot do
+  use ProtoRune.Bot, name: __MODULE__, strategy: :polling
+
+  require Logger
+
+  @impl true
+  def get_identifier, do: System.fetch_env!("BSKY_HANDLE")
+
+  @impl true
+  def get_password, do: System.fetch_env!("BSKY_APP_PASSWORD")
+
+  @impl true
+  def handle_event(:mention, %{thread: %{post: post}}) do
+    Logger.info("Mentioned by @#{post.author.handle}")
+    {:ok, :handled}
+  end
+
+  def handle_event(_event, _payload), do: {:ok, :ignored}
+end
+
+{:ok, _pid} = GreeterBot.start_link()
+```
+
+### Events
+
+| Event | Payload |
+| ----- | ------- |
+| `:mention`, `:reply`, `:quote` | `get_post_thread` response |
+| `:like` | `%{uri, user, subject}` |
+| `:repost` | `%{uri, user, post}` |
+| `:follow` | `%{uri, user}` |
+| `:error` | `%{reason}` |
+
+Callbacks receive no session. To reply from a callback, log in with
+`ProtoRune.login/3` yourself and keep the session around (for example in
+an `Agent`), then call `ProtoRune.Bsky.post/3` with `reply_to: uri`.
