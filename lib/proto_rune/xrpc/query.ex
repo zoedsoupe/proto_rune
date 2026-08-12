@@ -100,8 +100,8 @@ defmodule ProtoRune.XRPC.Query do
     alias ProtoRune.XRPC.Query
 
     def to_string(%Query{} = query) do
-      # Use explicit base_url if provided, otherwise fall back to config
-      base_url = query.base_url || Config.get(:base_url) || "https://bsky.social/xrpc"
+      # Use explicit base_url if provided, otherwise the default
+      base_url = query.base_url || Config.default_base_url()
       base = Path.join(base_url, query.method)
 
       if Enum.empty?(query.params) do

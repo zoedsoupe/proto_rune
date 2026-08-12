@@ -6,11 +6,10 @@ defmodule ProtoRune.XRPC.Config do
   @default_base_url "https://bsky.social/xrpc"
 
   @doc """
-  Gets the configured base URL or returns the default.
+  The base URL used when neither the query/procedure nor the session
+  carries one.
   """
-  def get(:base_url) do
-    Application.get_env(:proto_rune, :base_url, @default_base_url)
-  end
+  def default_base_url, do: @default_base_url
 
   def get(key) do
     Application.get_env(:proto_rune, key)

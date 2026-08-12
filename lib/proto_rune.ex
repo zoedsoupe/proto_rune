@@ -27,6 +27,8 @@ defmodule ProtoRune do
   alias ProtoRune.Atproto.Identity
   alias ProtoRune.Atproto.Server
   alias ProtoRune.Atproto.Session
+  alias ProtoRune.XRPC.Client
+  alias ProtoRune.XRPC.Procedure
 
   require Identity
 
@@ -64,16 +66,22 @@ defmodule ProtoRune do
   """
   @spec login(user_identifier(), user_password(), keyword()) :: {:ok, session()} | error()
   def login(identifier, password, opts \\ []) when is_binary(identifier) and is_binary(password) do
-    service = Keyword.get(opts, :service)
+    base_url =
+      opts
+      |> Keyword.get(:service, "https://bsky.social")
+      |> Session.normalize_service_url()
 
-    params = %{
-      identifier: identifier,
-      password: password
+    # Built by hand instead of Server.create_session/1 so the createSession
+    # call itself honors the :service opt; the generated function has no
+    # per-call base_url knob.
+    proc = %{
+      Procedure.new("com.atproto.server.createSession", base_url: base_url)
+      | body: %{identifier: identifier, password: password}
     }
 
-    with {:ok, data} <- Server.create_session(params) do
-      data = if service, do: Map.put(data, :service_url, service), else: data
-      Session.parse(data)
+    with {:ok, data} <- Client.execute(proc),
+         {:ok, session} <- Session.parse(data) do
+      {:ok, %{session | service_url: session.service_url || base_url}}
     end
   end
 

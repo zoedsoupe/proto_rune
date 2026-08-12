@@ -82,10 +82,33 @@ defmodule ProtoRune.Atproto.Session do
     {:ok, struct(__MODULE__, session_data)}
   end
 
+  @doc """
+  Normalizes a service URL into an XRPC base URL.
+
+  DID documents list the PDS endpoint without the `/xrpc` path that XRPC
+  methods are served under, so it is appended when missing.
+
+      iex> Session.normalize_service_url("https://bsky.social")
+      "https://bsky.social/xrpc"
+
+      iex> Session.normalize_service_url("https://bsky.social/xrpc")
+      "https://bsky.social/xrpc"
+  """
+  @spec normalize_service_url(String.t()) :: String.t()
+  def normalize_service_url(url) when is_binary(url) do
+    url = String.trim_trailing(url, "/")
+
+    if String.ends_with?(url, "/xrpc") do
+      url
+    else
+      url <> "/xrpc"
+    end
+  end
+
   defp extract_service_url(%{did_doc: %{service: services}}) when is_list(services) do
     # Look for ATProto PDS service endpoint
     case Enum.find(services, &(&1[:type] == "AtprotoPersonalDataServer")) do
-      %{service_endpoint: url} -> url
+      %{service_endpoint: url} -> normalize_service_url(url)
       _ -> nil
     end
   end
