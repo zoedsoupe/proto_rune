@@ -66,13 +66,18 @@ defmodule ProtoRune.MixProject do
       "guides/xrpc.md"
     ]
 
+    cheatsheets = [
+      "guides/cheatsheets/bluesky.cheatmd"
+    ]
+
     dev = ["README.md", "CONTRIBUTING.md", "LICENSE"]
 
     [
       main: "readme",
-      extras: dev ++ guides,
+      extras: dev ++ guides ++ cheatsheets,
       groups_for_extras: [
         Guides: guides,
+        Cheatsheets: cheatsheets,
         Development: dev
       ]
     ]
