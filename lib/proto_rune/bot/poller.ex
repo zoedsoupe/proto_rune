@@ -66,6 +66,19 @@ defmodule ProtoRune.Bot.Poller do
   - `attempt`: The number of failed attempts.
   - `session`: The current session for API requests.
   - `server_pid`: The PID of the server handling the notifications.
+
+  ## Telemetry
+
+  The poller emits the following `:telemetry` events (see the `ProtoRune.Bot`
+  moduledoc for the full list of bot events):
+
+  - `[:proto_rune, :bot, :poll, :start]` / `[:proto_rune, :bot, :poll, :stop]` /
+    `[:proto_rune, :bot, :poll, :exception]` - wrap each polling cycle via
+    `:telemetry.span/3`. Metadata includes `:poller` (the poller process name).
+  - `[:proto_rune, :bot, :rate_limited]` - emitted when a poll hits an API rate
+    limit, with measurement `%{count: 1}` and metadata `:poller`, `:retry_in`
+    (milliseconds until the next poll) and `:attempt` (consecutive rate-limited
+    attempts).
   """
 
   use GenServer
@@ -73,6 +86,7 @@ defmodule ProtoRune.Bot.Poller do
   alias ProtoRune.Atproto
   alias ProtoRune.Bot.Poller.State
   alias ProtoRune.Bsky
+  alias ProtoRune.XRPC
 
   require Logger
 
@@ -126,9 +140,18 @@ defmodule ProtoRune.Bot.Poller do
 
   @spec poll_notifications(State.t()) :: {:ok, State.t()}
   defp poll_notifications(%State{} = state) do
+    metadata = %{poller: state.name}
+
+    :telemetry.span([:proto_rune, :bot, :poll], metadata, fn ->
+      {do_poll(state), metadata}
+    end)
+  end
+
+  defp do_poll(%State{} = state) do
     case Bsky.Notification.list_notifications(state.session) do
       {:ok, data} -> handle_notifications(state, data)
       {:error, {:rate_limited, retry_after}} -> handle_rate_limited(state, retry_after)
+      {:error, %XRPC.Error{reason: {:rate_limited, retry_after}}} -> handle_rate_limited(state, retry_after)
       {:error, reason} -> handle_error(state, reason)
     end
   end
@@ -151,9 +174,29 @@ defmodule ProtoRune.Bot.Poller do
   end
 
   defp handle_rate_limited(%State{} = state, retry_after) do
-    interval = retry_after || backoff(state)
+    interval = retry_interval(retry_after) || backoff(state)
+
+    :telemetry.execute(
+      [:proto_rune, :bot, :rate_limited],
+      %{count: 1},
+      %{poller: state.name, retry_in: interval, attempt: state.attempt + 1}
+    )
+
     Process.send_after(self(), :poll, interval)
     {:ok, %{state | attempt: state.attempt + 1}}
+  end
+
+  # `Retry-After` header values arrive as a list of strings holding seconds,
+  # while plain integers are already milliseconds.
+  defp retry_interval(nil), do: nil
+  defp retry_interval([]), do: nil
+  defp retry_interval(ms) when is_integer(ms) and ms > 0, do: ms
+
+  defp retry_interval([seconds | _]) when is_binary(seconds) do
+    case Integer.parse(seconds) do
+      {secs, ""} -> to_timeout(second: secs)
+      _invalid -> nil
+    end
   end
 
   defp handle_error(%State{server_pid: pid} = state, reason) do

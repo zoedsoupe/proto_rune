@@ -103,6 +103,19 @@ defmodule ProtoRune.Bot.Server do
   - The bot gracefully handles errors such as rate limits and API failures by retrying or
     stopping the process when necessary.
   - Errors are dispatched as events to the bot, allowing custom error handling.
+
+  ## Telemetry
+
+  The server emits the following `:telemetry` events (see the `ProtoRune.Bot`
+  moduledoc for the full list of bot events):
+
+  - `[:proto_rune, :bot, :event, :start]` / `[:proto_rune, :bot, :event, :stop]` /
+    `[:proto_rune, :bot, :event, :exception]` - wrap each `handle_event/2` dispatch
+    via `:telemetry.span/3`. Metadata includes `:bot` (the bot module) and `:event`
+    (the event type); exception events also carry `:kind`, `:reason` and `:stacktrace`.
+  - `[:proto_rune, :bot, :event, :dispatch]` - emitted once per dispatched event with
+    measurement `%{count: 1}` and the same `:bot` / `:event` metadata, suitable for
+    counting the event type distribution.
   """
 
   use GenServer
@@ -246,7 +259,14 @@ defmodule ProtoRune.Bot.Server do
 
   @impl true
   def handle_cast({:handle_event, event, payload}, %{name: bot} = state) do
-    bot.handle_event(event, payload)
+    metadata = %{bot: bot, event: event}
+
+    :telemetry.execute([:proto_rune, :bot, :event, :dispatch], %{count: 1}, metadata)
+
+    :telemetry.span([:proto_rune, :bot, :event], metadata, fn ->
+      {bot.handle_event(event, payload), metadata}
+    end)
+
     {:noreply, state}
   end
 
