@@ -33,3 +33,5 @@ atproto-*.tar
 /priv/plts/
 
 .DS_Store
+
+/.claude/
