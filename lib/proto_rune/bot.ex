@@ -183,6 +183,31 @@ defmodule ProtoRune.Bot do
     strategy streams real-time repo events; see `ProtoRune.Bot.Firehose` for the events it
     dispatches.
   - Bots should be designed to handle events and messages in a non-blocking manner for efficient performance.
+
+  ## Telemetry
+
+  The bot framework emits `:telemetry` events under the `[:proto_rune, :bot]`
+  namespace for observability:
+
+  - `[:proto_rune, :bot, :event, :start]` / `[:proto_rune, :bot, :event, :stop]` /
+    `[:proto_rune, :bot, :event, :exception]` - wrap each `handle_event/2` dispatch
+    via `:telemetry.span/3`. Measurements: `:system_time` on start, `:duration` on
+    stop and exception. Metadata: `:bot` (the bot module) and `:event` (the event
+    type); exception events also carry `:kind`, `:reason` and `:stacktrace`.
+
+  - `[:proto_rune, :bot, :event, :dispatch]` - emitted once per dispatched event
+    with measurement `%{count: 1}` and metadata `:bot` and `:event`. Count it
+    grouped by the `:event` metadata to build the event type distribution.
+
+  - `[:proto_rune, :bot, :poll, :start]` / `[:proto_rune, :bot, :poll, :stop]` /
+    `[:proto_rune, :bot, :poll, :exception]` - wrap each polling cycle via
+    `:telemetry.span/3`. Measurements follow the same span conventions.
+    Metadata: `:poller` (the poller process name).
+
+  - `[:proto_rune, :bot, :rate_limited]` - emitted when a poll hits an API rate
+    limit, with measurement `%{count: 1}` and metadata `:poller`, `:retry_in`
+    (milliseconds until the next poll) and `:attempt` (consecutive rate-limited
+    attempts).
   """
 
   alias ProtoRune.Bot.Server
