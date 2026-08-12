@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.3.0](https://github.com/zoedsoupe/proto_rune/compare/v0.2.0...v0.3.0) (2026-08-12)
+
+
+### Features
+
+* **atproto:** add OAuth authorization flow with PAR, PKCE and DPoP ([9f26d79](https://github.com/zoedsoupe/proto_rune/commit/9f26d791ddf51ccea8b3221bb9aaf11f76b746bc))
+* **bot:** add firehose strategy ([f8d41eb](https://github.com/zoedsoupe/proto_rune/commit/f8d41eb229acd3b8df62ec4e2ca76ffca25ea5c8))
+* **bot:** add telemetry events for event processing, polling and rate limits ([e62abe7](https://github.com/zoedsoupe/proto_rune/commit/e62abe75131d8cc1706100070b77459018aa59a4))
+* **bsky:** add search and profile update ([33633ba](https://github.com/zoedsoupe/proto_rune/commit/33633ba25da114cc797d09281b2defdf4b0ee863))
+* **firehose:** add real-time event stream client ([b699cce](https://github.com/zoedsoupe/proto_rune/commit/b699ccefad692dff10ac99896e4cb6d9e7e59537))
+* **http_client:** add rate limiting and exponential backoff retries (closes [#30](https://github.com/zoedsoupe/proto_rune/issues/30)) ([74dc15e](https://github.com/zoedsoupe/proto_rune/commit/74dc15eb6972562a0bd98b2186343e0e0f87be02))
+* **security:** add session token encryption and pluggable storage ([#44](https://github.com/zoedsoupe/proto_rune/issues/44)) ([d3f9940](https://github.com/zoedsoupe/proto_rune/commit/d3f994076879f4d8a1563d72651742aa39b5c373))
+
+
+### Bug Fixes
+
+* **http_client:** omit connect timeout when unset in req adapter ([981145c](https://github.com/zoedsoupe/proto_rune/commit/981145c1b354620c93f12dd32888aca0fe7b27bd))
+* **identity:** make cache optional and document supervision ([756766e](https://github.com/zoedsoupe/proto_rune/commit/756766e8b3c491aaaeea217849cbe76a6b0b6978))
+* **xrpc:** decode JSON at the client boundary, not in the Req adapter ([3932d9f](https://github.com/zoedsoupe/proto_rune/commit/3932d9fe56b367cac0dbf302fb66216b42f8f912))
+* **xrpc:** per-call base_url, drop app-env fallback, normalize service urls ([238f7e4](https://github.com/zoedsoupe/proto_rune/commit/238f7e474b8565daefbaf7f14fae3fe928225b05))
+* **xrpc:** recurse case conversion into nested maps ([d462bfc](https://github.com/zoedsoupe/proto_rune/commit/d462bfca2483783bb57f38763da86f990b557550))
+
+
+### Documentation
+
+* **cheatsheets:** add bluesky usage cheatsheet, drop broken example stubs ([0263d75](https://github.com/zoedsoupe/proto_rune/commit/0263d753a7e66477c252285069c426213525b0a0))
+
+
+### Miscellaneous Chores
+
+* update .gitignore ([2ec93f3](https://github.com/zoedsoupe/proto_rune/commit/2ec93f385d7250efc72616fb8c846d1b2c8b55bb))
+
 ## [0.2.0](https://github.com/zoedsoupe/proto_rune/compare/v0.1.2...v0.2.0) (2026-08-10)
 
 
