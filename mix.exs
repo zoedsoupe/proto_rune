@@ -64,6 +64,7 @@ defmodule ProtoRune.MixProject do
       "guides/posting-content.md",
       "guides/bot-development.md",
       "guides/repository-operations.md",
+      "guides/custom-lexicons.md",
       "guides/xrpc.md"
     ]
 
