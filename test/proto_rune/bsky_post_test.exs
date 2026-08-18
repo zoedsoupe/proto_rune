@@ -11,7 +11,7 @@ defmodule ProtoRune.BskyPostTest do
 
     @impl true
     def request(method, url, opts) do
-      send(Process.whereis(:bsky_post_test), {:request, method, url, opts})
+      send(Application.fetch_env!(:proto_rune, :bsky_post_test_pid), {:request, method, url, opts})
 
       {:ok,
        %{
@@ -38,7 +38,8 @@ defmodule ProtoRune.BskyPostTest do
     Application.put_env(:proto_rune, :rate_limit, false)
     on_exit(fn -> Application.delete_env(:proto_rune, :rate_limit) end)
 
-    Process.register(self(), :bsky_post_test)
+    Application.put_env(:proto_rune, :bsky_post_test_pid, self())
+    on_exit(fn -> Application.delete_env(:proto_rune, :bsky_post_test_pid) end)
 
     :ok
   end

@@ -9,7 +9,7 @@ defmodule ProtoRune.LoginTest do
 
     @impl true
     def request(method, url, _opts) do
-      send(Process.whereis(:capture_adapter_test), {method, url})
+      send(Application.fetch_env!(:proto_rune, :capture_adapter_test_pid), {method, url})
 
       {:ok,
        %{
@@ -33,7 +33,8 @@ defmodule ProtoRune.LoginTest do
     Application.put_env(:proto_rune, :rate_limit, false)
     on_exit(fn -> Application.delete_env(:proto_rune, :rate_limit) end)
 
-    Process.register(self(), :capture_adapter_test)
+    Application.put_env(:proto_rune, :capture_adapter_test_pid, self())
+    on_exit(fn -> Application.delete_env(:proto_rune, :capture_adapter_test_pid) end)
 
     :ok
   end
