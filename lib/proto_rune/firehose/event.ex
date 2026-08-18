@@ -41,4 +41,33 @@ defmodule ProtoRune.Firehose.Event do
         }
 
   defstruct [:type, :seq, :repo, :time, :rev, :payload, ops: [], blocks: %{}]
+
+  @doc """
+  Returns true when any operation of a `:commit` event belongs to the
+  given collection or a collection under it.
+
+  The match is segment-aware: `"app.bsky.feed"` matches
+  `"app.bsky.feed.post"` but not `"app.bsky.feedback.x"`. Non-commit
+  events carry no operations and always return false.
+
+  ## Examples
+
+      iex> Event.collection?(%Event{type: :commit, ops: [%{action: :create, path: "app.bsky.feed.post/abc", cid: nil}]}, "app.bsky.feed")
+      true
+
+      iex> Event.collection?(%Event{type: :commit, ops: [%{action: :create, path: "app.bsky.feedback.x/abc", cid: nil}]}, "app.bsky.feed")
+      false
+
+      iex> Event.collection?(%Event{type: :identity}, "app.bsky.feed")
+      false
+  """
+  @spec collection?(t(), String.t()) :: boolean()
+  def collection?(%__MODULE__{type: :commit, ops: ops}, prefix) when is_binary(prefix) do
+    Enum.any?(ops, fn %{path: path} ->
+      collection = path |> String.split("/", parts: 2) |> hd()
+      collection == prefix or String.starts_with?(collection, prefix <> ".")
+    end)
+  end
+
+  def collection?(%__MODULE__{}, prefix) when is_binary(prefix), do: false
 end
