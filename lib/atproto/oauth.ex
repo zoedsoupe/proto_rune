@@ -420,14 +420,25 @@ defmodule ProtoRune.Atproto.OAuth do
 
   defp fetch_json(url) do
     case HTTPClient.request(:get, url, headers: [{"accept", "application/json"}]) do
-      {:ok, %{status: status, body: body}} when status in 200..299 and is_map(body) ->
-        {:ok, body}
+      {:ok, %{status: status, body: body}} when status in 200..299 ->
+        decode_json_body(body)
 
       {:ok, %{status: status}} ->
         {:error, {:http_error, status}}
 
       {:error, reason} ->
         {:error, reason}
+    end
+  end
+
+  # The HTTP adapter returns raw bodies; JSON decoding happens at the call
+  # site, like the XRPC client and the DID resolver do.
+  defp decode_json_body(body) when is_map(body), do: {:ok, body}
+
+  defp decode_json_body(body) when is_binary(body) do
+    case JSON.decode(body) do
+      {:ok, decoded} when is_map(decoded) -> {:ok, decoded}
+      _ -> {:error, :invalid_json}
     end
   end
 
