@@ -232,7 +232,7 @@ defmodule ProtoRune.Bsky.Feed do
 
   https://docs.bsky.app/docs/api/app-bsky-feed-send-interactions
   """
-  defprocedure "app.sbky.feed.sendInterations", authenticated: true do
+  defprocedure "app.bsky.feed.sendInteractions", authenticated: true do
     param :interactions, {:required, {:list, @interaction}}
   end
 
