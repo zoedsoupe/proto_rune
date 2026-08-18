@@ -378,6 +378,39 @@ defmodule ProtoRune.Atproto.OAuth do
     |> handle_dpop_response(url, form, keys, nonce, allow_retry, access_token)
   end
 
+  # The HTTP adapter returns raw bodies: decode JSON before matching on
+  # error payloads like "use_dpop_nonce". Non-JSON bodies (the revocation
+  # endpoint answers 200 with an empty body) pass through as-is.
+  defp handle_dpop_response(
+         {:ok, %{status: status, body: body} = resp},
+         url,
+         form,
+         keys,
+         nonce,
+         retry,
+         access_token
+       )
+       when is_binary(body) do
+    case JSON.decode(body) do
+      {:ok, decoded} when is_map(decoded) ->
+        handle_dpop_response(
+          {:ok, %{resp | body: decoded}},
+          url,
+          form,
+          keys,
+          nonce,
+          retry,
+          access_token
+        )
+
+      _ when status in 200..299 ->
+        {:ok, body, get_header(resp.headers, "dpop-nonce") || nonce}
+
+      _ ->
+        {:error, {:oauth_error, status, body}}
+    end
+  end
+
   # Success responses carry any body shape: the token endpoints answer
   # JSON while the revocation endpoint (RFC 7009) answers 200 with an
   # empty body. Callers validate the payload they expect.
