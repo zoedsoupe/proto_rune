@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.2](https://github.com/zoedsoupe/proto_rune/compare/v0.4.1...v0.4.2) (2026-08-18)
+
+
+### Bug Fixes
+
+* **oauth:** decode dpop response bodies before matching errors ([92ae6ba](https://github.com/zoedsoupe/proto_rune/commit/92ae6ba402b4249584267ee0b26108b53b5b293f))
+* **oauth:** read dpop nonce from req response header maps ([121647d](https://github.com/zoedsoupe/proto_rune/commit/121647d6934a6b7abe39cabea22850f220261e70))
+
 ## [0.4.1](https://github.com/zoedsoupe/proto_rune/compare/v0.4.0...v0.4.1) (2026-08-18)
 
 
