@@ -13,6 +13,7 @@ defmodule ProtoRune.Atproto.OAuthTest do
   @par_url "https://auth.test/oauth/par"
   @token_url "https://auth.test/oauth/token"
   @authorize_url "https://auth.test/oauth/authorize"
+  @revoke_url "https://auth.test/oauth/revoke"
   @did "did:plc:test123"
 
   defmodule FakeHTTP do
@@ -315,6 +316,65 @@ defmodule ProtoRune.Atproto.OAuthTest do
     end
   end
 
+  describe "revoke/2" do
+    test "revokes the refresh token with a DPoP-bound form post", %{client: client} do
+      session = session(client)
+      stub_revocation_metadata()
+
+      stub(:post, @revoke_url, fn opts ->
+        form = opts[:form]
+
+        assert form["token"] == "rt-1"
+        assert form["client_id"] == client.client_id
+
+        proof = dpop_header(opts)
+        claims = proof |> String.split(".") |> Enum.at(1) |> decode_segment()
+
+        assert claims["ath"] == Base.url_encode64(:crypto.hash(:sha256, "at-1"), padding: false)
+        assert_valid_proof(proof, client.dpop_key, @revoke_url)
+
+        {:ok, %{status: 200, body: "", headers: []}}
+      end)
+
+      assert {:ok, :revoked} = OAuth.revoke(session, client_id: client.client_id)
+    end
+
+    test "returns :revocation_not_supported when the server declares no endpoint", %{client: client} do
+      session = session(client)
+
+      stub(:get, @issuer <> "/.well-known/oauth-authorization-server", %{
+        status: 200,
+        body: authorization_server_metadata()
+      })
+
+      assert {:error, :revocation_not_supported} = OAuth.revoke(session, client_id: client.client_id)
+    end
+
+    test "propagates revocation endpoint errors", %{client: client} do
+      session = session(client)
+      stub_revocation_metadata()
+
+      stub(:post, @revoke_url, %{
+        status: 400,
+        body: %{"error" => "invalid_client"},
+        headers: []
+      })
+
+      assert {:error, {:oauth_error, 400, %{"error" => "invalid_client"}}} =
+               OAuth.revoke(session, client_id: client.client_id)
+    end
+
+    test "returns an error without a refresh token", %{client: client} do
+      session = %{session(client) | refresh_token: nil}
+
+      assert {:error, :missing_refresh_token} = OAuth.revoke(session, client_id: client.client_id)
+    end
+
+    test "requires a client_id", %{client: client} do
+      assert {:error, :missing_client_id} = OAuth.revoke(session(client))
+    end
+  end
+
   # Helpers
 
   defp stub(method, url, response) when is_map(response) do
@@ -391,6 +451,13 @@ defmodule ProtoRune.Atproto.OAuthTest do
     stub(:get, @pds_url <> "/.well-known/oauth-protected-resource", %{
       status: 200,
       body: %{"resource" => @pds_url, "authorization_servers" => [@issuer]}
+    })
+  end
+
+  defp stub_revocation_metadata do
+    stub(:get, @issuer <> "/.well-known/oauth-authorization-server", %{
+      status: 200,
+      body: authorization_server_metadata(%{"revocation_endpoint" => @revoke_url})
     })
   end
 
