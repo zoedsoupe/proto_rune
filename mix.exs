@@ -43,7 +43,7 @@ defmodule ProtoRune.MixProject do
       {:telemetry, "~> 1.2"},
       {:styler, "~> 1.3", only: [:dev, :test], runtime: false},
       {:bypass, "~> 2.1", only: :test},
-      {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
+      {:ex_doc, ">= 0.0.0", only: [:dev, :test], runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.3", only: [:dev, :test], runtime: false}
     ]
