@@ -338,7 +338,13 @@ Revocation looks up the authorization server's `revocation_endpoint` in its meta
 
 For long-running applications, `ProtoRune.Atproto.OAuth.SessionManager` keeps a session fresh for you. It refreshes the tokens before they expire, persists each rotated session through a `ProtoRune.Security.TokenStore` backend and stops if a refresh fails, letting your supervisor decide what to do.
 
-The SDK starts no processes on its own: add the manager to your application's supervision tree, alongside a `Registry` if you want to look managers up by DID:
+The SDK starts no processes on its own: add the manager to your application's supervision tree, alongside a `Registry` if you want to look managers up by DID. The manager requires an encryption key, because every persisted session is encrypted at rest: the session's `dpop_key` is private key material, so `ProtoRune.Security.TokenStore` backends never see plaintext. Provision the key once and keep it outside the token storage:
+
+```elixir
+# once, to provision the key:
+key = ProtoRune.Security.generate_key()
+System.put_env("PROTO_RUNE_TOKEN_KEY", ProtoRune.Security.encode_key(key))
+```
 
 ```elixir
 # application.ex
@@ -357,7 +363,7 @@ children = [
 Supervisor.start_link(children, strategy: :one_for_one)
 ```
 
-The `:key` option encrypts the session before it reaches the store; see `ProtoRune.Security` for how to provision it. With `:registry` set, the manager registers itself under the session's DID, so any process can fetch the current session without holding the pid:
+With `:registry` set, the manager registers itself under the session's DID, so any process can fetch the current session without holding the pid:
 
 ```elixir
 via = {:via, Registry, {MyApp.OAuthRegistry, "did:plc:abc123"}}

@@ -12,6 +12,7 @@ defmodule ProtoRune.Atproto.OAuth.SessionManager do
          session: session,
          client: client,
          store: {ProtoRune.Security.TokenStore.Dets, path: "/var/myapp/tokens.dets"},
+         key: key,
          registry: MyApp.OAuthRegistry}
       ]
 
@@ -21,6 +22,12 @@ defmodule ProtoRune.Atproto.OAuth.SessionManager do
   `ProtoRune.Atproto.OAuth.refresh/2` and persists each new session
   through the configured `ProtoRune.Security.TokenStore` backend under
   the session's DID.
+
+  Sessions are always encrypted at rest: the serialized session is
+  encrypted with `ProtoRune.Security.Crypto` before it reaches the store,
+  so TokenStore backends never see plaintext. This is mandatory because
+  the session's `dpop_key` is private key material, as sensitive as the
+  tokens themselves.
 
   When a refresh fails the manager stops with `{:refresh_failed, reason}`
   and lets the supervisor decide the restart policy. `logout/1` revokes
@@ -38,8 +45,10 @@ defmodule ProtoRune.Atproto.OAuth.SessionManager do
     was issued to.
   - `:store` - Required. A `{module, opts}` `ProtoRune.Security.TokenStore`
     backend used to persist each refreshed session under its DID.
-  - `:key` - Optional `ProtoRune.Security.Crypto` key. When given, the
-    serialized session is encrypted before it reaches the store.
+  - `:key` - Required. A `ProtoRune.Security.Crypto` key used to encrypt
+    every persisted session. Generate one with
+    `ProtoRune.Security.generate_key/0` and keep it outside the token
+    storage (see `ProtoRune.Security`).
   - `:registry` - Optional name of a `Registry` started by the host
     application. When given, the manager registers itself under the
     session's DID and can be addressed with
@@ -115,7 +124,7 @@ defmodule ProtoRune.Atproto.OAuth.SessionManager do
       session: Keyword.fetch!(opts, :session),
       client: Keyword.fetch!(opts, :client),
       store: Keyword.fetch!(opts, :store),
-      key: Keyword.get(opts, :key),
+      key: Keyword.fetch!(opts, :key),
       refresh_fraction: Keyword.get(opts, :refresh_fraction, @default_refresh_fraction)
     }
 
@@ -182,13 +191,10 @@ defmodule ProtoRune.Atproto.OAuth.SessionManager do
   end
 
   defp persist(%{store: {backend, opts}, key: key}, %Session{did: did} = session) do
-    with {:ok, blob} <- maybe_encrypt(:erlang.term_to_binary(session), key) do
+    with {:ok, blob} <- Crypto.encrypt(:erlang.term_to_binary(session), key) do
       backend.put(did, blob, opts)
     end
   end
-
-  defp maybe_encrypt(blob, nil), do: {:ok, blob}
-  defp maybe_encrypt(blob, key), do: Crypto.encrypt(blob, key)
 
   defp delete({backend, opts}, did), do: backend.delete(did, opts)
 

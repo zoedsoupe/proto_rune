@@ -85,13 +85,14 @@ defmodule ProtoRune.Atproto.OAuth.SessionManagerTest do
 
     on_exit(fn -> :telemetry.detach(handler_id) end)
 
-    {:ok, client: client, store: {MemoryStore, [pid: store_pid]}, store_pid: store_pid}
+    {:ok, client: client, store: {MemoryStore, [pid: store_pid]}, store_pid: store_pid, key: Security.generate_key()}
   end
 
   test "refreshes on schedule, rotates tokens and persists through the store", %{
     client: client,
     store: store,
-    store_pid: store_pid
+    store_pid: store_pid,
+    key: key
   } do
     session = session(client, expires_at: System.system_time(:second) + 2)
 
@@ -121,6 +122,7 @@ defmodule ProtoRune.Atproto.OAuth.SessionManagerTest do
         session: session,
         client: client,
         store: store,
+        key: key,
         refresh_fraction: 0.1
       )
 
@@ -130,47 +132,27 @@ defmodule ProtoRune.Atproto.OAuth.SessionManagerTest do
     assert fresh.refresh_token == "rt-2"
     assert fresh.dpop_nonce == "nonce-9"
 
+    # The persisted blob is encrypted: the store never sees plaintext
     assert {:ok, blob} = MemoryStore.fetch(@did, pid: store_pid)
-    assert %Session{access_token: "at-2", refresh_token: "rt-2"} = :erlang.binary_to_term(blob)
+    assert {:ok, plaintext} = Crypto.decrypt(blob, key)
+    assert %Session{access_token: "at-2", refresh_token: "rt-2"} = :erlang.binary_to_term(plaintext)
 
     assert_received {:telemetry, [:proto_rune, :oauth, :refresh, :start], _, %{did: @did}}
     assert_received {:telemetry, [:proto_rune, :oauth, :refresh, :stop], _, %{did: @did}}
   end
 
-  test "encrypts the persisted session when a key is given", %{
-    client: client,
-    store: store,
-    store_pid: store_pid
-  } do
-    key = Security.generate_key()
-    session = session(client, expires_at: System.system_time(:second) + 2)
+  test "fails to start without an encryption key", %{client: client, store: store} do
+    Process.flag(:trap_exit, true)
 
-    Application.put_env(:proto_rune, :http_stub_handler, fn :post, @token_url, _opts ->
-      {:ok,
-       %{
-         status: 200,
-         body: %{"access_token" => "at-2", "refresh_token" => "rt-2", "sub" => @did},
-         headers: []
-       }}
-    end)
-
-    {:ok, pid} =
-      SessionManager.start_link(
-        session: session,
-        client: client,
-        store: store,
-        key: key,
-        refresh_fraction: 0.1
-      )
-
-    assert_eventually(fn -> SessionManager.session(pid).access_token == "at-2" end)
-
-    assert {:ok, blob} = MemoryStore.fetch(@did, pid: store_pid)
-    assert {:ok, plaintext} = Crypto.decrypt(blob, key)
-    assert %Session{access_token: "at-2"} = :erlang.binary_to_term(plaintext)
+    assert {:error, {%KeyError{key: :key}, _stacktrace}} =
+             SessionManager.start_link(session: session(client), client: client, store: store)
   end
 
-  test "stops with a descriptive reason when the refresh fails", %{client: client, store: store} do
+  test "stops with a descriptive reason when the refresh fails", %{
+    client: client,
+    store: store,
+    key: key
+  } do
     Process.flag(:trap_exit, true)
 
     session = session(client, expires_at: System.system_time(:second) + 2)
@@ -184,6 +166,7 @@ defmodule ProtoRune.Atproto.OAuth.SessionManagerTest do
         session: session,
         client: client,
         store: store,
+        key: key,
         refresh_fraction: 0.1
       )
 
@@ -197,7 +180,8 @@ defmodule ProtoRune.Atproto.OAuth.SessionManagerTest do
   test "logout revokes, deletes the stored session and stops", %{
     client: client,
     store: store,
-    store_pid: store_pid
+    store_pid: store_pid,
+    key: key
   } do
     session = session(client)
     test_pid = self()
@@ -220,7 +204,7 @@ defmodule ProtoRune.Atproto.OAuth.SessionManagerTest do
 
     :ok = MemoryStore.put(@did, :erlang.term_to_binary(session), pid: store_pid)
 
-    {:ok, pid} = SessionManager.start_link(session: session, client: client, store: store)
+    {:ok, pid} = SessionManager.start_link(session: session, client: client, store: store, key: key)
     ref = Process.monitor(pid)
 
     assert :ok = SessionManager.logout(pid)
@@ -232,7 +216,11 @@ defmodule ProtoRune.Atproto.OAuth.SessionManagerTest do
     assert_received {:telemetry, [:proto_rune, :oauth, :revoke, :stop], _, %{did: @did}}
   end
 
-  test "registers under the session DID in a host-started Registry", %{client: client, store: store} do
+  test "registers under the session DID in a host-started Registry", %{
+    client: client,
+    store: store,
+    key: key
+  } do
     registry = :"oauth-registry-#{System.unique_integer([:positive])}"
     start_supervised!({Registry, keys: :unique, name: registry})
 
@@ -241,6 +229,7 @@ defmodule ProtoRune.Atproto.OAuth.SessionManagerTest do
         session: session(client),
         client: client,
         store: store,
+        key: key,
         registry: registry
       )
 
