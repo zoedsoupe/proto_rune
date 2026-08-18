@@ -32,7 +32,7 @@ defmodule ProtoRune do
 
   require Identity
 
-  @type session :: Session.t() | map()
+  @type session :: Session.t() | ProtoRune.Atproto.OAuth.Session.t()
   @type user_identifier :: String.t()
   @type user_password :: String.t()
   @type handle :: String.t()

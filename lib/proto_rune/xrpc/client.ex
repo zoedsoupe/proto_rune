@@ -31,6 +31,12 @@ defmodule ProtoRune.XRPC.Client do
   - Query: GET request
   - Procedure: POST request
 
+  ## Options
+
+  - `:session` - A session implementing the `ProtoRune.Session`
+    behaviour. When given, a 401 response demanding a fresh DPoP nonce
+    (`use_dpop_nonce`) is retried once with the server-provided nonce.
+
   ## Examples
 
       # Execute a query
@@ -41,32 +47,46 @@ defmodule ProtoRune.XRPC.Client do
       proc = Procedure.new("com.atproto.server.createSession")
       {:ok, response} = Client.execute(proc)
   """
-  def execute(%Query{} = query) do
+  def execute(req, opts \\ [])
+
+  def execute(%Query{} = query, opts) do
+    session = Keyword.get(opts, :session)
     url = to_string(query)
-    headers = format_headers(query.headers)
 
-    :get
-    |> HTTPClient.request(url, headers: headers)
-    |> parse_http()
+    request = fn headers ->
+      HTTPClient.request(:get, url, headers: format_headers(headers))
+    end
+
+    query.headers
+    |> run_with_nonce_retry(request, session, "GET", url)
+    |> parse_http(query.response)
   end
 
-  def execute(%Procedure{raw_body: true} = proc) do
+  def execute(%Procedure{raw_body: true} = proc, opts) do
+    session = Keyword.get(opts, :session)
     url = to_string(proc)
-    headers = format_headers(proc.headers)
 
-    :post
-    |> HTTPClient.request(url, body: proc.body, headers: headers)
-    |> parse_http()
+    request = fn headers ->
+      HTTPClient.request(:post, url, body: proc.body, headers: format_headers(headers))
+    end
+
+    proc.headers
+    |> run_with_nonce_retry(request, session, "POST", url)
+    |> parse_http(proc.response)
   end
 
-  def execute(%Procedure{} = proc) do
+  def execute(%Procedure{} = proc, opts) do
+    session = Keyword.get(opts, :session)
     url = to_string(proc)
     body = ProtoRune.Case.camelize_enum(proc.body)
-    headers = format_headers(proc.headers)
 
-    :post
-    |> HTTPClient.request(url, json: body, headers: headers)
-    |> parse_http()
+    request = fn headers ->
+      HTTPClient.request(:post, url, json: body, headers: format_headers(headers))
+    end
+
+    proc.headers
+    |> run_with_nonce_retry(request, session, "POST", url)
+    |> parse_http(proc.response)
   end
 
   # Convert headers map to list of tuples for HTTPClient
@@ -74,15 +94,100 @@ defmodule ProtoRune.XRPC.Client do
     Enum.map(headers, fn {k, v} -> {to_string(k), v} end)
   end
 
-  defp parse_http({:error, err}), do: {:error, err}
+  # A 401 demanding a fresh DPoP nonce is retried once with the
+  # server-provided nonce, mirroring the authorization-server retry in
+  # ProtoRune.Atproto.OAuth. The updated session stays internal to the
+  # call: nonces are not persisted.
+  defp run_with_nonce_retry(headers, request, session, method, url) do
+    case request.(headers) do
+      {:ok, %{status: 401} = resp} = result ->
+        case nonce_retry_headers(resp, headers, session, method, url) do
+          {:ok, retry_headers} -> request.(retry_headers)
+          :error -> result
+        end
 
-  defp parse_http({:ok, %{status: status} = resp}) when status >= 400 do
+      other ->
+        other
+    end
+  end
+
+  defp nonce_retry_headers(_resp, _headers, nil, _method, _url), do: :error
+
+  defp nonce_retry_headers(resp, headers, session, method, url) do
+    with %{"error" => "use_dpop_nonce"} <- decode_error_body(resp.body),
+         nonce when is_binary(nonce) <- get_header(Map.get(resp, :headers), "dpop-nonce"),
+         {:ok, session} <- put_dpop_nonce(session, nonce),
+         {:ok, auth_headers, _session} <- ProtoRune.Session.authorization_headers(session, method, url) do
+      {:ok, Map.merge(headers, auth_headers)}
+    else
+      _other -> :error
+    end
+  end
+
+  # Only OAuth sessions carry a DPoP nonce
+  defp put_dpop_nonce(%ProtoRune.Atproto.OAuth.Session{} = session, nonce) do
+    {:ok, %{session | dpop_nonce: nonce}}
+  end
+
+  defp put_dpop_nonce(_session, _nonce), do: :error
+
+  defp decode_error_body(body) when is_map(body), do: body
+
+  defp decode_error_body(body) when is_binary(body) do
+    case JSON.decode(body) do
+      {:ok, decoded} when is_map(decoded) -> decoded
+      _other -> %{}
+    end
+  end
+
+  defp decode_error_body(_body), do: %{}
+
+  defp get_header(headers, name) when is_list(headers) do
+    Enum.find_value(headers, fn {key, value} ->
+      if String.downcase(to_string(key)) == name, do: value
+    end)
+  end
+
+  defp get_header(_headers, _name), do: nil
+
+  defp parse_http({:error, err}, _response), do: {:error, err}
+
+  defp parse_http({:ok, %{status: status} = resp}, _response) when status >= 400 do
     {:error, Error.from(%{resp | body: decode_body(resp.body)})}
   end
 
-  defp parse_http({:ok, %{status: status, body: body}}) when status in [200, 201] do
-    {:ok, body |> decode_body() |> ProtoRune.Case.snakelize_enum()}
+  defp parse_http({:ok, %{status: status} = resp}, response) when status in [200, 201] do
+    decode_success(resp, response)
   end
+
+  defp decode_success(resp, :binary) do
+    {:ok, %{content_type: content_type(resp), body: resp.body}}
+  end
+
+  defp decode_success(resp, :json) do
+    {:ok, resp.body |> decode_body() |> ProtoRune.Case.snakelize_enum()}
+  end
+
+  # :auto routes on the response content-type; a missing content-type
+  # decodes as JSON
+  defp decode_success(resp, :auto) do
+    case content_type(resp) do
+      nil -> decode_success(resp, :json)
+      "application/json" -> decode_success(resp, :json)
+      _other -> decode_success(resp, :binary)
+    end
+  end
+
+  # Compares the media type only, dropping any "; charset=..." suffix
+  defp content_type(%{headers: headers}) when is_list(headers) do
+    Enum.find_value(headers, fn {key, value} ->
+      if String.downcase(to_string(key)) == "content-type" do
+        value |> String.split(";", parts: 2) |> hd() |> String.trim() |> String.downcase()
+      end
+    end)
+  end
+
+  defp content_type(_resp), do: nil
 
   defp decode_body(body) when body in ["", nil], do: %{}
   defp decode_body(body) when is_binary(body), do: JSON.decode!(body)

@@ -152,7 +152,12 @@ defmodule ProtoRune.Bot.TelemetryTest do
          name: name,
          interval: 60,
          process_from: NaiveDateTime.utc_now(),
-         session: %{access_jwt: "test-token"},
+         session: %ProtoRune.Atproto.Session{
+           access_jwt: "test-token",
+           refresh_jwt: "test-refresh",
+           did: "did:plc:test",
+           handle: "bot.test"
+         },
          server_pid: self()
        ]}
     )

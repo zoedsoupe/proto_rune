@@ -230,15 +230,26 @@ defmodule ProtoRune.Bot.Server do
     identifier = state[:identifier] || state[:name].get_identifier()
     password = state[:password] || state[:name].get_password()
 
-    with {:ok, session} <-
+    with {:ok, data} <-
            Atproto.Server.create_session(identifier: identifier, password: password),
-         {:ok, profile} <- Bsky.Actor.get_profile(session, actor: session.did) do
-      schedule_refresh_session()
+         {:ok, %Atproto.Session{} = session} <- Atproto.Session.parse(data) do
+      # Route requests through the session's service_url, falling back
+      # to the configured service when the DID document is absent
+      base_url = Atproto.Session.normalize_service_url(state[:service])
+      session = %{session | service_url: session.service_url || base_url}
 
-      {:noreply,
-       state
-       |> Map.put(:did, profile[:did])
-       |> Map.put(:session, Map.take(session, [:access_jwt, :refresh_jwt])), {:continue, :start_listener}}
+      case Bsky.Actor.get_profile(session, actor: session.did) do
+        {:ok, profile} ->
+          schedule_refresh_session()
+
+          {:noreply,
+           state
+           |> Map.put(:did, profile[:did])
+           |> Map.put(:session, session), {:continue, :start_listener}}
+
+        err ->
+          {:stop, err, state}
+      end
     else
       err -> {:stop, err, state}
     end
@@ -305,14 +316,17 @@ defmodule ProtoRune.Bot.Server do
   def handle_info(:refresh_session, state) do
     Logger.info("[#{__MODULE__}] ==> Refreshing session for bot #{state[:name]}")
 
-    case Atproto.Server.refresh_session(state[:session]) do
-      {:ok, session} ->
-        if state[:poller], do: send(state[:poller], {:refresh_session, session})
-        schedule_refresh_session()
-        {:noreply, Map.put(state, :session, Map.take(session, [:access_jwt, :refresh_jwt]))}
+    with {:ok, data} <- Atproto.Server.refresh_session(state[:session]),
+         {:ok, %Atproto.Session{} = session} <- Atproto.Session.parse(data) do
+      # The refresh response carries no DID document, so keep the
+      # previously resolved service_url
+      session = %{session | service_url: session.service_url || state[:session].service_url}
 
-      err ->
-        {:stop, err, state}
+      if state[:poller], do: send(state[:poller], {:refresh_session, session})
+      schedule_refresh_session()
+      {:noreply, Map.put(state, :session, session)}
+    else
+      err -> {:stop, err, state}
     end
   end
 

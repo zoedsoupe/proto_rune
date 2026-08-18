@@ -73,7 +73,9 @@ defmodule ProtoRune.XRPC.DSL do
   - `mute/0` is generated as a function that creates a procedure for `app.bsky.actor.mute` with the parameter `:actor_id` of type `:string`.
   """
 
+  alias ProtoRune.Session
   alias ProtoRune.XRPC.Client
+  alias ProtoRune.XRPC.Config
   alias ProtoRune.XRPC.Procedure
   alias ProtoRune.XRPC.Query
 
@@ -85,106 +87,99 @@ defmodule ProtoRune.XRPC.DSL do
 
   @spec defquery(String.t(), options) :: Macro.t()
   defmacro defquery(method, opts) do
-    authenticated = Keyword.get(opts, :authenticated, false)
-
     {method, fun} = encode_method_name(method)
 
-    quote do
-      case unquote(authenticated) do
-        true ->
-          def unquote(fun)(%{access_jwt: access_token} = session) do
-            # Extract service_url from session if present
-            base_url = Map.get(session, :service_url)
-
-            unquote(method)
-            |> Query.new(base_url: base_url)
-            |> Query.put_header(:authorization, "Bearer #{access_token}")
-            |> Client.execute()
-          end
-
-        :optional ->
-          def unquote(fun)(%{access_jwt: access_token} = session) do
-            # Extract service_url from session if present
-            base_url = Map.get(session, :service_url)
-
-            unquote(method)
-            |> Query.new(base_url: base_url)
-            |> Query.put_header(:authorization, "Bearer #{access_token}")
-            |> Client.execute()
-          end
-
-          def unquote(fun)() do
-            unquote(method)
-            |> Query.new()
-            |> Client.execute()
-          end
-
-        _ ->
-          def unquote(fun)() do
-            unquote(method)
-            |> Query.new()
-            |> Client.execute()
-          end
-      end
+    case Keyword.get(opts, :authenticated, false) do
+      true -> authed_query(method, fun)
+      :optional -> optional_query(method, fun)
+      _other -> public_query(method, fun)
     end
   end
 
   @spec defquery(String.t(), options, do: Macro.t()) :: Macro.t()
   defmacro defquery(method, opts, do: block) do
-    authenticated = Keyword.get(opts, :authenticated, false)
     {method, fun} = encode_method_name(method)
+    clauses = query_clauses(Keyword.get(opts, :authenticated, false), method, fun)
 
     quote do
       Module.register_attribute(__MODULE__, :param, accumulate: true)
 
       unquote(block)
 
-      case unquote(authenticated) do
-        true ->
-          def unquote(fun)(%{access_jwt: access_token} = session, params) do
-            # Extract service_url from session if present
-            base_url = Map.get(session, :service_url)
-            query = Query.new(unquote(method), from: Map.new(@param), base_url: base_url)
-
-            with {:ok, query} <- Query.add_params(query, params) do
-              query
-              |> Query.put_header(:authorization, "Bearer #{access_token}")
-              |> Client.execute()
-            end
-          end
-
-        :optional ->
-          def unquote(fun)(%{access_jwt: access_token} = session, params) do
-            # Extract service_url from session if present
-            base_url = Map.get(session, :service_url)
-            query = Query.new(unquote(method), from: Map.new(@param), base_url: base_url)
-
-            with {:ok, query} <- Query.add_params(query, params) do
-              query
-              |> Query.put_header(:authorization, "Bearer #{access_token}")
-              |> Client.execute()
-            end
-          end
-
-          def unquote(fun)(params) do
-            query = Query.new(unquote(method), from: Map.new(@param))
-
-            with {:ok, query} <- Query.add_params(query, params) do
-              Client.execute(query)
-            end
-          end
-
-        _ ->
-          def unquote(fun)(params) do
-            query = Query.new(unquote(method), from: Map.new(@param))
-
-            with {:ok, query} <- Query.add_params(query, params) do
-              Client.execute(query)
-            end
-          end
-      end
+      unquote(clauses)
 
       Module.delete_attribute(__MODULE__, :param)
+    end
+  end
+
+  defp authed_query(method, fun) do
+    quote do
+      def unquote(fun)(session) do
+        base_url = Session.service_url(session) || Config.default_base_url()
+        url = Path.join(base_url, unquote(method))
+
+        with {:ok, headers, session} <- Session.authorization_headers(session, "GET", url) do
+          unquote(method)
+          |> Query.new(base_url: base_url)
+          |> then(&%{&1 | headers: Map.merge(&1.headers, headers)})
+          |> Client.execute(session: session)
+        end
+      end
+    end
+  end
+
+  defp optional_query(method, fun) do
+    quote do
+      unquote(authed_query(method, fun))
+      unquote(public_query(method, fun))
+    end
+  end
+
+  defp public_query(method, fun) do
+    quote do
+      def unquote(fun)() do
+        unquote(method)
+        |> Query.new()
+        |> Client.execute()
+      end
+    end
+  end
+
+  defp query_clauses(true, method, fun), do: authed_query_with_params(method, fun)
+
+  defp query_clauses(:optional, method, fun) do
+    quote do
+      unquote(authed_query_with_params(method, fun))
+      unquote(public_query_with_params(method, fun))
+    end
+  end
+
+  defp query_clauses(_other, method, fun), do: public_query_with_params(method, fun)
+
+  defp authed_query_with_params(method, fun) do
+    quote do
+      def unquote(fun)(session, params) do
+        base_url = Session.service_url(session) || Config.default_base_url()
+        url = Path.join(base_url, unquote(method))
+        query = Query.new(unquote(method), from: Map.new(@param), base_url: base_url)
+
+        with {:ok, query} <- Query.add_params(query, params),
+             {:ok, headers, session} <- Session.authorization_headers(session, "GET", url) do
+          Client.execute(%{query | headers: Map.merge(query.headers, headers)}, session: session)
+        end
+      end
+    end
+  end
+
+  defp public_query_with_params(method, fun) do
+    quote do
+      def unquote(fun)(params) do
+        query = Query.new(unquote(method), from: Map.new(@param))
+
+        with {:ok, query} <- Query.add_params(query, params) do
+          Client.execute(query)
+        end
+      end
     end
   end
 
@@ -197,15 +192,14 @@ defmodule ProtoRune.XRPC.DSL do
     quote do
       cond do
         unquote(authenticated) ->
-          def unquote(fun)(%{access_jwt: access_token} = session, params) do
-            # Extract service_url from session if present
-            base_url = Map.get(session, :service_url)
+          def unquote(fun)(session, params) do
+            base_url = Session.service_url(session) || Config.default_base_url()
+            url = Path.join(base_url, unquote(method))
             proc = Procedure.new(unquote(method), base_url: base_url)
 
-            with {:ok, proc} <- Procedure.put_body(proc, params) do
-              proc
-              |> Procedure.put_header(:authorization, "Bearer #{access_token}")
-              |> Client.execute()
+            with {:ok, proc} <- Procedure.put_body(proc, params),
+                 {:ok, headers, session} <- Session.authorization_headers(session, "POST", url) do
+              Client.execute(%{proc | headers: Map.merge(proc.headers, headers)}, session: session)
             end
           end
 
@@ -243,15 +237,14 @@ defmodule ProtoRune.XRPC.DSL do
       unquote(block)
 
       if unquote(authenticated) do
-        def unquote(fun)(%{access_jwt: access_token} = session, params) do
-          # Extract service_url from session if present
-          base_url = Map.get(session, :service_url)
+        def unquote(fun)(session, params) do
+          base_url = Session.service_url(session) || Config.default_base_url()
+          url = Path.join(base_url, unquote(method))
           proc = Procedure.new(unquote(method), from: Map.new(@param), base_url: base_url)
 
-          with {:ok, proc} <- Procedure.put_body(proc, params) do
-            proc
-            |> Procedure.put_header(:authorization, "Bearer #{access_token}")
-            |> Client.execute()
+          with {:ok, proc} <- Procedure.put_body(proc, params),
+               {:ok, headers, session} <- Session.authorization_headers(session, "POST", url) do
+            Client.execute(%{proc | headers: Map.merge(proc.headers, headers)}, session: session)
           end
         end
       else

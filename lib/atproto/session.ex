@@ -12,6 +12,8 @@ defmodule ProtoRune.Atproto.Session do
   `ProtoRune.refresh_session/1` when the access token expires.
   """
 
+  @behaviour ProtoRune.Session
+
   @type t :: %__MODULE__{
           access_jwt: String.t(),
           refresh_jwt: String.t(),
@@ -58,6 +60,14 @@ defmodule ProtoRune.Atproto.Session do
   }
 
   defstruct Map.keys(@t)
+
+  @impl true
+  def service_url(%__MODULE__{} = session), do: session.service_url
+
+  @impl true
+  def authorization_headers(%__MODULE__{} = session, _method, _url) do
+    {:ok, %{"authorization" => "Bearer #{session.access_jwt}"}, session}
+  end
 
   @doc """
   Parses session data from the server response.

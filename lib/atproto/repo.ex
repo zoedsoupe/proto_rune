@@ -13,7 +13,9 @@ defmodule ProtoRune.Atproto.Repo do
 
   import ProtoRune.XRPC.DSL
 
+  alias ProtoRune.Session
   alias ProtoRune.XRPC.Client
+  alias ProtoRune.XRPC.Config
   alias ProtoRune.XRPC.Procedure
 
   @collections [:generator, :like, :post, :postgate, :repost, :threadgate]
@@ -253,16 +255,18 @@ defmodule ProtoRune.Atproto.Repo do
 
       {:ok, %{blob: blob}} = Repo.upload_blob(session, image_data, "image/png")
   """
-  @spec upload_blob(map(), binary(), String.t()) :: {:ok, map()} | {:error, term()}
-  def upload_blob(%{access_jwt: access_token} = session, data, content_type)
-      when is_binary(data) and is_binary(content_type) do
-    base_url = Map.get(session, :service_url)
+  @spec upload_blob(Session.t(), binary(), String.t()) :: {:ok, map()} | {:error, term()}
+  def upload_blob(session, data, content_type) when is_binary(data) and is_binary(content_type) do
+    base_url = Session.service_url(session) || Config.default_base_url()
+    url = Path.join(base_url, "com.atproto.repo.uploadBlob")
 
-    "com.atproto.repo.uploadBlob"
-    |> Procedure.new(base_url: base_url)
-    |> Procedure.put_raw_body(data)
-    |> Procedure.put_header(:authorization, "Bearer #{access_token}")
-    |> Procedure.put_header("content-type", content_type)
-    |> Client.execute()
+    with {:ok, headers, session} <- Session.authorization_headers(session, "POST", url) do
+      "com.atproto.repo.uploadBlob"
+      |> Procedure.new(base_url: base_url)
+      |> Procedure.put_raw_body(data)
+      |> Procedure.put_header("content-type", content_type)
+      |> then(&%{&1 | headers: Map.merge(&1.headers, headers)})
+      |> Client.execute(session: session)
+    end
   end
 end

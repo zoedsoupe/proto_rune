@@ -12,6 +12,7 @@ defmodule ProtoRune.XRPC.ProcedureTest do
       assert proc.headers == %{}
       assert proc.parser == nil
       assert proc.base_url == nil
+      assert proc.response == :auto
     end
   end
 
@@ -38,6 +39,12 @@ defmodule ProtoRune.XRPC.ProcedureTest do
 
       assert proc.parser == parser
       assert proc.base_url == "https://custom.pds"
+    end
+
+    test "creates a procedure with a response mode" do
+      proc = Procedure.new("com.atproto.sync.getRepo", response: :binary)
+
+      assert proc.response == :binary
     end
   end
 

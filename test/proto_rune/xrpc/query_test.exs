@@ -12,6 +12,7 @@ defmodule ProtoRune.XRPC.QueryTest do
       assert query.headers == %{}
       assert query.parser == nil
       assert query.base_url == nil
+      assert query.response == :auto
     end
   end
 
@@ -38,6 +39,12 @@ defmodule ProtoRune.XRPC.QueryTest do
 
       assert query.parser == parser
       assert query.base_url == "https://custom.pds"
+    end
+
+    test "creates a query with a response mode" do
+      query = Query.new("com.atproto.sync.getRepo", response: :binary)
+
+      assert query.response == :binary
     end
   end
 

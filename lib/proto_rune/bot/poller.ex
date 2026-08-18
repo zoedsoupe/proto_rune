@@ -98,7 +98,7 @@ defmodule ProtoRune.Bot.Poller do
           | {:cursor, String.t()}
           | {:attempt, integer}
           | {:server_pid, pid}
-          | {:session, map}
+          | {:session, ProtoRune.Session.t()}
   @type kwargs :: nonempty_list(option)
 
   @spec start_link(kwargs) :: GenServer.on_start()

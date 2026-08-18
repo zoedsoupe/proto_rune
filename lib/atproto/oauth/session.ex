@@ -12,6 +12,8 @@ defmodule ProtoRune.Atproto.OAuth.Session do
   store it with the same care as the tokens.
   """
 
+  @behaviour ProtoRune.Session
+
   alias ProtoRune.Atproto.OAuth.DPoP
 
   @type t :: %__MODULE__{
@@ -43,6 +45,31 @@ defmodule ProtoRune.Atproto.OAuth.Session do
                 :token_endpoint,
                 :dpop_nonce
               ]
+
+  @impl true
+  def service_url(%__MODULE__{service_url: nil}), do: nil
+
+  def service_url(%__MODULE__{service_url: url}) do
+    # The session carries the bare PDS URL; XRPC methods are served
+    # under /xrpc
+    ProtoRune.Atproto.Session.normalize_service_url(url)
+  end
+
+  @impl true
+  def authorization_headers(%__MODULE__{} = session, method, url) do
+    proof =
+      DPoP.proof(session.dpop_key, session.dpop_jwk, method, url,
+        nonce: session.dpop_nonce,
+        access_token: session.access_token
+      )
+
+    headers = %{
+      "authorization" => "DPoP #{session.access_token}",
+      "dpop" => proof
+    }
+
+    {:ok, headers, session}
+  end
 
   @doc """
   Builds a session from a token endpoint response.

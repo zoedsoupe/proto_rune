@@ -30,7 +30,7 @@ defmodule ProtoRune.XRPC.Procedure do
   Validates the body using the specified parser and updates the procedure via [peri](https://hexdocs.pm/peri).
   """
 
-  defstruct [:method, :body, :parser, :headers, :base_url, raw_body: false]
+  defstruct [:method, :body, :parser, :headers, :base_url, raw_body: false, response: :auto]
 
   @doc """
   Creates a new procedure with the given method.
@@ -39,6 +39,9 @@ defmodule ProtoRune.XRPC.Procedure do
 
   - `:from` - Parser module for body validation
   - `:base_url` - Service base URL (e.g., "https://bsky.social")
+  - `:response` - Response decoding: `:auto` (default) routes on the
+    response content-type, `:json` forces JSON decoding and `:binary`
+    returns the raw body
 
   ## Examples
 
@@ -51,7 +54,8 @@ defmodule ProtoRune.XRPC.Procedure do
       parser: Keyword.get(opts, :from),
       body: %{},
       headers: %{},
-      base_url: Keyword.get(opts, :base_url)
+      base_url: Keyword.get(opts, :base_url),
+      response: Keyword.get(opts, :response, :auto)
     }
   end
 

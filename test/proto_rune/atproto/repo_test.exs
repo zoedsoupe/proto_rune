@@ -15,7 +15,13 @@ defmodule ProtoRune.Atproto.RepoTest do
     end
   end
 
-  @session %{access_jwt: "token123", did: "did:plc:test", service_url: "https://pds.test/xrpc"}
+  @session %ProtoRune.Atproto.Session{
+    access_jwt: "token123",
+    refresh_jwt: "refresh123",
+    did: "did:plc:test",
+    handle: "alice.test",
+    service_url: "https://pds.test/xrpc"
+  }
 
   setup do
     Application.put_env(:proto_rune, :http_client, HTTPStub)

@@ -8,7 +8,7 @@ defmodule ProtoRune.Bot.Poller.State do
           interval: integer,
           process_from: NaiveDateTime.t(),
           server_pid: pid,
-          session: map,
+          session: ProtoRune.Session.t(),
           last_seen: NaiveDateTime.t() | nil,
           cursor: String.t() | nil,
           attempt: integer
