@@ -142,9 +142,17 @@ defmodule ProtoRune.XRPC.Client do
 
   defp decode_error_body(_body), do: %{}
 
+  # Adapters deliver headers either as a list of tuples (test stubs) or
+  # as a map of downcased names to value lists (Req)
   defp get_header(headers, name) when is_list(headers) do
     Enum.find_value(headers, fn {key, value} ->
       if String.downcase(to_string(key)) == name, do: value
+    end)
+  end
+
+  defp get_header(headers, name) when is_map(headers) do
+    Enum.find_value(headers, fn {key, value} ->
+      if String.downcase(to_string(key)) == name, do: value |> List.wrap() |> List.first()
     end)
   end
 
@@ -179,15 +187,12 @@ defmodule ProtoRune.XRPC.Client do
   end
 
   # Compares the media type only, dropping any "; charset=..." suffix
-  defp content_type(%{headers: headers}) when is_list(headers) do
-    Enum.find_value(headers, fn {key, value} ->
-      if String.downcase(to_string(key)) == "content-type" do
-        value |> String.split(";", parts: 2) |> hd() |> String.trim() |> String.downcase()
-      end
-    end)
+  defp content_type(resp) do
+    case get_header(Map.get(resp, :headers), "content-type") do
+      nil -> nil
+      value -> value |> String.split(";", parts: 2) |> hd() |> String.trim() |> String.downcase()
+    end
   end
-
-  defp content_type(_resp), do: nil
 
   defp decode_body(body) when body in ["", nil], do: %{}
   defp decode_body(body) when is_binary(body), do: JSON.decode!(body)
