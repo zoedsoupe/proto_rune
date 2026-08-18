@@ -2,7 +2,7 @@
 
 **Mission**: Build a production-ready, type-safe AT Protocol SDK and bot framework for Elixir that leverages BEAM's strengths for reliability and concurrency.
 
-**Current Status**: v0.2.0 MVP ✅ Complete | Next: v0.3.0 in development
+**Current Status**: v0.3.1 released ✅ | Next: v0.4.0 in development
 
 ---
 
@@ -64,126 +64,85 @@
 
 ---
 
-## v0.3.0 - OAuth & Real-Time 🚧 In Planning
-
-**Timeline**: Q1 2025 (8-10 weeks)
+## v0.3.0 - OAuth & Real-Time ✅ Released
 
 **Focus**: Production authentication and real-time capabilities
 
 ### Authentication & Security
-- [ ] OAuth client implementation (issue #15)
+- [x] OAuth client implementation
   - Authorization code flow
   - PKCE support for public clients
+  - DPoP proof generation
   - Token exchange and refresh
-  - Redirect URI handling
-- [x] Improved rate limiting and backoff (issue #30)
+- [x] Improved rate limiting and backoff
   - Track requests per minute
   - Exponential backoff on rate limits
   - Configurable retry logic
-- [ ] Session security enhancements
-  - Secure token storage helpers
+- [x] Session security enhancements
+  - Secure token storage helpers (TokenStore behaviour, DETS backend)
   - Token encryption utilities
 
 ### Real-Time Events
-- [ ] Firehose integration (issue #16)
+- [x] Firehose integration
   - WebSocket connection to firehose
   - CAR file parsing
   - Event streaming
   - Basic filtering
-- [ ] Bot firehose strategy
+- [x] Bot firehose strategy
   - Real-time event processing
   - High-throughput handling
-  - Event buffering
 
 ### API Enhancements
-- [ ] Fix reply threading (issue #22) **Priority**
-  - Fetch parent post for CID
-  - Determine thread root properly
-  - Build correct reply references
-- [ ] Profile updates (issue #23)
-  - Update display name, description
-  - Avatar and banner upload
-- [ ] Search functionality (issue #24)
-  - Search posts by text
-  - Search actors by name/handle
+- [x] Fix reply threading (fetches parent post, builds correct strong refs)
+- [x] Profile updates (display name, description via Bsky.update_profile; blob upload for avatar/banner)
+- [x] Actor search (searchActors, searchActorsTypeahead)
+- [x] Telemetry integration (bot events, poller metrics)
 
-### Developer Experience
-- [ ] Working example scripts (issue #20) **Priority**
-  - Simple post script
-  - Rich text post with mentions
-  - Auto-responder bot
-  - Timeline fetcher
-- [ ] Telemetry integration (issue #27)
-  - Bot event metrics
-  - Poll success/failure tracking
-  - Rate limit monitoring
+### Deferred from v0.3.0
+- Post search
+- Working example scripts
 
 ---
 
-## v0.4.0 - Media & Advanced Features 📋 Planned
+## v0.4.0 - Protocol-Generic SDK 🚧 In Development
 
-**Timeline**: Q2 2025 (10-12 weeks)
+**Focus**: OAuth sessions first-class for XRPC, `com.atproto.sync` read
+surface, generic record writes. Full detail in [PLAN-v0.4.0.md](PLAN-v0.4.0.md).
 
-**Focus**: Media handling and advanced protocol features
-
-### Media Support
-- [ ] Blob upload implementation (issue #18)
-  - Image upload and compression
-  - Video upload support
-  - Thumbnail generation
-  - Progress tracking
-- [ ] Post embeds (issue #26)
-  - Image embeds with alt text
-  - External link embeds with preview
-  - Quote posts
-  - Video embeds
-
-### Advanced Features
-- [ ] Jetstream integration (issue #17)
-  - Jetstream client
-  - Filtered event subscriptions
-  - Consumer group support
-- [ ] Feed generator SDK (issue #19)
-  - Custom feed algorithm framework
-  - Feed publication helpers
-  - Feed testing utilities
-- [ ] Graph operations expansion (issue #25)
-  - List follows/followers with pagination
-  - Block/mute lists
-  - List creation and management
-
-### Bot Framework Enhancements
-- [ ] State persistence (issue #29)
-  - Optional persist_state/1 callback
-  - Automatic periodic saving
-  - State recovery on restart
-- [ ] Advanced event handling
-  - Event filtering by criteria
-  - Message queuing for high throughput
-  - Multi-account bot support
-
-### Developer Tools
-- [ ] RichText markdown parser (issue #28)
-  - Parse @mentions, #hashtags, [links](url)
-  - Automatic facet generation from markdown
-- [ ] Comprehensive test coverage (issue #21)
-  - Edge case testing
-  - Network failure simulation
-  - Concurrent operation tests
-  - Integration test suite
+- [ ] Binary response support in XRPC (`response: :auto | :json | :binary`)
+- [ ] Unified `ProtoRune.Session` behaviour with DPoP-bound requests
+  - OAuth tokens can read and write, not just authenticate
+  - Resource-server DPoP nonce retry
+- [ ] OAuth session lifecycle
+  - Token revocation
+  - Opt-in SessionManager GenServer (proactive refresh, TokenStore persistence)
+- [ ] `com.atproto.sync` read surface
+  - getBlob, getRepo, describeRepo
+  - Minimal MST traversal for repo enumeration (no commit verification yet)
+  - com.atproto.identity.resolveHandle endpoint parity
+- [ ] Generic record writes
+  - createRecord/putRecord accept any collection NSID
+  - Opt-in caller-supplied Peri schema validation
+  - Lexicon codegen flags (--path, --output) for host apps
+- [ ] Test infrastructure: Bypass-based PDS fixture tests
 
 ---
 
 ## v0.5.0+ - Future Enhancements 💭 Ideas
 
-**Timeline**: Q3 2025+
-
-**Focus**: Advanced features and ecosystem integration
+**Focus**: Media, advanced protocol features, and ecosystem integration
 
 ### Potential Features
-- Merkle Search Tree implementation for efficient sync
+- Media embeds (images, external links, quote posts, video)
+- Jetstream integration
+- Feed generator SDK
+- Graph operations expansion (lists, pagination)
+- Post search
+- Bot state persistence
+- RichText markdown parser
+- Commit/signature verification of repo checkouts
+- Merkle Search Tree verification for efficient sync
 - Ozone (moderation) integration
-- Custom lexicon support
 - PDS (Personal Data Server) helpers
 - Label and moderation tools
 - Advanced caching strategies
@@ -223,23 +182,6 @@
 3. **Follow Guidelines**: See [CONTRIBUTING.md](CONTRIBUTING.md) for code standards
 4. **Submit PR**: Reference the issue number in your PR
 5. **Iterate**: Address code review feedback
-
-### Priority System
-
-**High Priority** (v0.3.0 blockers):
-- Issue #22: Reply threading
-- Issue #20: Working examples
-- Issue #15: OAuth support
-
-**Medium Priority** (v0.3.0 enhancements):
-- Issue #30: Rate limiting
-- Issue #16: Firehose
-- Issue #27: Telemetry
-
-**Low Priority** (v0.4.0+):
-- Issue #28: Markdown parser
-- Issue #29: State persistence
-- Issue #19: Feed generator SDK
 
 ---
 
@@ -286,6 +228,6 @@ ProtoRune stands on the shoulders of these excellent projects:
 
 ---
 
-**Last Updated**: 2025-01-20
+**Last Updated**: 2026-08-18
 **Maintained By**: [@zoedsoupe](https://github.com/zoedsoupe)
 **Status**: Living document - updated as development progresses
