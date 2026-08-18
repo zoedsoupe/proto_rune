@@ -14,6 +14,10 @@ defmodule ProtoRune.Atproto.Identity do
   alias ProtoRune.Atproto.Identity.Cache
   alias ProtoRune.Atproto.Identity.DIDResolver
   alias ProtoRune.Atproto.Identity.HandleResolver
+  alias ProtoRune.Atproto.Session
+  alias ProtoRune.XRPC.Client
+  alias ProtoRune.XRPC.Config
+  alias ProtoRune.XRPC.Query
 
   # Constants for timeouts and retries
   @dns_timeout to_timeout(second: 5)
@@ -145,6 +149,44 @@ defmodule ProtoRune.Atproto.Identity do
   end
 
   def resolve_handle(_), do: {:error, :invalid_format}
+
+  @doc """
+  Resolves a handle to a DID via the `com.atproto.identity.resolveHandle`
+  XRPC endpoint.
+
+  This is the plain wire endpoint: the resolution is performed server-side
+  by the given PDS and no session is required. The DNS/HTTPS resolver of
+  `resolve_handle/1` stays the default; prefer it unless you specifically
+  want the PDS's view of the handle.
+
+  Pass `nil` as `pds_url` to use the default base URL, or the PDS base URL
+  (bare or `/xrpc`-suffixed, normalized internally).
+
+  https://docs.bsky.app/docs/api/com-atproto-identity-resolve-handle
+  """
+  @spec resolve_handle(String.t() | nil, String.t()) :: {:ok, String.t()} | {:error, term()}
+  def resolve_handle(pds_url, handle) when is_handle(handle) do
+    if valid_handle?(handle) do
+      base_url =
+        case pds_url do
+          nil -> Config.default_base_url()
+          url when is_binary(url) -> Session.normalize_service_url(url)
+        end
+
+      "com.atproto.identity.resolveHandle"
+      |> Query.new(base_url: base_url)
+      |> Query.put_param(:handle, handle)
+      |> Client.execute()
+      |> case do
+        {:ok, %{did: did}} -> {:ok, did}
+        {:error, reason} -> {:error, reason}
+      end
+    else
+      {:error, :invalid_format}
+    end
+  end
+
+  def resolve_handle(_, _), do: {:error, :invalid_format}
 
   @impl true
   def resolve_did(did) when is_did(did) do
