@@ -31,6 +31,12 @@ defmodule ProtoRune.XRPC.Client do
   - Query: GET request
   - Procedure: POST request
 
+  ## Options
+
+  - `:session` - A session implementing the `ProtoRune.Session`
+    behaviour. When given, a 401 response demanding a fresh DPoP nonce
+    (`use_dpop_nonce`) is retried once with the server-provided nonce.
+
   ## Examples
 
       # Execute a query
@@ -41,31 +47,45 @@ defmodule ProtoRune.XRPC.Client do
       proc = Procedure.new("com.atproto.server.createSession")
       {:ok, response} = Client.execute(proc)
   """
-  def execute(%Query{} = query) do
-    url = to_string(query)
-    headers = format_headers(query.headers)
+  def execute(req, opts \\ [])
 
-    :get
-    |> HTTPClient.request(url, headers: headers)
+  def execute(%Query{} = query, opts) do
+    session = Keyword.get(opts, :session)
+    url = to_string(query)
+
+    request = fn headers ->
+      HTTPClient.request(:get, url, headers: format_headers(headers))
+    end
+
+    query.headers
+    |> run_with_nonce_retry(request, session, "GET", url)
     |> parse_http(query.response)
   end
 
-  def execute(%Procedure{raw_body: true} = proc) do
+  def execute(%Procedure{raw_body: true} = proc, opts) do
+    session = Keyword.get(opts, :session)
     url = to_string(proc)
-    headers = format_headers(proc.headers)
 
-    :post
-    |> HTTPClient.request(url, body: proc.body, headers: headers)
+    request = fn headers ->
+      HTTPClient.request(:post, url, body: proc.body, headers: format_headers(headers))
+    end
+
+    proc.headers
+    |> run_with_nonce_retry(request, session, "POST", url)
     |> parse_http(proc.response)
   end
 
-  def execute(%Procedure{} = proc) do
+  def execute(%Procedure{} = proc, opts) do
+    session = Keyword.get(opts, :session)
     url = to_string(proc)
     body = ProtoRune.Case.camelize_enum(proc.body)
-    headers = format_headers(proc.headers)
 
-    :post
-    |> HTTPClient.request(url, json: body, headers: headers)
+    request = fn headers ->
+      HTTPClient.request(:post, url, json: body, headers: format_headers(headers))
+    end
+
+    proc.headers
+    |> run_with_nonce_retry(request, session, "POST", url)
     |> parse_http(proc.response)
   end
 
@@ -73,6 +93,62 @@ defmodule ProtoRune.XRPC.Client do
   defp format_headers(headers) when is_map(headers) do
     Enum.map(headers, fn {k, v} -> {to_string(k), v} end)
   end
+
+  # A 401 demanding a fresh DPoP nonce is retried once with the
+  # server-provided nonce, mirroring the authorization-server retry in
+  # ProtoRune.Atproto.OAuth. The updated session stays internal to the
+  # call: nonces are not persisted.
+  defp run_with_nonce_retry(headers, request, session, method, url) do
+    case request.(headers) do
+      {:ok, %{status: 401} = resp} = result ->
+        case nonce_retry_headers(resp, headers, session, method, url) do
+          {:ok, retry_headers} -> request.(retry_headers)
+          :error -> result
+        end
+
+      other ->
+        other
+    end
+  end
+
+  defp nonce_retry_headers(_resp, _headers, nil, _method, _url), do: :error
+
+  defp nonce_retry_headers(resp, headers, session, method, url) do
+    with %{"error" => "use_dpop_nonce"} <- decode_error_body(resp.body),
+         nonce when is_binary(nonce) <- get_header(Map.get(resp, :headers), "dpop-nonce"),
+         {:ok, session} <- put_dpop_nonce(session, nonce),
+         {:ok, auth_headers, _session} <- ProtoRune.Session.authorization_headers(session, method, url) do
+      {:ok, Map.merge(headers, auth_headers)}
+    else
+      _other -> :error
+    end
+  end
+
+  # Only OAuth sessions carry a DPoP nonce
+  defp put_dpop_nonce(%ProtoRune.Atproto.OAuth.Session{} = session, nonce) do
+    {:ok, %{session | dpop_nonce: nonce}}
+  end
+
+  defp put_dpop_nonce(_session, _nonce), do: :error
+
+  defp decode_error_body(body) when is_map(body), do: body
+
+  defp decode_error_body(body) when is_binary(body) do
+    case JSON.decode(body) do
+      {:ok, decoded} when is_map(decoded) -> decoded
+      _other -> %{}
+    end
+  end
+
+  defp decode_error_body(_body), do: %{}
+
+  defp get_header(headers, name) when is_list(headers) do
+    Enum.find_value(headers, fn {key, value} ->
+      if String.downcase(to_string(key)) == name, do: value
+    end)
+  end
+
+  defp get_header(_headers, _name), do: nil
 
   defp parse_http({:error, err}, _response), do: {:error, err}
 

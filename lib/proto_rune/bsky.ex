@@ -28,7 +28,7 @@ defmodule ProtoRune.Bsky do
   alias ProtoRune.Bsky.Notification
   alias ProtoRune.XRPC.Error
 
-  @type session :: map()
+  @type session :: ProtoRune.Session.t()
 
   @doc """
   Posts a text message to Bluesky.
