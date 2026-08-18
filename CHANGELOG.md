@@ -1,5 +1,42 @@
 # Changelog
 
+## [0.4.0](https://github.com/zoedsoupe/proto_rune/compare/v0.3.1...v0.4.0) (2026-08-18)
+
+
+### Features
+
+* **atproto:** accept any collection NSID in record writes ([2e7c31a](https://github.com/zoedsoupe/proto_rune/commit/2e7c31a331d47a93c94303426e71a79da8f5e7c5))
+* **atproto:** add com.atproto.sync read endpoints ([e0b15ad](https://github.com/zoedsoupe/proto_rune/commit/e0b15ad5b3032d2fdf1614a1d8eead06238af8de))
+* **atproto:** add resolveHandle XRPC query ([572e32b](https://github.com/zoedsoupe/proto_rune/commit/572e32b2f6c8f0b60d566cd0aa7caef3f887c52b))
+* **firehose:** add collection prefix filter to Event ([eabb525](https://github.com/zoedsoupe/proto_rune/commit/eabb525210f8cae6fa6531ddb7d17f77fef8f19a))
+* **lexicon:** add --path and --output flags to gen task ([e89c91c](https://github.com/zoedsoupe/proto_rune/commit/e89c91c459cb406f53c2543c7e7801d1a5aae613))
+* **oauth:** add SessionManager GenServer ([b56a675](https://github.com/zoedsoupe/proto_rune/commit/b56a675b8a33dce381495d8cfd83a56a6e292c49))
+* **oauth:** add token revocation ([9a9ed18](https://github.com/zoedsoupe/proto_rune/commit/9a9ed1811ff9ac3fe99b05a7ad2c23d1cf94d719))
+* **oauth:** require encryption key for SessionManager persistence ([b2ef12b](https://github.com/zoedsoupe/proto_rune/commit/b2ef12bd05ef162b0ac745ddd9298829a00e4405))
+* **xrpc:** DPoP-bound requests via ProtoRune.Session behaviour ([087b017](https://github.com/zoedsoupe/proto_rune/commit/087b017a55399d4e59185fadf7bbdd97cec66380))
+* **xrpc:** support binary responses ([cc05037](https://github.com/zoedsoupe/proto_rune/commit/cc05037f33c16bdf28edc5828ecddda5026d1175))
+* **xrpc:** support optional authentication in defquery ([d75480b](https://github.com/zoedsoupe/proto_rune/commit/d75480ba04f8714790c706eaac31dd0a4177919d))
+
+
+### Bug Fixes
+
+* **bluesky:** correct sendInteractions NSID typo ([6667324](https://github.com/zoedsoupe/proto_rune/commit/6667324cc89c12a7eabc7fdcaf7c4c1b87e790e3))
+* **xrpc:** read response headers from Req's map shape ([bb46f0f](https://github.com/zoedsoupe/proto_rune/commit/bb46f0f9818954c18b6006c026d7fb2a70e2dbaf))
+
+
+### Documentation
+
+* add custom lexicons guide ([dde8df0](https://github.com/zoedsoupe/proto_rune/commit/dde8df0f6e081afd8a1255b6aa1c02f7f667d5fd))
+* cover OAuth end-to-end in authentication guide ([502789c](https://github.com/zoedsoupe/proto_rune/commit/502789c343ead1190bd8894f0032c295123c9e0f))
+* sync ROADMAP with v0.3.0 release and v0.4.0 plan ([e81f792](https://github.com/zoedsoupe/proto_rune/commit/e81f7921d9d6ba0cc989ccfa5f744148fe5fdb48))
+
+
+### Tests
+
+* add Bypass-based PDS fixture tests ([bb5b39e](https://github.com/zoedsoupe/proto_rune/commit/bb5b39e84dc823798dca663aa92f368df3c008ac))
+* replace named-process registration with env-carried pids ([ac01947](https://github.com/zoedsoupe/proto_rune/commit/ac01947dee8ae88d3603877e0fc6b6c1b8089bfb))
+* split the compiler paths ([7d4a3db](https://github.com/zoedsoupe/proto_rune/commit/7d4a3db3b6ef3a897a5f71bfbffb5d7ecb239361))
+
 ## [0.3.1](https://github.com/zoedsoupe/proto_rune/compare/v0.3.0...v0.3.1) (2026-08-12)
 
 
