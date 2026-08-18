@@ -18,9 +18,13 @@ defmodule ProtoRune.MixProject do
         plt_local_path: "priv/plts",
         ignore_warnings: ".dialyzerignore.exs",
         plt_add_apps: [:mix, :ex_unit]
-      ]
+      ],
+      elixirc_paths: elixirc_paths(Mix.env())
     ]
   end
+
+  defp elixirc_paths(:test), do: ["lib", "test/fixtures"]
+  defp elixirc_paths(_), do: ["lib"]
 
   # Run "mix help compile.app" to learn about applications.
   def application do
