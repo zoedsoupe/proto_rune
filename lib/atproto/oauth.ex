@@ -34,17 +34,22 @@ defmodule ProtoRune.Atproto.OAuth do
       # 3. Refresh when the access token expires
       {:ok, fresh_session} = OAuth.refresh(client, session)
 
+      # 4. Revoke the refresh token on logout
+      {:ok, :revoked} = OAuth.revoke(session, client_id: client.client_id)
+
   The `pending` map holds the flow state (PKCE verifier, state, DPoP
   nonce) and must be kept between steps 1 and 2. It contains the DPoP
   private key, so persist it securely.
 
   ## Scope of this implementation
 
-  Issued access tokens are DPoP-bound. Using an OAuth session for XRPC
-  calls requires the XRPC layer to attach DPoP proofs, which is not wired
-  yet: `exchange_code/3` and `refresh/2` cover the authorization flow
-  itself. Confidential clients (`private_key_jwt`) and client metadata
-  document serving are out of scope.
+  Issued access tokens are DPoP-bound. OAuth sessions implement the
+  `ProtoRune.Session` behaviour, so they can be passed to any XRPC or DSL
+  function; the session attaches the required DPoP proof to each request.
+  For long-running applications, `ProtoRune.Atproto.OAuth.SessionManager`
+  keeps a session fresh automatically. Confidential clients
+  (`private_key_jwt`) and client metadata document serving are out of
+  scope.
   """
 
   alias ProtoRune.Atproto.Identity
@@ -174,6 +179,62 @@ defmodule ProtoRune.Atproto.OAuth do
     end
   end
 
+  @doc """
+  Revokes the session's refresh token at the authorization server.
+
+  Discovers the `revocation_endpoint` from the authorization server
+  metadata (RFC 7009) of the session's `issuer` and posts a public-client
+  revocation request carrying a DPoP proof, bound to the session's access
+  token via the `ath` claim like the token endpoint calls.
+
+  Per RFC 7009 the server answers 200 even for unknown or already invalid
+  tokens, so `{:ok, :revoked}` means the token is gone, not that it was
+  still valid.
+
+  ## Options
+
+  - `:client_id` - Required. The `client_id` the session was issued to,
+    as configured on the `Client` that ran the flow.
+
+  Returns `{:error, :revocation_not_supported}` when the authorization
+  server declares no revocation endpoint; no revocation request is made
+  in that case.
+  """
+  @spec revoke(Session.t(), keyword()) :: {:ok, :revoked} | error()
+  def revoke(session, opts \\ [])
+
+  def revoke(%Session{refresh_token: nil}, _opts), do: {:error, :missing_refresh_token}
+
+  def revoke(%Session{} = session, opts) do
+    with {:ok, client_id} <- fetch_client_id(opts),
+         {:ok, endpoint} <- revocation_endpoint(session) do
+      form = %{"token" => session.refresh_token, "client_id" => client_id}
+
+      case dpop_post(endpoint, form, session, session.dpop_nonce, true, session.access_token) do
+        {:ok, _body, _nonce} -> {:ok, :revoked}
+        {:error, reason} -> {:error, reason}
+      end
+    end
+  end
+
+  defp fetch_client_id(opts) do
+    case Keyword.get(opts, :client_id) do
+      client_id when is_binary(client_id) -> {:ok, client_id}
+      _other -> {:error, :missing_client_id}
+    end
+  end
+
+  defp revocation_endpoint(%Session{issuer: nil}), do: {:error, :revocation_not_supported}
+
+  defp revocation_endpoint(%Session{issuer: issuer}) do
+    with {:ok, metadata} <- authorization_server_metadata(issuer) do
+      case metadata.revocation_endpoint do
+        url when is_binary(url) -> {:ok, url}
+        _other -> {:error, :revocation_not_supported}
+      end
+    end
+  end
+
   # Identity resolution
 
   defp resolve_account(identifier) do
@@ -239,7 +300,8 @@ defmodule ProtoRune.Atproto.OAuth do
          issuer: metadata["issuer"],
          authorization_endpoint: metadata["authorization_endpoint"],
          token_endpoint: metadata["token_endpoint"],
-         par_endpoint: metadata["pushed_authorization_request_endpoint"]
+         par_endpoint: metadata["pushed_authorization_request_endpoint"],
+         revocation_endpoint: metadata["revocation_endpoint"]
        }}
     end
   end
@@ -302,25 +364,33 @@ defmodule ProtoRune.Atproto.OAuth do
   end
 
   # Performs a form POST with a DPoP proof, retrying once with the
-  # server-provided nonce when the response demands it.
-  defp dpop_post(url, form, client, nonce, allow_retry \\ true) do
-    proof = DPoP.proof(client.dpop_key, client.dpop_jwk, :post, url, nonce: nonce)
+  # server-provided nonce when the response demands it. `keys` is any
+  # struct carrying the DPoP key material (a `Client` or a `Session`);
+  # `access_token`, when given, binds the proof via the `ath` claim.
+  defp dpop_post(url, form, keys, nonce, allow_retry \\ true, access_token \\ nil) do
+    proof =
+      DPoP.proof(keys.dpop_key, keys.dpop_jwk, :post, url, nonce: nonce, access_token: access_token)
+
     headers = [{"dpop", proof}, {"accept", "application/json"}]
 
     :post
     |> HTTPClient.request(url, form: form, headers: headers)
-    |> handle_dpop_response(url, form, client, nonce, allow_retry)
+    |> handle_dpop_response(url, form, keys, nonce, allow_retry, access_token)
   end
 
+  # Success responses carry any body shape: the token endpoints answer
+  # JSON while the revocation endpoint (RFC 7009) answers 200 with an
+  # empty body. Callers validate the payload they expect.
   defp handle_dpop_response(
          {:ok, %{status: status, body: body, headers: resp_headers}},
          _url,
          _form,
-         _client,
+         _keys,
          nonce,
-         _retry
+         _retry,
+         _access_token
        )
-       when status in 200..299 and is_map(body) do
+       when status in 200..299 do
     {:ok, body, get_header(resp_headers, "dpop-nonce") || nonce}
   end
 
@@ -328,22 +398,23 @@ defmodule ProtoRune.Atproto.OAuth do
          {:ok, %{status: status, body: %{"error" => "use_dpop_nonce"} = body, headers: resp_headers}},
          url,
          form,
-         client,
+         keys,
          _nonce,
-         true
+         true,
+         access_token
        )
        when status in [400, 401] do
     case get_header(resp_headers, "dpop-nonce") do
       nil -> {:error, {:oauth_error, status, body}}
-      new_nonce -> dpop_post(url, form, client, new_nonce, false)
+      new_nonce -> dpop_post(url, form, keys, new_nonce, false, access_token)
     end
   end
 
-  defp handle_dpop_response({:ok, %{status: status, body: body}}, _url, _form, _client, _nonce, _retry) do
+  defp handle_dpop_response({:ok, %{status: status, body: body}}, _url, _form, _keys, _nonce, _retry, _access_token) do
     {:error, {:oauth_error, status, body}}
   end
 
-  defp handle_dpop_response({:error, reason}, _url, _form, _client, _nonce, _retry) do
+  defp handle_dpop_response({:error, reason}, _url, _form, _keys, _nonce, _retry, _access_token) do
     {:error, reason}
   end
 

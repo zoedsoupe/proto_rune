@@ -79,7 +79,7 @@ defmodule ProtoRune.Atproto.OAuth.Session do
   material and the account `handle` when known.
   """
   @spec parse(map(), map()) :: {:ok, t()} | {:error, :invalid_token_response}
-  def parse(data, context) when is_map(data) and is_map(context) do
+  def parse(data, context) when is_map(context) do
     case data do
       %{"access_token" => access_token, "sub" => did} ->
         {:ok,

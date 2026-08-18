@@ -299,16 +299,84 @@ alias ProtoRune.Atproto.OAuth.Client
 
 # 3. On the callback, exchange the code for tokens
 {:ok, session} = OAuth.exchange_code(client, pending, conn.query_params)
-
-# 4. Refresh when the access token expires
-{:ok, fresh_session} = OAuth.refresh(client, session)
 ```
 
 The `pending` map and the returned session contain the DPoP private key: persist them securely and never expose them to the browser.
 
 To keep the DPoP key across restarts, store `client.dpop_key` (a 32-byte binary) and pass it back with `dpop_key:` when rebuilding the client.
 
+### Using the Session
+
+An OAuth session works anywhere an app password session does. Every XRPC and DSL function dispatches through the `ProtoRune.Session` behaviour, which attaches the DPoP proof each request needs:
+
+```elixir
+{:ok, profile} = ProtoRune.Bsky.get_profile(session, "alice.bsky.social")
+{:ok, post} = ProtoRune.Bsky.post(session, "Hello from OAuth!")
+```
+
+### Refreshing Tokens
+
+Access tokens are short-lived. When you manage the session yourself, refresh it manually:
+
+```elixir
+{:ok, fresh_session} = OAuth.refresh(client, session)
+```
+
+Refresh tokens rotate: the fresh session may carry a new refresh token, so always keep the newest session and discard the old one.
+
+### Revoking a Session
+
+On logout, revoke the refresh token so it can no longer be used:
+
+```elixir
+{:ok, :revoked} = OAuth.revoke(session, client_id: client.client_id)
+```
+
+Revocation looks up the authorization server's `revocation_endpoint` in its metadata and returns `{:error, :revocation_not_supported}` when the server declares none. Per RFC 7009 the server answers success even for unknown tokens, so `{:ok, :revoked}` means the token is gone, not that it was still valid.
+
+### Managing the Session Lifecycle
+
+For long-running applications, `ProtoRune.Atproto.OAuth.SessionManager` keeps a session fresh for you. It refreshes the tokens before they expire, persists each rotated session through a `ProtoRune.Security.TokenStore` backend and stops if a refresh fails, letting your supervisor decide what to do.
+
+The SDK starts no processes on its own: add the manager to your application's supervision tree, alongside a `Registry` if you want to look managers up by DID. The manager requires an encryption key, because every persisted session is encrypted at rest: the session's `dpop_key` is private key material, so `ProtoRune.Security.TokenStore` backends never see plaintext. Provision the key once and keep it outside the token storage:
+
+```elixir
+# once, to provision the key:
+key = ProtoRune.Security.generate_key()
+System.put_env("PROTO_RUNE_TOKEN_KEY", ProtoRune.Security.encode_key(key))
+```
+
+```elixir
+# application.ex
+{:ok, key} = ProtoRune.Security.decode_key(System.fetch_env!("PROTO_RUNE_TOKEN_KEY"))
+
+children = [
+  {Registry, keys: :unique, name: MyApp.OAuthRegistry},
+  {ProtoRune.Atproto.OAuth.SessionManager,
+   session: session,
+   client: client,
+   store: {ProtoRune.Security.TokenStore.Dets, path: "/var/myapp/tokens.dets"},
+   key: key,
+   registry: MyApp.OAuthRegistry}
+]
+
+Supervisor.start_link(children, strategy: :one_for_one)
+```
+
+With `:registry` set, the manager registers itself under the session's DID, so any process can fetch the current session without holding the pid:
+
+```elixir
+via = {:via, Registry, {MyApp.OAuthRegistry, "did:plc:abc123"}}
+session = ProtoRune.Atproto.OAuth.SessionManager.session(via)
+{:ok, profile} = ProtoRune.Bsky.get_profile(session, "alice.bsky.social")
+```
+
+On logout, `logout/1` revokes the refresh token, deletes the stored session and stops the manager:
+
+```elixir
+:ok = ProtoRune.Atproto.OAuth.SessionManager.logout(via)
+```
+
 ### Current limitations
 
-- OAuth access tokens are DPoP-bound, so they cannot be passed to the XRPC functions yet (those expect app-password `Bearer` sessions). Use the OAuth session with the token endpoints for now; XRPC integration is planned.
 - Only public clients are supported (no `private_key_jwt` confidential clients).
