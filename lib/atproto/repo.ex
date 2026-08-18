@@ -3,7 +3,8 @@ defmodule ProtoRune.Atproto.Repo do
   Low-level `com.atproto.repo` operations.
 
   Create, read, update, delete, and list records in a repository.
-  All functions require an authenticated `ProtoRune.Atproto.Session`.
+  Write operations require an authenticated `ProtoRune.Atproto.Session`;
+  read operations (`get_record`, `list_records`) accept an optional session.
 
   For common Bluesky actions (posting, liking, reposting) prefer the
   high-level `ProtoRune` API, which wraps these calls with the right
@@ -77,7 +78,7 @@ defmodule ProtoRune.Atproto.Repo do
 
   https://docs.bsky.app/docs/api/com-atproto-repo-get-record
   """
-  defquery "com.atproto.repo.getRecord", authenticated: true do
+  defquery "com.atproto.repo.getRecord", authenticated: :optional do
     param :repo, {:required, :string}
     param :collection, {:required, :string}
     param :rkey, {:required, :string}
@@ -117,7 +118,7 @@ defmodule ProtoRune.Atproto.Repo do
 
   https://docs.bsky.app/docs/api/com-atproto-repo-list-records
   """
-  defquery "com.atproto.repo.listRecords", authenticated: true do
+  defquery "com.atproto.repo.listRecords", authenticated: :optional do
     param :repo, {:required, :string}
     param :collection, {:required, :string}
     param :limit, {:integer, {:range, {1, 100}}}

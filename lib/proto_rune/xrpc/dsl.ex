@@ -77,31 +77,54 @@ defmodule ProtoRune.XRPC.DSL do
   alias ProtoRune.XRPC.Procedure
   alias ProtoRune.XRPC.Query
 
-  @type options :: [for: atom | nil, authenticated: boolean | nil, refresh: boolean | nil]
+  @type options :: [
+          for: atom | nil,
+          authenticated: boolean | :optional | nil,
+          refresh: boolean | nil
+        ]
 
   @spec defquery(String.t(), options) :: Macro.t()
   defmacro defquery(method, opts) do
-    authenticated? = Keyword.get(opts, :authenticated, false)
+    authenticated = Keyword.get(opts, :authenticated, false)
 
     {method, fun} = encode_method_name(method)
 
     quote do
-      if unquote(authenticated?) do
-        def unquote(fun)(%{access_jwt: access_token} = session) do
-          # Extract service_url from session if present
-          base_url = Map.get(session, :service_url)
+      case unquote(authenticated) do
+        true ->
+          def unquote(fun)(%{access_jwt: access_token} = session) do
+            # Extract service_url from session if present
+            base_url = Map.get(session, :service_url)
 
-          unquote(method)
-          |> Query.new(base_url: base_url)
-          |> Query.put_header(:authorization, "Bearer #{access_token}")
-          |> Client.execute()
-        end
-      else
-        def unquote(fun)() do
-          unquote(method)
-          |> Query.new()
-          |> Client.execute()
-        end
+            unquote(method)
+            |> Query.new(base_url: base_url)
+            |> Query.put_header(:authorization, "Bearer #{access_token}")
+            |> Client.execute()
+          end
+
+        :optional ->
+          def unquote(fun)(%{access_jwt: access_token} = session) do
+            # Extract service_url from session if present
+            base_url = Map.get(session, :service_url)
+
+            unquote(method)
+            |> Query.new(base_url: base_url)
+            |> Query.put_header(:authorization, "Bearer #{access_token}")
+            |> Client.execute()
+          end
+
+          def unquote(fun)() do
+            unquote(method)
+            |> Query.new()
+            |> Client.execute()
+          end
+
+        _ ->
+          def unquote(fun)() do
+            unquote(method)
+            |> Query.new()
+            |> Client.execute()
+          end
       end
     end
   end
@@ -116,26 +139,49 @@ defmodule ProtoRune.XRPC.DSL do
 
       unquote(block)
 
-      if unquote(authenticated) do
-        def unquote(fun)(%{access_jwt: access_token} = session, params) do
-          # Extract service_url from session if present
-          base_url = Map.get(session, :service_url)
-          query = Query.new(unquote(method), from: Map.new(@param), base_url: base_url)
+      case unquote(authenticated) do
+        true ->
+          def unquote(fun)(%{access_jwt: access_token} = session, params) do
+            # Extract service_url from session if present
+            base_url = Map.get(session, :service_url)
+            query = Query.new(unquote(method), from: Map.new(@param), base_url: base_url)
 
-          with {:ok, query} <- Query.add_params(query, params) do
-            query
-            |> Query.put_header(:authorization, "Bearer #{access_token}")
-            |> Client.execute()
+            with {:ok, query} <- Query.add_params(query, params) do
+              query
+              |> Query.put_header(:authorization, "Bearer #{access_token}")
+              |> Client.execute()
+            end
           end
-        end
-      else
-        def unquote(fun)(params) do
-          query = Query.new(unquote(method), from: Map.new(@param))
 
-          with {:ok, query} <- Query.add_params(query, params) do
-            Client.execute(query)
+        :optional ->
+          def unquote(fun)(%{access_jwt: access_token} = session, params) do
+            # Extract service_url from session if present
+            base_url = Map.get(session, :service_url)
+            query = Query.new(unquote(method), from: Map.new(@param), base_url: base_url)
+
+            with {:ok, query} <- Query.add_params(query, params) do
+              query
+              |> Query.put_header(:authorization, "Bearer #{access_token}")
+              |> Client.execute()
+            end
           end
-        end
+
+          def unquote(fun)(params) do
+            query = Query.new(unquote(method), from: Map.new(@param))
+
+            with {:ok, query} <- Query.add_params(query, params) do
+              Client.execute(query)
+            end
+          end
+
+        _ ->
+          def unquote(fun)(params) do
+            query = Query.new(unquote(method), from: Map.new(@param))
+
+            with {:ok, query} <- Query.add_params(query, params) do
+              Client.execute(query)
+            end
+          end
       end
 
       Module.delete_attribute(__MODULE__, :param)
