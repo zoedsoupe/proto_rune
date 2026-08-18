@@ -4,8 +4,13 @@ defmodule Mix.Tasks.ProtoRune.Gen.Lexicons do
   @moduledoc """
   Generates Peri schema modules from ATProto lexicon JSON files.
 
-  This task reads lexicon definitions from `priv/atproto/lexicons` and generates
-  corresponding Elixir modules with Peri schemas in `lib/proto_rune/lexicon/`.
+  This task reads lexicon definitions from a directory (default:
+  `priv/lexicons`) and generates corresponding Elixir modules with Peri
+  schemas in an output directory (default: `lib/proto_rune/lexicon/`).
+
+  Host applications can point the task at their own lexicons and pass the
+  generated schemas to `ProtoRune.Atproto.Repo.create_record/3` and
+  `put_record/3` via the `:schema` option.
 
   ## Usage
 
@@ -13,10 +18,13 @@ defmodule Mix.Tasks.ProtoRune.Gen.Lexicons do
 
   ## Options
 
-    * `--lexicons-dir` - Directory containing lexicon JSON files (default: priv/atproto/lexicons)
-    * `--output-dir` - Directory where generated modules will be written (default: lib/proto_rune/lexicon/)
+    * `--path` - Directory containing lexicon JSON files (default: priv/lexicons)
+    * `--output` - Directory where generated modules will be written (default: lib/proto_rune/lexicon/)
     * `--recursive` - Recursively search for lexicon files in subdirectories (default: true)
     * `--force` - Force regeneration even if output files exist (default: false)
+
+  The legacy `--lexicons-dir` and `--output-dir` flags are still accepted and
+  take precedence over `--path` and `--output` when both are given.
 
   ## Examples
 
@@ -24,7 +32,7 @@ defmodule Mix.Tasks.ProtoRune.Gen.Lexicons do
       $ mix proto_rune.gen.lexicons
 
       # Specify custom directories
-      $ mix proto_rune.gen.lexicons --lexicons-dir custom/lexicons --output-dir custom/output
+      $ mix proto_rune.gen.lexicons --path custom/lexicons --output custom/output
 
       # Force regeneration
       $ mix proto_rune.gen.lexicons --force
@@ -52,7 +60,7 @@ defmodule Mix.Tasks.ProtoRune.Gen.Lexicons do
 
   alias ProtoRune.Lexicon.Generator
 
-  @default_lexicons_dir "priv/atproto/lexicons"
+  @default_lexicons_dir "priv/lexicons"
   @default_output_dir "lib/proto_rune/lexicon"
 
   @impl Mix.Task
@@ -60,6 +68,8 @@ defmodule Mix.Tasks.ProtoRune.Gen.Lexicons do
     {opts, _} =
       OptionParser.parse!(args,
         strict: [
+          path: :string,
+          output: :string,
           lexicons_dir: :string,
           output_dir: :string,
           recursive: :boolean,
@@ -67,8 +77,8 @@ defmodule Mix.Tasks.ProtoRune.Gen.Lexicons do
         ]
       )
 
-    lexicons_dir = Keyword.get(opts, :lexicons_dir, @default_lexicons_dir)
-    output_dir = Keyword.get(opts, :output_dir, @default_output_dir)
+    lexicons_dir = Keyword.get(opts, :lexicons_dir) || Keyword.get(opts, :path, @default_lexicons_dir)
+    output_dir = Keyword.get(opts, :output_dir) || Keyword.get(opts, :output, @default_output_dir)
     recursive = Keyword.get(opts, :recursive, true)
     force = Keyword.get(opts, :force, false)
 
