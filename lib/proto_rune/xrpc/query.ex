@@ -44,7 +44,7 @@ defmodule ProtoRune.XRPC.Query do
   ```
   """
 
-  defstruct [:method, :params, :parser, :headers, :base_url]
+  defstruct [:method, :params, :parser, :headers, :base_url, response: :auto]
 
   @doc """
   Creates a new query with the given method.
@@ -53,6 +53,9 @@ defmodule ProtoRune.XRPC.Query do
 
   - `:from` - Parser module for parameter validation
   - `:base_url` - Service base URL (e.g., "https://bsky.social")
+  - `:response` - Response decoding: `:auto` (default) routes on the
+    response content-type, `:json` forces JSON decoding and `:binary`
+    returns the raw body
 
   ## Examples
 
@@ -65,7 +68,8 @@ defmodule ProtoRune.XRPC.Query do
       parser: Keyword.get(opts, :from),
       params: %{},
       headers: %{},
-      base_url: Keyword.get(opts, :base_url)
+      base_url: Keyword.get(opts, :base_url),
+      response: Keyword.get(opts, :response, :auto)
     }
   end
 

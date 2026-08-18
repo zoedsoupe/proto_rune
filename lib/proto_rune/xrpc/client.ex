@@ -47,7 +47,7 @@ defmodule ProtoRune.XRPC.Client do
 
     :get
     |> HTTPClient.request(url, headers: headers)
-    |> parse_http()
+    |> parse_http(query.response)
   end
 
   def execute(%Procedure{raw_body: true} = proc) do
@@ -56,7 +56,7 @@ defmodule ProtoRune.XRPC.Client do
 
     :post
     |> HTTPClient.request(url, body: proc.body, headers: headers)
-    |> parse_http()
+    |> parse_http(proc.response)
   end
 
   def execute(%Procedure{} = proc) do
@@ -66,7 +66,7 @@ defmodule ProtoRune.XRPC.Client do
 
     :post
     |> HTTPClient.request(url, json: body, headers: headers)
-    |> parse_http()
+    |> parse_http(proc.response)
   end
 
   # Convert headers map to list of tuples for HTTPClient
@@ -74,15 +74,44 @@ defmodule ProtoRune.XRPC.Client do
     Enum.map(headers, fn {k, v} -> {to_string(k), v} end)
   end
 
-  defp parse_http({:error, err}), do: {:error, err}
+  defp parse_http({:error, err}, _response), do: {:error, err}
 
-  defp parse_http({:ok, %{status: status} = resp}) when status >= 400 do
+  defp parse_http({:ok, %{status: status} = resp}, _response) when status >= 400 do
     {:error, Error.from(%{resp | body: decode_body(resp.body)})}
   end
 
-  defp parse_http({:ok, %{status: status, body: body}}) when status in [200, 201] do
-    {:ok, body |> decode_body() |> ProtoRune.Case.snakelize_enum()}
+  defp parse_http({:ok, %{status: status} = resp}, response) when status in [200, 201] do
+    decode_success(resp, response)
   end
+
+  defp decode_success(resp, :binary) do
+    {:ok, %{content_type: content_type(resp), body: resp.body}}
+  end
+
+  defp decode_success(resp, :json) do
+    {:ok, resp.body |> decode_body() |> ProtoRune.Case.snakelize_enum()}
+  end
+
+  # :auto routes on the response content-type; a missing content-type
+  # decodes as JSON
+  defp decode_success(resp, :auto) do
+    case content_type(resp) do
+      nil -> decode_success(resp, :json)
+      "application/json" -> decode_success(resp, :json)
+      _other -> decode_success(resp, :binary)
+    end
+  end
+
+  # Compares the media type only, dropping any "; charset=..." suffix
+  defp content_type(%{headers: headers}) when is_list(headers) do
+    Enum.find_value(headers, fn {key, value} ->
+      if String.downcase(to_string(key)) == "content-type" do
+        value |> String.split(";", parts: 2) |> hd() |> String.trim() |> String.downcase()
+      end
+    end)
+  end
+
+  defp content_type(_resp), do: nil
 
   defp decode_body(body) when body in ["", nil], do: %{}
   defp decode_body(body) when is_binary(body), do: JSON.decode!(body)
