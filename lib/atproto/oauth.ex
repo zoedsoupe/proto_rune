@@ -381,15 +381,7 @@ defmodule ProtoRune.Atproto.OAuth do
   # The HTTP adapter returns raw bodies: decode JSON before matching on
   # error payloads like "use_dpop_nonce". Non-JSON bodies (the revocation
   # endpoint answers 200 with an empty body) pass through as-is.
-  defp handle_dpop_response(
-         {:ok, %{status: status, body: body} = resp},
-         url,
-         form,
-         keys,
-         nonce,
-         retry,
-         access_token
-       )
+  defp handle_dpop_response({:ok, %{status: status, body: body} = resp}, url, form, keys, nonce, retry, access_token)
        when is_binary(body) do
     case JSON.decode(body) do
       {:ok, decoded} when is_map(decoded) ->
@@ -505,6 +497,14 @@ defmodule ProtoRune.Atproto.OAuth do
     Map.get(params, key) || Map.get(params, String.to_existing_atom(key))
   rescue
     ArgumentError -> Map.get(params, key)
+  end
+
+  defp get_header(headers, name) when is_map(headers) do
+    # Req responses carry headers as a downcased string map with list values
+    case Map.get(headers, name) do
+      [value | _] -> value
+      value -> value
+    end
   end
 
   defp get_header(headers, name) when is_list(headers) do
