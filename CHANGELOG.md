@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.4.1](https://github.com/zoedsoupe/proto_rune/compare/v0.4.0...v0.4.1) (2026-08-18)
+
+
+### Bug Fixes
+
+* **oauth:** decode json bodies in discovery fetch_json ([ab14a09](https://github.com/zoedsoupe/proto_rune/commit/ab14a096e18094ba48e4399b2624f1aef0b35ff3))
+
+
+### Miscellaneous Chores
+
+* add ex_doc to ci ([b9b0812](https://github.com/zoedsoupe/proto_rune/commit/b9b0812ee261f6fe06dd31a31aa2fc1571bf70ad))
+
 ## [0.4.0](https://github.com/zoedsoupe/proto_rune/compare/v0.3.1...v0.4.0) (2026-08-18)
 
 
