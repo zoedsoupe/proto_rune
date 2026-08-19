@@ -64,8 +64,8 @@ defmodule ProtoRune.Firehose.Transport.Gun do
       {:gun_ws, ^pid, ^stream_ref, {:close, _code, _reason}} ->
         {:ok, conn, [:closed]}
 
-      {:gun_ws, ^pid, ^stream_ref, {:text, _data}} ->
-        {:ok, conn, []}
+      {:gun_ws, ^pid, ^stream_ref, {:text, data}} ->
+        {:ok, conn, [{:text, data}]}
 
       {:gun_down, ^pid, :ws, _reason, _killed, _unprocessed} ->
         {:ok, conn, [:closed]}

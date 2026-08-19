@@ -13,8 +13,13 @@ defmodule ProtoRune.Firehose.Transport do
   @typedoc "Opaque transport connection state."
   @type conn :: term
 
-  @typedoc "A decoded WebSocket frame: a binary payload or a close signal."
-  @type frame :: {:binary, binary} | :closed
+  @typedoc """
+  A decoded WebSocket frame: a binary or text payload, or a close signal.
+
+  The CBOR firehose (`ProtoRune.Firehose`) uses binary frames; Jetstream
+  (`ProtoRune.Jetstream`) uses text frames carrying JSON.
+  """
+  @type frame :: {:binary, binary} | {:text, binary} | :closed
 
   @doc """
   Opens a WebSocket connection to the given `ws(s)://` URL.
