@@ -164,15 +164,20 @@ defmodule ProtoRune.Atproto.OAuth do
       "client_id" => client.client_id
     }
 
-    with {:ok, data, nonce} <- dpop_post(session.token_endpoint, form, client, session.dpop_nonce),
+    # The DPoP proof and the refreshed session use the session's key,
+    # not the client's: the grant is bound (via the access token's
+    # cnf.jkt) to the key the session was issued with, and a host that
+    # restored a persisted session may hold a Client built with a
+    # fresh key.
+    with {:ok, data, nonce} <- dpop_post(session.token_endpoint, form, session, session.dpop_nonce),
          {:ok, fresh} <-
            Session.parse(data, %{
              handle: session.handle,
              service_url: session.service_url,
              issuer: session.issuer,
              token_endpoint: session.token_endpoint,
-             dpop_key: client.dpop_key,
-             dpop_jwk: client.dpop_jwk,
+             dpop_key: session.dpop_key,
+             dpop_jwk: session.dpop_jwk,
              dpop_nonce: nonce
            }) do
       {:ok, %{fresh | refresh_token: fresh.refresh_token || session.refresh_token}}
