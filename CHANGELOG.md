@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.2](https://github.com/zoedsoupe/proto_rune/compare/v0.5.1...v0.5.2) (2026-08-20)
+
+
+### Bug Fixes
+
+* **identity:** handle list-valued content-type headers in handle resolver ([aea4022](https://github.com/zoedsoupe/proto_rune/commit/aea40220b253ab3ad5f4f2855114ed19b6a52de2))
+
 ## [0.5.1](https://github.com/zoedsoupe/proto_rune/compare/v0.5.0...v0.5.1) (2026-08-20)
 
 
