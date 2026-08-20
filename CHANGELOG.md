@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/zoedsoupe/proto_rune/compare/v0.4.2...v0.5.0) (2026-08-19)
+
+
+### Features
+
+* add jetstream consumer with server-side collection filtering ([57f0761](https://github.com/zoedsoupe/proto_rune/commit/57f0761c89f7b7f828a79340b1d0bc891f3d5293))
+
 ## [0.4.2](https://github.com/zoedsoupe/proto_rune/compare/v0.4.1...v0.4.2) (2026-08-18)
 
 
