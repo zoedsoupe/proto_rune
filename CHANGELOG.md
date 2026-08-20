@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/zoedsoupe/proto_rune/compare/v0.5.0...v0.5.1) (2026-08-20)
+
+
+### Bug Fixes
+
+* **oauth:** sign refresh with session dpop key, not client key ([5c83f36](https://github.com/zoedsoupe/proto_rune/commit/5c83f366842aad153c720fee96c71eabf0306b9c))
+
 ## [0.5.0](https://github.com/zoedsoupe/proto_rune/compare/v0.4.2...v0.5.0) (2026-08-19)
 
 
