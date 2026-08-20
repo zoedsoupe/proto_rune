@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.3](https://github.com/zoedsoupe/proto_rune/compare/v0.5.2...v0.5.3) (2026-08-20)
+
+
+### Miscellaneous Chores
+
+* format ([0be8529](https://github.com/zoedsoupe/proto_rune/commit/0be8529c18427d49f850c209d24cad4940493c74))
+
 ## [0.5.2](https://github.com/zoedsoupe/proto_rune/compare/v0.5.1...v0.5.2) (2026-08-20)
 
 
