@@ -115,7 +115,9 @@ defmodule ProtoRune.Atproto.Identity.HandleResolver do
   defp text_response?(headers) do
     Enum.any?(headers, fn {k, v} ->
       String.downcase(k) == "content-type" &&
-        String.starts_with?(String.downcase(v), "text/plain")
+        v
+        |> List.wrap()
+        |> Enum.any?(&String.starts_with?(String.downcase(&1), "text/plain"))
     end)
   end
 
