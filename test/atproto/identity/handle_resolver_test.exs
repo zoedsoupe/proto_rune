@@ -4,6 +4,7 @@ defmodule ProtoRune.Atproto.Identity.HandleResolverTest do
   alias ProtoRune.Atproto.Identity.HandleResolver
 
   defmodule FakeAdapter do
+    @moduledoc false
     @behaviour ProtoRune.HTTPClient.Adapter
 
     @impl true
