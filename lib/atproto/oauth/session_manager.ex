@@ -30,7 +30,10 @@ defmodule ProtoRune.Atproto.OAuth.SessionManager do
   tokens themselves.
 
   When a refresh fails the manager stops with `{:refresh_failed, reason}`
-  and lets the supervisor decide the restart policy. `logout/1` revokes
+  and lets the supervisor decide the restart policy. One exception: an
+  `invalid_grant` OAuth error means the grant is permanently dead
+  (revoked, expired or replayed), so the manager deletes the stored
+  session and stops with `:normal` instead. `logout/1` revokes
   the refresh token (best effort: a revocation failure does not block the
   logout), deletes the stored session and stops the process.
 
@@ -153,8 +156,15 @@ defmodule ProtoRune.Atproto.OAuth.SessionManager do
       end)
 
     case result do
-      {:ok, state} -> {:noreply, state}
-      {:error, reason} -> {:stop, {:refresh_failed, reason}, state}
+      {:ok, state} ->
+        {:noreply, state}
+
+      {:error, {:oauth_error, _status, %{"error" => "invalid_grant"}}} ->
+        _ = delete(state.store, state.session.did)
+        {:stop, :normal, state}
+
+      {:error, reason} ->
+        {:stop, {:refresh_failed, reason}, state}
     end
   end
 

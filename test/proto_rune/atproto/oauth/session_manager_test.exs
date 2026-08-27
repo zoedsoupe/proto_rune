@@ -148,7 +148,7 @@ defmodule ProtoRune.Atproto.OAuth.SessionManagerTest do
              SessionManager.start_link(session: session(client), client: client, store: store)
   end
 
-  test "stops with a descriptive reason when the refresh fails", %{
+  test "stops with a descriptive reason when the refresh fails transiently", %{
     client: client,
     store: store,
     key: key
@@ -158,7 +158,7 @@ defmodule ProtoRune.Atproto.OAuth.SessionManagerTest do
     session = session(client, expires_at: System.system_time(:second) + 2)
 
     Application.put_env(:proto_rune, :http_stub_handler, fn :post, @token_url, _opts ->
-      {:ok, %{status: 400, body: %{"error" => "invalid_grant"}, headers: []}}
+      {:ok, %{status: 500, body: %{"error" => "server_error"}, headers: []}}
     end)
 
     {:ok, pid} =
@@ -170,8 +170,41 @@ defmodule ProtoRune.Atproto.OAuth.SessionManagerTest do
         refresh_fraction: 0.1
       )
 
-    assert_receive {:EXIT, ^pid, {:refresh_failed, {:oauth_error, 400, %{"error" => "invalid_grant"}}}},
+    assert_receive {:EXIT, ^pid, {:refresh_failed, {:oauth_error, 500, %{"error" => "server_error"}}}},
                    2_000
+
+    assert_received {:telemetry, [:proto_rune, :oauth, :refresh, :stop], _,
+                     %{did: @did, error: {:oauth_error, 500, %{"error" => "server_error"}}}}
+  end
+
+  test "stops normally and deletes the stored session on invalid_grant", %{
+    client: client,
+    store: store,
+    store_pid: store_pid,
+    key: key
+  } do
+    Process.flag(:trap_exit, true)
+
+    session = session(client, expires_at: System.system_time(:second) + 2)
+
+    Application.put_env(:proto_rune, :http_stub_handler, fn :post, @token_url, _opts ->
+      {:ok,
+       %{status: 400, body: %{"error" => "invalid_grant", "error_description" => "Refresh token replayed"}, headers: []}}
+    end)
+
+    MemoryStore.put(@did, "stale-blob", pid: store_pid)
+
+    {:ok, pid} =
+      SessionManager.start_link(
+        session: session,
+        client: client,
+        store: store,
+        key: key,
+        refresh_fraction: 0.1
+      )
+
+    assert_receive {:EXIT, ^pid, :normal}, 2_000
+    assert {:error, :not_found} = MemoryStore.fetch(@did, pid: store_pid)
 
     assert_received {:telemetry, [:proto_rune, :oauth, :refresh, :stop], _,
                      %{did: @did, error: {:oauth_error, 400, %{"error" => "invalid_grant"}}}}
