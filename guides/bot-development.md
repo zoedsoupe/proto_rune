@@ -1,10 +1,8 @@
 # Bot Development
 
-ProtoRune provides a bot framework built on OTP principles for creating reliable, event-driven bots that respond to notifications.
+`ProtoRune.Bot` is an OTP-based framework for event-driven bots that react to notifications. Bots are processes, so they fit into your supervision tree like anything else.
 
-## Creating Your First Bot
-
-A bot is a module that uses `ProtoRune.Bot` and implements event handlers:
+## A bot
 
 ```elixir
 defmodule GreeterBot do
@@ -22,193 +20,55 @@ defmodule GreeterBot do
 
   @impl true
   def handle_event(:mention, payload) do
-    Logger.info("Got mentioned by #{payload.author.handle}")
-    {:ok, :processed}
+    Logger.info("Mentioned by #{payload.thread.post.author.handle}")
+    {:ok, :handled}
   end
 
-  @impl true
-  def handle_event(_event, _payload) do
-    {:ok, :ignored}
-  end
+  def handle_event(_event, _payload), do: {:ok, :ignored}
 end
 ```
-
-Start the bot:
 
 ```elixir
 {:ok, pid} = GreeterBot.start_link()
 ```
 
-## Bot Configuration
+## Options
 
-### Required Options
+Required:
 
-When using `ProtoRune.Bot`, provide these options:
+- `:name`: module name or atom
+- `:strategy`: `:polling` (`:firehose` planned)
 
-- `:name` - Module name or atom identifying the bot
-- `:strategy` - Notification strategy (`:polling` or `:firehose`)
+Optional:
 
-### Optional Options
+- `:service`: PDS URL (default `"https://bsky.social"`)
+- `:langs`: supported languages (default `["en"]`)
+- `:identifier` / `:password`: instead of the callbacks
+- `:polling`: polling config (below)
 
-- `:service` - Service URL (default: "https://bsky.social")
-- `:langs` - List of supported languages (default: `["en"]`)
-- `:identifier` - Bot's login identifier (or implement `get_identifier/0`)
-- `:password` - Bot's app password (or implement `get_password/0`)
-- `:polling` - Polling configuration (see Polling Strategy section)
+## Callbacks
 
-## Required Callbacks
+- `get_identifier/0`: login handle or email
+- `get_password/0`: app password
+- `handle_event/2`: returns `{:ok, term}` or `{:error, term}`
 
-### `get_identifier/0`
+Get credentials from env vars, never hardcode them.
 
-Returns the bot's login identifier (handle or email):
+## Events
 
-```elixir
-@impl true
-def get_identifier do
-  System.get_env("BOT_IDENTIFIER") || "bot.bsky.social"
-end
-```
+Dispatched from notifications:
 
-### `get_password/0`
+| Event | Payload |
+|---|---|
+| `:mention` | `payload.thread.post` with the mentioning post |
+| `:reply` | `payload.thread.post` with the reply |
+| `:like` | `payload.user`, `payload.subject` |
+| `:repost` | `payload.user`, `payload.post` |
+| `:follow` | `payload.user` |
+| `:quote` | `payload.thread` |
+| `:error` | `payload.reason` |
 
-Returns the bot's app password:
-
-```elixir
-@impl true
-def get_password do
-  System.get_env("BOT_PASSWORD")
-end
-```
-
-### `handle_event/2`
-
-Processes events dispatched to the bot:
-
-```elixir
-@impl true
-def handle_event(event, payload) do
-  # Process the event
-  {:ok, result}
-end
-```
-
-Return values:
-
-- `{:ok, term}` - Event processed successfully
-- `{:error, term}` - Event processing failed
-
-## Event Types
-
-The bot receives these event types from notifications:
-
-### `:mention`
-
-Triggered when someone mentions the bot:
-
-```elixir
-@impl true
-def handle_event(:mention, payload) do
-  # payload contains the post that mentioned you
-  author = payload.thread.post.author
-  text = payload.thread.post.record.text
-
-  Logger.info("Mentioned by #{author.handle}: #{text}")
-  {:ok, :handled}
-end
-```
-
-### `:reply`
-
-Triggered when someone replies to the bot's post:
-
-```elixir
-@impl true
-def handle_event(:reply, payload) do
-  # payload contains the reply thread
-  reply_post = payload.thread.post
-
-  Logger.info("Got reply from #{reply_post.author.handle}")
-  {:ok, :handled}
-end
-```
-
-### `:like`
-
-Triggered when someone likes the bot's content:
-
-```elixir
-@impl true
-def handle_event(:like, payload) do
-  user = payload.user
-  subject = payload.subject
-
-  Logger.info("#{user.handle} liked our post")
-  {:ok, :handled}
-end
-```
-
-### `:repost`
-
-Triggered when someone reposts the bot's content:
-
-```elixir
-@impl true
-def handle_event(:repost, payload) do
-  user = payload.user
-  post = payload.post
-
-  Logger.info("#{user.handle} reposted our content")
-  {:ok, :handled}
-end
-```
-
-### `:follow`
-
-Triggered when someone follows the bot:
-
-```elixir
-@impl true
-def handle_event(:follow, payload) do
-  user = payload.user
-
-  Logger.info("New follower: #{user.handle}")
-  {:ok, :handled}
-end
-```
-
-### `:quote`
-
-Triggered when someone quotes the bot's post:
-
-```elixir
-@impl true
-def handle_event(:quote, payload) do
-  thread = payload.thread
-
-  Logger.info("Got quoted")
-  {:ok, :handled}
-end
-```
-
-### `:error`
-
-Triggered when an error occurs during event processing:
-
-```elixir
-@impl true
-def handle_event(:error, payload) do
-  reason = payload.reason
-
-  Logger.error("Bot error: #{inspect(reason)}")
-  {:ok, :logged}
-end
-```
-
-## Polling Strategy
-
-The polling strategy fetches notifications at regular intervals.
-
-### Basic Polling Configuration
+## Polling
 
 ```elixir
 defmodule MyBot do
@@ -216,272 +76,76 @@ defmodule MyBot do
     name: __MODULE__,
     strategy: :polling,
     polling: %{
-      interval: 30,  # Check every 30 seconds
-      process_from: ~N[2024-01-01 00:00:00]  # Start from this date
+      interval: 30,                          # seconds between polls (default 5)
+      process_from: ~N[2024-01-01 00:00:00]  # ignore notifications before this (default: now)
     }
 
-  # ... callbacks ...
+  # callbacks...
 end
 ```
 
-### Polling Options
+The poller authenticates, fetches notifications, dispatches new ones as events, waits, repeats. On rate limiting it backs off exponentially, capped at 5 minutes.
 
-- `:interval` - Seconds between polls (default: 5)
-- `:process_from` - Start processing from this NaiveDateTime (default: now)
+## Responding to events
 
-### How Polling Works
-
-1. Bot starts and authenticates
-2. Polling process begins fetching notifications
-3. New notifications are converted to events
-4. Events are dispatched to `handle_event/2`
-5. Process waits for interval duration
-6. Repeat from step 2
-
-### Rate Limiting
-
-The poller implements exponential backoff when rate limited:
-
-```elixir
-# Initial interval: 5 seconds
-# On rate limit: 5² = 25 seconds
-# Next attempt: 25² = 625 seconds (10.4 minutes)
-# Max backoff: 5 minutes
-```
-
-## Responding to Events
-
-Bots can respond to events by calling ProtoRune.Bsky functions:
-
-### Replying to Mentions
-
-```elixir
-@impl true
-def handle_event(:mention, payload) do
-  session = get_session()  # Retrieve bot's session
-  mention_uri = payload.thread.post.uri
-  author = payload.thread.post.author.handle
-
-  {:ok, _reply} = ProtoRune.Bsky.post(
-    session,
-    "Thanks for the mention, @#{author}!",
-    reply_to: mention_uri
-  )
-
-  {:ok, :replied}
-end
-```
-
-### Following Back
+Call `ProtoRune.Bsky` from your handlers:
 
 ```elixir
 @impl true
 def handle_event(:follow, payload) do
   session = get_session()
-  follower_did = payload.user.did
-
-  {:ok, _follow} = ProtoRune.Bsky.follow(session, follower_did)
-
+  {:ok, _} = ProtoRune.Bsky.follow(session, payload.user.did)
   {:ok, :followed_back}
 end
 ```
 
-### Liking Replies
-
-```elixir
-@impl true
-def handle_event(:reply, payload) do
-  session = get_session()
-  reply = payload.thread.post
-
-  {:ok, _like} = ProtoRune.Bsky.like(session, reply.uri, reply.cid)
-
-  {:ok, :liked}
-end
-```
-
-## Managing Bot State
-
-Bots run as GenServers, so you can maintain custom state:
-
-```elixir
-defmodule StatefulBot do
-  use ProtoRune.Bot,
-    name: __MODULE__,
-    strategy: :polling
-
-  @impl true
-  def get_identifier, do: System.get_env("BOT_IDENTIFIER")
-
-  @impl true
-  def get_password, do: System.get_env("BOT_PASSWORD")
-
-  # Keep track of mentions
-  @impl true
-  def handle_event(:mention, payload) do
-    count = get_mention_count() + 1
-    put_mention_count(count)
-
-    if rem(count, 10) == 0 do
-      session = get_session()
-      ProtoRune.Bsky.post(session, "Received #{count} mentions so far!")
-    end
-
-    {:ok, count}
-  end
-
-  @impl true
-  def handle_event(_event, _payload), do: {:ok, :ignored}
-
-  # State management helpers (you need to implement these)
-  defp get_mention_count, do: :persistent_term.get({__MODULE__, :mentions}, 0)
-  defp put_mention_count(count), do: :persistent_term.put({__MODULE__, :mentions}, count)
-  defp get_session, do: :persistent_term.get({__MODULE__, :session})
-end
-```
-
-Note: The current bot framework doesn't expose the session directly to handlers. You may need to extend the framework or use process dictionary for state management in the MVP.
+Note: the framework doesn't expose the session directly to handlers yet. Keep it in `:persistent_term` or extend the framework; this improves in a future version.
 
 ## Supervision
 
-Add bots to your supervision tree for reliability:
-
 ```elixir
-defmodule MyApp.Application do
-  use Application
+children = [
+  GreeterBot,
+  ResponderBot
+]
 
-  def start(_type, _args) do
-    children = [
-      GreeterBot,
-      ResponderBot,
-      MonitorBot
-    ]
-
-    opts = [strategy: :one_for_one, name: MyApp.Supervisor]
-    Supervisor.start_link(children, opts)
-  end
-end
+Supervisor.start_link(children, strategy: :one_for_one, name: MyApp.Supervisor)
 ```
 
-If a bot crashes, the supervisor will restart it automatically.
+A crashed bot is restarted automatically.
 
-## Best Practices
+## Error handling in handlers
 
-### Environment Variables for Credentials
-
-Never hardcode credentials:
-
-```elixir
-# Good
-def get_identifier, do: System.get_env("BOT_IDENTIFIER")
-def get_password, do: System.get_env("BOT_PASSWORD")
-
-# Bad
-def get_identifier, do: "mybot.bsky.social"  # Never do this
-def get_password, do: "password123"          # Never do this
-```
-
-### Graceful Error Handling
-
-Always handle errors in event processing:
+Return `{:ok, _}` even on failure so one bad event doesn't stop the bot:
 
 ```elixir
 @impl true
 def handle_event(:mention, payload) do
   case process_mention(payload) do
-    {:ok, result} ->
-      {:ok, result}
-
+    {:ok, result} -> {:ok, result}
     {:error, reason} ->
       Logger.error("Failed to process mention: #{inspect(reason)}")
-      {:ok, :failed}  # Return ok to continue processing other events
+      {:ok, :failed}
   end
 end
 ```
 
-### Rate Limit Awareness
+## Testing
 
-Be mindful of API rate limits:
-
-```elixir
-@impl true
-def handle_event(:mention, payload) do
-  # Check if we've responded recently
-  if should_respond?(payload) do
-    respond_to_mention(payload)
-  else
-    Logger.info("Skipping mention to avoid rate limits")
-  end
-
-  {:ok, :handled}
-end
-```
-
-### Logging
-
-Use structured logging for bot operations:
+Handlers are plain functions, test them with mock payloads:
 
 ```elixir
-@impl true
-def handle_event(event, payload) do
-  Logger.metadata(bot: __MODULE__, event: event)
-  Logger.info("Processing event", event: event, author: payload[:author])
-
-  # ... process event ...
-
-  {:ok, :processed}
-end
-```
-
-## Testing Bots
-
-Test bots with mock sessions:
-
-```elixir
-defmodule GreeterBotTest do
-  use ExUnit.Case
-
-  test "responds to mentions" do
-    mock_payload = %{
-      thread: %{
-        post: %{
-          uri: "at://test/post/123",
-          author: %{handle: "alice.bsky.social"},
-          record: %{text: "Hello @bot"}
-        }
+test "responds to mentions" do
+  payload = %{
+    thread: %{
+      post: %{
+        uri: "at://test/post/123",
+        author: %{handle: "alice.bsky.social"},
+        record: %{text: "Hello @bot"}
       }
     }
+  }
 
-    {:ok, result} = GreeterBot.handle_event(:mention, mock_payload)
-    assert result == :replied
-  end
+  assert {:ok, :replied} = GreeterBot.handle_event(:mention, payload)
 end
 ```
-
-## Debugging
-
-Monitor bot activity:
-
-```elixir
-# Check bot process
-Process.info(Process.whereis(GreeterBot))
-
-# View bot state
-:sys.get_state(GreeterBot)
-
-# Trace messages
-:sys.trace(GreeterBot, true)
-```
-
-## Future Enhancements
-
-Features planned for future releases:
-
-- **Firehose strategy** - Real-time event streaming
-- **Jetstream support** - Filtered event streams
-- **State persistence** - Automatic state saving/loading
-- **Message filtering** - Pattern-based event filtering
-- **Telemetry integration** - Built-in metrics
-- **Multi-account bots** - Single bot managing multiple accounts
-
-See the roadmap for implementation timelines.

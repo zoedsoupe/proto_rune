@@ -1,171 +1,84 @@
-# Understanding XRPC and Low-Level API Usage
+# XRPC and Low-Level API
 
-## What is XRPC?
+XRPC is AT Protocol's HTTP API layer: lexicon-defined endpoints, schema-validated input/output, namespaced methods like `com.atproto.repo.createRecord`, JWT auth, standardized errors.
 
-XRPC (Cross-server Remote Procedure Call) is AT Protocol's approach to HTTP APIs. While it follows RESTful principles, XRPC adds some protocol-specific features:
-
-- **Lexicon-defined endpoints**: Each endpoint is defined by a Lexicon schema
-- **Strongly-typed parameters**: Input and output are validated against schemas
-- **Namespaced methods**: Endpoints follow a hierarchical naming (e.g., `com.atproto.repo.createRecord`)
-- **Session-based auth**: Uses JWT tokens for authentication
-- **Consistent error handling**: Standardized error responses across services
-
-## XRPC in ProtoRune
-
-While ProtoRune provides high-level abstractions like `ProtoRune.login/2`, understanding the XRPC layer helps when:
-
-- Building custom features
-- Working with new Lexicons
-- Debugging issues
-- Implementing advanced functionality
-
-Here's how the layers connect:
+ProtoRune's high-level API sits on top of it:
 
 ```elixir
-{:ok, session} = ProtoRune.login("identifier", "password")
+{:ok, post} = ProtoRune.Bsky.post(session, "Hello world!")
 
-# High-level API (recommended for most uses)
-{:ok, post} = ProtoRune.post(session, "Hello world!")
-
-# Is equivalent to:
-ProtoRune.XRPC.procedure(session,
-  "com.atproto.repo.createRecord",
-  %{
-    repo: session.did,
-    collection: "app.bsky.feed.post",
-    record: %{text: "Hello world!"}
-  }
-)
+# is equivalent to:
+ProtoRune.XRPC.procedure(session, "com.atproto.repo.createRecord", %{
+  repo: session.did,
+  collection: "app.bsky.feed.post",
+  record: %{text: "Hello world!"}
+})
 ```
 
-## Using XRPC Directly
+Drop to the XRPC layer for endpoints the high-level API doesn't cover yet, or for debugging.
 
-### Queries (GET Requests)
+## Queries (GET)
 
 ```elixir
-# Get a profile
-{:ok, profile} = ProtoRune.XRPC.query(session,
-  "app.bsky.actor.getProfile",
-  %{actor: "alice.bsky.social"}
-)
+{:ok, profile} =
+  ProtoRune.XRPC.query(session, "app.bsky.actor.getProfile", %{
+    actor: "alice.bsky.social"
+  })
 
-# List records with parameters
-{:ok, posts} = ProtoRune.XRPC.query(session,
-  "app.bsky.feed.getAuthorFeed",
-  %{
+{:ok, posts} =
+  ProtoRune.XRPC.query(session, "app.bsky.feed.getAuthorFeed", %{
     actor: "bob.bsky.social",
     limit: 50,
     filter: "posts_with_media"
-  }
-)
+  })
 ```
 
-### Procedures (POST Requests)
+## Procedures (POST)
 
 ```elixir
-# Create a record
-{:ok, record} = ProtoRune.XRPC.procedure(session,
-  "com.atproto.repo.createRecord",
-  %{
+{:ok, record} =
+  ProtoRune.XRPC.procedure(session, "com.atproto.repo.createRecord", %{
     repo: session.did,
     collection: "app.bsky.feed.post",
     record: %{
       text: "Hello via XRPC!",
       createdAt: DateTime.utc_now() |> DateTime.to_iso8601()
     }
-  }
-)
-
-# Delete a record
-{:ok, _} = ProtoRune.XRPC.procedure(session,
-  "com.atproto.repo.deleteRecord",
-  %{
-    repo: session.did,
-    collection: "app.bsky.feed.post",
-    rkey: "1234"
-  }
-)
+  })
 ```
 
-### Error Handling
-
-XRPC provides structured errors:
+## Errors
 
 ```elixir
-case ProtoRune.XRPC.query(session, "app.bsky.feed.getPost", %{uri: invalid_uri}) do
-  {:ok, post} ->
-    # Handle success
-
-  {:error, %ProtoRune.XRPC.Error{
-    code: :not_found,
-    message: "Post not found"
-  }} ->
-    # Handle specific error
-
-  {:error, %ProtoRune.XRPC.Error{code: :rate_limit}} ->
-    # Handle rate limiting
+case ProtoRune.XRPC.query(session, "app.bsky.feed.getPost", %{uri: uri}) do
+  {:ok, post} -> post
+  {:error, %ProtoRune.XRPC.Error{code: :not_found}} -> # gone
+  {:error, %ProtoRune.XRPC.Error{code: :rate_limit}} -> # back off
 end
 ```
 
-## Working with Lexicons
+## Custom methods
 
-XRPC endpoints are defined by Lexicons. ProtoRune generates code from these definitions:
-
-```elixir
-# Generated module for an XRPC method
-defmodule ProtoRune.Lexicons.ATProto.Repo.CreateRecord do
-  @type params :: %{
-    repo: String.t(),
-    collection: String.t(),
-    rkey: String.t() | nil,
-    validate: boolean() | nil,
-    record: map()
-  }
-
-  @type response :: %{
-    uri: String.t(),
-    cid: String.t()
-  }
-
-  def path, do: "com.atproto.repo.createRecord"
-  def method, do: :post
-end
-```
-
-## Custom XRPC Methods
-
-For methods not covered by ProtoRune's high-level API:
+For endpoints with no generated module:
 
 ```elixir
-# Define your method
 defmodule MyApp.CustomMethod do
   use ProtoRune.XRPC.Method,
     path: "com.example.customMethod",
     method: :post
 
-  @type params :: %{
-    customField: String.t()
-  }
-
-  @type response :: %{
-    result: String.t()
-  }
+  @type params :: %{customField: String.t()}
+  @type response :: %{result: String.t()}
 end
 
-# Use it
-ProtoRune.XRPC.call(session, MyApp.CustomMethod, %{
-  customField: "value"
-})
+ProtoRune.XRPC.call(session, MyApp.CustomMethod, %{customField: "value"})
 ```
 
-## Advanced Usage
+## Raw requests
 
-### Raw Requests
-
-Access the underlying HTTP client:
+When you need full control over the HTTP call:
 
 ```elixir
-# Direct HTTP request
 ProtoRune.XRPC.request(session,
   method: :post,
   path: "com.atproto.repo.createRecord",
@@ -174,32 +87,7 @@ ProtoRune.XRPC.request(session,
 )
 ```
 
-### Custom Response Handling
+## Further reading
 
-Process raw responses:
-
-```elixir
-case ProtoRune.XRPC.raw_query(session, "app.bsky.feed.getTimeline") do
-  {:ok, %{status: 200, body: body}} ->
-    # Handle raw response
-
-  {:ok, %{status: status}} when status in 400..499 ->
-    # Handle client error
-
-  {:error, _reason} ->
-    # Handle network error
-end
-```
-
-## Best Practices
-
-1. **Use High-Level APIs First**: Only drop to XRPC when needed
-2. **Handle Rate Limits**: Implement exponential backoff
-3. **Validate Input**: Check params match Lexicon schemas
-4. **Type Everything**: Use typespecs for custom methods
-
-## Further Reading
-
-- [AT Protocol XRPC Spec](https://atproto.com/specs/xrpc)
-- [Lexicon Reference](https://atproto.com/specs/lexicon)
-- [XPRC HTTP Status Codes](https://atproto.com/specs/xrpc#summary-of-http-status-codes)
+- [AT Protocol XRPC spec](https://atproto.com/specs/xrpc)
+- [Lexicon reference](https://atproto.com/specs/lexicon)
