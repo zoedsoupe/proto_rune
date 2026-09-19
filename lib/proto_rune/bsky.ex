@@ -25,6 +25,7 @@ defmodule ProtoRune.Bsky do
   alias ProtoRune.Bsky.Actor
   alias ProtoRune.Bsky.Embed
   alias ProtoRune.Bsky.Feed
+  alias ProtoRune.Bsky.FeedGen
   alias ProtoRune.Bsky.Graph
   alias ProtoRune.Bsky.Notification
   alias ProtoRune.XRPC.Error
@@ -593,6 +594,39 @@ defmodule ProtoRune.Bsky do
       end
 
     Notification.list_notifications(session, params)
+  end
+
+  @doc """
+  Publishes an `app.bsky.feed.generator` record, pointing the network at
+  a feed service.
+
+  `did` is the DID of the service serving `getFeedSkeleton`; see
+  `ProtoRune.Bsky.FeedGen` for the serving-side helpers and the record
+  options.
+
+  ## Examples
+
+      {:ok, feed} = Bsky.publish_feed(session, "did:web:feeds.example.com",
+        display_name: "Elixir",
+        description: "All things Elixir",
+        accepts_interactions: true
+      )
+  """
+  @spec publish_feed(session(), String.t(), keyword()) :: {:ok, map()} | {:error, term()}
+  def publish_feed(session, did, opts) when is_binary(did) do
+    params = %{
+      repo: session.did,
+      collection: "app.bsky.feed.generator",
+      record: FeedGen.generator_record(did, opts)
+    }
+
+    params =
+      case Keyword.get(opts, :rkey) do
+        nil -> params
+        rkey -> Map.put(params, :rkey, rkey)
+      end
+
+    Repo.create_record(session, params)
   end
 
   @doc """
