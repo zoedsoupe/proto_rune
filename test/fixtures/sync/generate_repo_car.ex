@@ -64,7 +64,7 @@ defmodule RepoFixture do
   end
 
   # Two-level tree exercising "l" and "t" links and prefix compression
-  # across nodes:
+  # within a node (the first entry of a node always stores its full key):
   #
   #     [like/aaa1] < root{post/aaa2 -> [post/aab9], post/bbb3 -> [repost/ccc4]}
   defp build_mst(record_blocks) do
@@ -72,14 +72,16 @@ defmodule RepoFixture do
       node(nil, [%{"p" => 0, "k" => "com.example.like/aaa1", "v" => record_blocks["com.example.like/aaa1"], "t" => nil}])
 
     {l2_cid, l2} =
-      node(nil, [%{"p" => 19, "k" => "b9", "v" => record_blocks["com.example.post/aab9"], "t" => nil}])
+      node(nil, [%{"p" => 0, "k" => "com.example.post/aab9", "v" => record_blocks["com.example.post/aab9"], "t" => nil}])
 
     {l3_cid, l3} =
-      node(nil, [%{"p" => 12, "k" => "repost/ccc4", "v" => record_blocks["com.example.repost/ccc4"], "t" => nil}])
+      node(nil, [
+        %{"p" => 0, "k" => "com.example.repost/ccc4", "v" => record_blocks["com.example.repost/ccc4"], "t" => nil}
+      ])
 
     {root_cid, root} =
       node(l1_cid, [
-        %{"p" => 12, "k" => "post/aaa2", "v" => record_blocks["com.example.post/aaa2"], "t" => l2_cid},
+        %{"p" => 0, "k" => "com.example.post/aaa2", "v" => record_blocks["com.example.post/aaa2"], "t" => l2_cid},
         %{"p" => 17, "k" => "bbb3", "v" => record_blocks["com.example.post/bbb3"], "t" => l3_cid}
       ])
 

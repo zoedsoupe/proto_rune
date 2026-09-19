@@ -134,7 +134,7 @@ surface, generic record writes. Detail in [PLAN-v0.4.0.md](PLAN-v0.4.0.md).
 - [x] Commit/signature verification of repo checkouts (`Sync.verify_checkout/2`)
 - [x] Block integrity verification (every CAR block checked against its CID)
 - [x] Feed generator SDK (skeleton/describe builders, feed record publishing)
-- [ ] MST inclusion proofs for efficient sync (partial trees, firehose ops)
+- [x] MST inclusion proofs for efficient sync (partial trees, firehose ops)
 
 ---
 

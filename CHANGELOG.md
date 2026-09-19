@@ -5,10 +5,16 @@
 
 ### Features
 
+* **sync:** MST inclusion proofs: `MST.prove/3` extracts a minimal partial tree proving a key's inclusion or absence, `MST.verify_proof/3` checks a claim against such a slice, and `MST.verify_ops/3` verifies firehose commit ops against the event's MST root
+* **cid:** `CID.from_string/1` parses base32 multibase CID strings
 * **bsky:** media embeds on post: `ProtoRune.Bsky.Embed` builders (images, external cards, quotes, recordWithMedia) and `:embed` / `:images` options on `Bsky.post/3`
 * **bsky:** feed generator helpers: `ProtoRune.Bsky.FeedGen` (skeleton/describe response builders, generator record) and `Bsky.publish_feed/3`
 * **sync:** `Sync.verify_checkout/2` verifies a repo checkout: block integrity against CIDs plus commit signature verification (`ProtoRune.Commit`) against the repo's DID document, for P-256 and secp256k1 signing keys
 * **cbor:** `CBOR.encode/1` canonical DAG-CBOR encoding
+
+### Bug Fixes
+
+* **mst:** reconstruct keys with per-node prefix compression (a node's first entry always carries its full key), matching the reference implementation
 
 ## [0.5.3](https://github.com/zoedsoupe/proto_rune/compare/v0.5.2...v0.5.3) (2026-08-27)
 

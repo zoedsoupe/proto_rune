@@ -35,6 +35,11 @@ defmodule ProtoRune.CIDTest do
       assert CID.to_string(cid) == @cid_string
     end
 
+    test "accepts an already-parsed CID" do
+      assert {:ok, cid, <<>>} = CID.from_binary(@cid_binary)
+      assert {:ok, ^cid} = CID.from_link(cid)
+    end
+
     test "returns an error on non-link values" do
       assert {:error, :invalid_cid_link} = CID.from_link({:tag, 99, <<0>>})
       assert {:error, :invalid_cid_link} = CID.from_link("not a link")
@@ -42,6 +47,23 @@ defmodule ProtoRune.CIDTest do
 
     test "returns an error on links with trailing garbage" do
       assert {:error, :unexpected_end} = CID.from_link({:tag, 42, <<0>>})
+    end
+  end
+
+  describe "from_string/1" do
+    test "parses the base32 multibase string form" do
+      assert {:ok, cid} = CID.from_string(@cid_string)
+      assert CID.to_binary(cid) == @cid_binary
+    end
+
+    test "roundtrips with to_string/1" do
+      assert {:ok, cid, <<>>} = CID.from_binary(@cid_binary)
+      assert {:ok, ^cid} = CID.from_string(CID.to_string(cid))
+    end
+
+    test "returns an error on invalid strings" do
+      assert {:error, :invalid_cid_string} = CID.from_string("zdup")
+      assert {:error, :invalid_cid_string} = CID.from_string("b!!!")
     end
   end
 

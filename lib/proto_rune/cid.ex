@@ -43,17 +43,48 @@ defmodule ProtoRune.CID do
   def from_binary(<<>>), do: {:error, :unexpected_end}
 
   @doc """
-  Decodes a DAG-CBOR CID link (`{:tag, 42, bytes}`) into a CID.
+  Decodes a CID reference into a CID.
+
+  Accepts either a raw DAG-CBOR CID link (`{:tag, 42, bytes}`) or an
+  already-parsed CID, which makes the function safe to apply to blocks
+  decoded by either `ProtoRune.Atproto.Sync.parse_car/1` (raw links) or
+  `ProtoRune.Firehose.Frame` (resolved links).
 
   DAG-CBOR prefixes the binary CID with a single `0x00` byte for historical
   multibase reasons.
   """
   @spec from_link(term) :: {:ok, t} | {:error, atom | tuple}
+  def from_link(%__MODULE__{} = cid), do: {:ok, cid}
+
   def from_link({:tag, 42, <<0, bytes::binary>>}) do
     with {:ok, cid, <<>>} <- from_binary(bytes), do: {:ok, cid}
   end
 
   def from_link(_other), do: {:error, :invalid_cid_link}
+
+  @doc """
+  Parses a base32 multibase CID string (`b` prefix), the inverse of
+  `to_string/1`.
+  """
+  @spec from_string(String.t()) :: {:ok, t} | {:error, atom | tuple}
+  def from_string("b" <> encoded) do
+    with {:ok, binary} <- decode_base32(encoded),
+         {:ok, cid, <<>>} <- from_binary(binary) do
+      {:ok, cid}
+    else
+      {:ok, _cid, _rest} -> {:error, :invalid_cid_string}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  def from_string(_other), do: {:error, :invalid_cid_string}
+
+  defp decode_base32(encoded) do
+    case Base.decode32(encoded, case: :lower, padding: false) do
+      {:ok, binary} -> {:ok, binary}
+      :error -> {:error, :invalid_cid_string}
+    end
+  end
 
   @doc """
   Re-encodes the CID to its binary form.
