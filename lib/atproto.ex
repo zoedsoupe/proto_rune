@@ -1,13 +1,24 @@
 defmodule ProtoRune.Atproto do
-  @moduledoc false
+  @moduledoc """
+  AT Protocol utilities.
+  """
 
-  def parse_at_uri(<<"at://"::utf8, did::binary-size(32), "/"::utf8, rest::binary>>) do
-    case rest do
-      "app.bsky.feed.post" <> _ -> {:ok, {did, :post}}
-      "app.bsky.feed.generator" <> _ -> {:ok, {did, :generator}}
-      "app.bsky.labeler.service" <> _ -> {:ok, {did, :service}}
+  @doc """
+  Parses an AT-URI into its `{repo, collection, rkey}` parts.
+
+      iex> ProtoRune.Atproto.parse_at_uri("at://did:plc:abc/app.bsky.feed.post/3kxyz")
+      {:ok, {"did:plc:abc", "app.bsky.feed.post", "3kxyz"}}
+
+      iex> ProtoRune.Atproto.parse_at_uri("https://example.com")
+      {:error, :invalid_at_uri}
+  """
+  @spec parse_at_uri(String.t()) :: {:ok, {String.t(), String.t(), String.t()}} | {:error, :invalid_at_uri}
+  def parse_at_uri("at://" <> rest) do
+    case String.split(rest, "/", parts: 3) do
+      [repo, collection, rkey] -> {:ok, {repo, collection, rkey}}
+      _ -> {:error, :invalid_at_uri}
     end
   end
 
-  def parse_at_uri(_), do: {:error, :invalid_uri}
+  def parse_at_uri(_), do: {:error, :invalid_at_uri}
 end
