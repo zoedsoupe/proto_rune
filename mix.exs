@@ -36,16 +36,16 @@ defmodule ProtoRune.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:peri, "~> 0.9"},
+      {:peri, "~> 0.11"},
       {:req, "~> 0.7"},
-      {:gun, "~> 2.2"},
+      {:gun, "~> 2.6"},
       {:ecto, "~> 3.14"},
-      {:telemetry, "~> 1.2"},
-      {:styler, "~> 1.3", only: [:dev, :test], runtime: false},
+      {:telemetry, "~> 1.4"},
+      {:styler, "~> 1.12", only: [:dev, :test], runtime: false},
       {:bypass, "~> 2.1", only: :test},
       {:ex_doc, ">= 0.0.0", only: [:dev, :test], runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
-      {:dialyxir, "~> 1.3", only: [:dev, :test], runtime: false}
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
     ]
   end
 
