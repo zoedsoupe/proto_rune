@@ -1,5 +1,9 @@
 defmodule ProtoRune.Bsky.Chat.Moderation do
-  @moduledoc false
+  @moduledoc """
+  Chat moderation endpoints of the Bluesky lexicon (`chat.bsky.moderation.*`).
+
+  Generated XRPC functions; call them as `Moderation.endpoint(session, %{param: value})`.
+  """
 
   import ProtoRune.XRPC.DSL
 

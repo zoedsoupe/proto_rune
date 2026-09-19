@@ -1,5 +1,12 @@
 defmodule ProtoRune.Bsky.Feed do
-  @moduledoc false
+  @moduledoc """
+  Feed endpoints of the Bluesky lexicon (`app.bsky.feed.*`).
+
+  Generated XRPC functions; call them as `Feed.endpoint(session, %{param: value})`
+  for authenticated endpoints or `Feed.endpoint(%{param: value})` for public
+  ones. See `ProtoRune.Bsky` for ergonomic wrappers around the most common
+  calls.
+  """
 
   import ProtoRune.XRPC.DSL
 
@@ -131,7 +138,7 @@ defmodule ProtoRune.Bsky.Feed do
 
   https://docs.bsky.app/docs/api/app-bsky-feed-get-posts
   """
-  defquery "app.bsky.feed.getPosts", for: :post do
+  defquery "app.bsky.feed.getPosts", authenticated: :optional do
     param :uris, {:required, {:list, :string}}
   end
 

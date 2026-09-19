@@ -1,5 +1,9 @@
 defmodule ProtoRune.Bsky.Labeler do
-  @moduledoc false
+  @moduledoc """
+  Labeler endpoints of the Bluesky lexicon (`app.bsky.labeler.*`).
+
+  Generated XRPC functions; call them as `Labeler.endpoint(session, %{param: value})`.
+  """
 
   import ProtoRune.XRPC.DSL
 

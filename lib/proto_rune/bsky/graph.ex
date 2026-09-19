@@ -1,5 +1,12 @@
 defmodule ProtoRune.Bsky.Graph do
-  @moduledoc false
+  @moduledoc """
+  Social graph endpoints of the Bluesky lexicon (`app.bsky.graph.*`).
+
+  Generated XRPC functions; call them as `Graph.endpoint(session, %{param: value})`
+  for authenticated endpoints or `Graph.endpoint(%{param: value})` for public
+  ones. See `ProtoRune.Bsky` for ergonomic wrappers around the most common
+  calls.
+  """
 
   import ProtoRune.XRPC.DSL
 

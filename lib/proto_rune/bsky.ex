@@ -3,7 +3,12 @@ defmodule ProtoRune.Bsky do
   High-level Bluesky API helpers.
 
   Provides ergonomic wrappers around repository operations and XRPC calls
-  for common Bluesky tasks.
+  for common Bluesky tasks. This module covers the most common verbs; the
+  full generated endpoint coverage lives in the `ProtoRune.Bsky.*`
+  modules (`ProtoRune.Bsky.Feed`, `ProtoRune.Bsky.Actor`,
+  `ProtoRune.Bsky.Graph`, `ProtoRune.Bsky.Notification`,
+  `ProtoRune.Bsky.Chat`, ...), which are public and called as
+  `Module.endpoint(session, %{param: value})`.
 
   ## Examples
 
@@ -18,6 +23,9 @@ defmodule ProtoRune.Bsky do
 
       # Get profile
       {:ok, profile} = Bsky.get_profile(session, "bob.bsky.social")
+
+      # Endpoint without a helper: call the generated module directly
+      {:ok, feed} = ProtoRune.Bsky.Feed.get_author_feed(session, %{actor: "bob.bsky.social"})
   """
 
   alias ProtoRune.Atproto.Identity
@@ -28,9 +36,10 @@ defmodule ProtoRune.Bsky do
   alias ProtoRune.Bsky.FeedGen
   alias ProtoRune.Bsky.Graph
   alias ProtoRune.Bsky.Notification
+  alias ProtoRune.Session
   alias ProtoRune.XRPC.Error
 
-  @type session :: ProtoRune.Session.t()
+  @type session :: Session.t()
 
   @doc """
   Posts a text message to Bluesky.
@@ -110,7 +119,7 @@ defmodule ProtoRune.Bsky do
     with {:ok, record} <- maybe_put_reply(session, record, opts),
          {:ok, record} <- maybe_put_embed(session, record, opts) do
       Repo.create_record(session, %{
-        repo: session.did,
+        repo: Session.did(session),
         collection: :post,
         record: record
       })
@@ -170,7 +179,7 @@ defmodule ProtoRune.Bsky do
     }
 
     Repo.create_record(session, %{
-      repo: session.did,
+      repo: Session.did(session),
       collection: :like,
       record: record
     })
@@ -181,18 +190,16 @@ defmodule ProtoRune.Bsky do
 
   ## Examples
 
-      :ok = Bsky.unlike(session, like.uri)
+      {:ok, _} = Bsky.unlike(session, like.uri)
   """
-  @spec unlike(session(), String.t()) :: :ok | {:error, term()}
+  @spec unlike(session(), String.t()) :: {:ok, map()} | {:error, term()}
   def unlike(session, like_uri) when is_binary(like_uri) do
-    with {:ok, {repo, collection, rkey}} <- parse_at_uri(like_uri),
-         {:ok, _} <-
-           Repo.delete_record(session, %{
-             repo: repo,
-             collection: collection,
-             rkey: rkey
-           }) do
-      :ok
+    with {:ok, {repo, collection, rkey}} <- parse_at_uri(like_uri) do
+      Repo.delete_record(session, %{
+        repo: repo,
+        collection: collection,
+        rkey: rkey
+      })
     end
   end
 
@@ -212,7 +219,7 @@ defmodule ProtoRune.Bsky do
     }
 
     Repo.create_record(session, %{
-      repo: session.did,
+      repo: Session.did(session),
       collection: :repost,
       record: record
     })
@@ -230,13 +237,13 @@ defmodule ProtoRune.Bsky do
   def follow(session, actor) when is_binary(actor) do
     with {:ok, did} <- resolve_actor(actor) do
       record = %{
-        "$type" => "app.bsky.graph.follow",
+        "$type": "app.bsky.graph.follow",
         subject: did,
         created_at: DateTime.to_iso8601(DateTime.utc_now())
       }
 
       Repo.create_record(session, %{
-        repo: session.did,
+        repo: Session.did(session),
         collection: "app.bsky.graph.follow",
         record: record
       })
@@ -248,18 +255,16 @@ defmodule ProtoRune.Bsky do
 
   ## Examples
 
-      :ok = Bsky.unfollow(session, follow.uri)
+      {:ok, _} = Bsky.unfollow(session, follow.uri)
   """
-  @spec unfollow(session(), String.t()) :: :ok | {:error, term()}
+  @spec unfollow(session(), String.t()) :: {:ok, map()} | {:error, term()}
   def unfollow(session, follow_uri) when is_binary(follow_uri) do
-    with {:ok, {repo, collection, rkey}} <- parse_at_uri(follow_uri),
-         {:ok, _} <-
-           Repo.delete_record(session, %{
-             repo: repo,
-             collection: collection,
-             rkey: rkey
-           }) do
-      :ok
+    with {:ok, {repo, collection, rkey}} <- parse_at_uri(follow_uri) do
+      Repo.delete_record(session, %{
+        repo: repo,
+        collection: collection,
+        rkey: rkey
+      })
     end
   end
 
@@ -335,8 +340,8 @@ defmodule ProtoRune.Bsky do
       {:ok, posts} = Bsky.get_posts(session, uris)
   """
   @spec get_posts(session(), [String.t()]) :: {:ok, map()} | {:error, term()}
-  def get_posts(_session, uris) when is_list(uris) do
-    Feed.get_posts(%{uris: uris})
+  def get_posts(session, uris) when is_list(uris) do
+    Feed.get_posts(session, %{uris: uris})
   end
 
   @doc """
@@ -387,7 +392,7 @@ defmodule ProtoRune.Bsky do
         |> Map.put(:"$type", "app.bsky.actor.profile")
 
       Repo.put_record(session, %{
-        repo: session.did,
+        repo: Session.did(session),
         collection: "app.bsky.actor.profile",
         rkey: "self",
         record: record
@@ -465,13 +470,13 @@ defmodule ProtoRune.Bsky do
   def block(session, actor) when is_binary(actor) do
     with {:ok, did} <- resolve_actor(actor) do
       record = %{
-        "$type" => "app.bsky.graph.block",
+        "$type": "app.bsky.graph.block",
         subject: did,
         created_at: DateTime.to_iso8601(DateTime.utc_now())
       }
 
       Repo.create_record(session, %{
-        repo: session.did,
+        repo: Session.did(session),
         collection: "app.bsky.graph.block",
         record: record
       })
@@ -483,18 +488,16 @@ defmodule ProtoRune.Bsky do
 
   ## Examples
 
-      :ok = Bsky.unblock(session, block.uri)
+      {:ok, _} = Bsky.unblock(session, block.uri)
   """
-  @spec unblock(session(), String.t()) :: :ok | {:error, term()}
+  @spec unblock(session(), String.t()) :: {:ok, map()} | {:error, term()}
   def unblock(session, block_uri) when is_binary(block_uri) do
-    with {:ok, {repo, collection, rkey}} <- parse_at_uri(block_uri),
-         {:ok, _} <-
-           Repo.delete_record(session, %{
-             repo: repo,
-             collection: collection,
-             rkey: rkey
-           }) do
-      :ok
+    with {:ok, {repo, collection, rkey}} <- parse_at_uri(block_uri) do
+      Repo.delete_record(session, %{
+        repo: repo,
+        collection: collection,
+        rkey: rkey
+      })
     end
   end
 
@@ -527,18 +530,16 @@ defmodule ProtoRune.Bsky do
 
   ## Examples
 
-      :ok = Bsky.delete_post(session, post.uri)
+      {:ok, _} = Bsky.delete_post(session, post.uri)
   """
-  @spec delete_post(session(), String.t()) :: :ok | {:error, term()}
+  @spec delete_post(session(), String.t()) :: {:ok, map()} | {:error, term()}
   def delete_post(session, post_uri) when is_binary(post_uri) do
-    with {:ok, {repo, collection, rkey}} <- parse_at_uri(post_uri),
-         {:ok, _} <-
-           Repo.delete_record(session, %{
-             repo: repo,
-             collection: collection,
-             rkey: rkey
-           }) do
-      :ok
+    with {:ok, {repo, collection, rkey}} <- parse_at_uri(post_uri) do
+      Repo.delete_record(session, %{
+        repo: repo,
+        collection: collection,
+        rkey: rkey
+      })
     end
   end
 
@@ -547,18 +548,16 @@ defmodule ProtoRune.Bsky do
 
   ## Examples
 
-      :ok = Bsky.unrepost(session, repost.uri)
+      {:ok, _} = Bsky.unrepost(session, repost.uri)
   """
-  @spec unrepost(session(), String.t()) :: :ok | {:error, term()}
+  @spec unrepost(session(), String.t()) :: {:ok, map()} | {:error, term()}
   def unrepost(session, repost_uri) when is_binary(repost_uri) do
-    with {:ok, {repo, collection, rkey}} <- parse_at_uri(repost_uri),
-         {:ok, _} <-
-           Repo.delete_record(session, %{
-             repo: repo,
-             collection: collection,
-             rkey: rkey
-           }) do
-      :ok
+    with {:ok, {repo, collection, rkey}} <- parse_at_uri(repost_uri) do
+      Repo.delete_record(session, %{
+        repo: repo,
+        collection: collection,
+        rkey: rkey
+      })
     end
   end
 
@@ -615,7 +614,7 @@ defmodule ProtoRune.Bsky do
   @spec publish_feed(session(), String.t(), keyword()) :: {:ok, map()} | {:error, term()}
   def publish_feed(session, did, opts) when is_binary(did) do
     params = %{
-      repo: session.did,
+      repo: Session.did(session),
       collection: "app.bsky.feed.generator",
       record: FeedGen.generator_record(did, opts)
     }
@@ -665,7 +664,7 @@ defmodule ProtoRune.Bsky do
   # update starts from an empty record.
   defp current_profile(session) do
     case Repo.get_record(session,
-           repo: session.did,
+           repo: Session.did(session),
            collection: "app.bsky.actor.profile",
            rkey: "self"
          ) do
@@ -722,17 +721,5 @@ defmodule ProtoRune.Bsky do
     %{root: root, parent: parent}
   end
 
-  defp parse_at_uri("at://" <> rest) do
-    case String.split(rest, "/", parts: 3) do
-      [repo, collection, rkey] ->
-        {:ok, {repo, collection, rkey}}
-
-      _ ->
-        {:error, :malformed_at_uri}
-    end
-  end
-
-  defp parse_at_uri(_uri) do
-    {:error, :invalid_at_uri_format}
-  end
+  defp parse_at_uri(uri), do: ProtoRune.Atproto.parse_at_uri(uri)
 end

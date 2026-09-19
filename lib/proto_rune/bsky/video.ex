@@ -1,5 +1,9 @@
 defmodule ProtoRune.Bsky.Video do
-  @moduledoc false
+  @moduledoc """
+  Video upload endpoints of the Bluesky lexicon (`app.bsky.video.*`).
+
+  Generated XRPC functions; call them as `Video.endpoint(session, %{param: value})`.
+  """
 
   import ProtoRune.XRPC.DSL
 

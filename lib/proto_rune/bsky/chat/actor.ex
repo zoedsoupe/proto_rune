@@ -1,5 +1,9 @@
 defmodule ProtoRune.Bsky.Chat.Actor do
-  @moduledoc false
+  @moduledoc """
+  Chat actor endpoints of the Bluesky lexicon (`chat.bsky.actor.*`).
+
+  Generated XRPC functions; call them as `Actor.endpoint(session, %{param: value})`.
+  """
 
   import ProtoRune.XRPC.DSL
 

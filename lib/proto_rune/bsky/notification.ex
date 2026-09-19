@@ -1,5 +1,10 @@
 defmodule ProtoRune.Bsky.Notification do
-  @moduledoc false
+  @moduledoc """
+  Notification endpoints of the Bluesky lexicon (`app.bsky.notification.*`).
+
+  Generated XRPC functions; call them as
+  `Notification.endpoint(session, %{param: value})`.
+  """
 
   import ProtoRune.XRPC.DSL
 
