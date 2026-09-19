@@ -138,22 +138,26 @@ defmodule ProtoRune.BskyPostTest do
     end
   end
 
-  describe "Repo.parse_record_schema/1" do
-    test "returns schemas for supported collections" do
-      assert {:ok, post_schema} = Repo.parse_record_schema(%{collection: :post})
-      assert {:ok, like_schema} = Repo.parse_record_schema(%{collection: :like})
-      assert {:ok, repost_schema} = Repo.parse_record_schema(%{collection: :repost})
-      assert is_map(post_schema)
-      assert is_map(like_schema)
-      assert is_map(repost_schema)
+  describe "Repo.create_record/3 collection resolution" do
+    test "atom collections encode as app.bsky.feed.<name>" do
+      assert {:ok, _} =
+               Repo.create_record(@session, %{
+                 repo: "did:plc:test",
+                 collection: :threadgate,
+                 record: %{}
+               })
+
+      assert_received {:request, :post, _url, opts}
+      assert opts[:json][:collection] == "app.bsky.feed.threadgate"
     end
 
-    test "returns an error tuple instead of crashing for unsupported collections" do
-      assert {:error, {:unsupported_collection, :threadgate}} =
-               Repo.parse_record_schema(%{collection: :threadgate})
-
-      assert {:error, {:unsupported_collection, "app.bsky.feed.post"}} =
-               Repo.parse_record_schema(%{collection: "app.bsky.feed.post"})
+    test "unsupported atom collections return an error tuple instead of crashing" do
+      assert {:error, {:unsupported_collection, :nope}} =
+               Repo.create_record(@session, %{
+                 repo: "did:plc:test",
+                 collection: :nope,
+                 record: %{}
+               })
     end
   end
 end
