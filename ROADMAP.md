@@ -2,7 +2,7 @@
 
 **Mission**: Build a production-ready, type-safe AT Protocol SDK and bot framework for Elixir that leverages BEAM's strengths for reliability and concurrency.
 
-**Current Status**: v0.3.1 released ✅ | Next: v0.4.0 in development
+**Current Status**: v0.5.3 released ✅ | Next: v0.6.0 in development
 
 ---
 
@@ -104,44 +104,49 @@
 
 ---
 
-## v0.4.0 - Protocol-Generic SDK 🚧 In Development
+## v0.4.0 - Protocol-Generic SDK ✅ Released
 
 **Focus**: OAuth sessions first-class for XRPC, `com.atproto.sync` read
-surface, generic record writes. Full detail in [PLAN-v0.4.0.md](PLAN-v0.4.0.md).
+surface, generic record writes. Detail in [PLAN-v0.4.0.md](PLAN-v0.4.0.md).
 
-- [ ] Binary response support in XRPC (`response: :auto | :json | :binary`)
-- [ ] Unified `ProtoRune.Session` behaviour with DPoP-bound requests
-  - OAuth tokens can read and write, not just authenticate
-  - Resource-server DPoP nonce retry
-- [ ] OAuth session lifecycle
-  - Token revocation
-  - Opt-in SessionManager GenServer (proactive refresh, TokenStore persistence)
-- [ ] `com.atproto.sync` read surface
-  - getBlob, getRepo, describeRepo
-  - Minimal MST traversal for repo enumeration (no commit verification yet)
-  - com.atproto.identity.resolveHandle endpoint parity
-- [ ] Generic record writes
-  - createRecord/putRecord accept any collection NSID
-  - Opt-in caller-supplied Peri schema validation
-  - Lexicon codegen flags (--path, --output) for host apps
-- [ ] Test infrastructure: Bypass-based PDS fixture tests
+- [x] Binary response support in XRPC (`response: :auto | :json | :binary`)
+- [x] Unified `ProtoRune.Session` behaviour with DPoP-bound requests
+- [x] OAuth session lifecycle (token revocation, SessionManager GenServer)
+- [x] `com.atproto.sync` read surface (getBlob, getRepo, describeRepo, MST traversal, resolveHandle)
+- [x] Generic record writes with opt-in caller-supplied Peri schema validation
+- [x] Lexicon codegen flags (--path, --output) for host apps
+- [x] Test infrastructure: Bypass-based PDS fixture tests
 
 ---
 
-## v0.5.0+ - Future Enhancements 💭 Ideas
+## v0.5.0 - Jetstream ✅ Released
 
-**Focus**: Media, advanced protocol features, and ecosystem integration
+- [x] Jetstream consumer with server-side collection filtering
+- [x] Post search (searchPosts)
+
+---
+
+## v0.6.0 - Media & Verification 🚧 In Development
+
+**Focus**: media embeds, checkout verification, feed generator SDK.
+
+- [x] Media embeds (images, external cards, quote posts, recordWithMedia)
+- [x] Commit/signature verification of repo checkouts (`Sync.verify_checkout/2`)
+- [x] Block integrity verification (every CAR block checked against its CID)
+- [x] Feed generator SDK (skeleton/describe builders, feed record publishing)
+- [ ] MST inclusion proofs for efficient sync (partial trees, firehose ops)
+
+---
+
+## v0.7.0+ - Future Enhancements 💭 Ideas
+
+**Focus**: Advanced protocol features and ecosystem integration
 
 ### Potential Features
-- Media embeds (images, external links, quote posts, video)
-- Jetstream integration
-- Feed generator SDK
 - Graph operations expansion (lists, pagination)
-- Post search
 - Bot state persistence
 - RichText markdown parser
-- Commit/signature verification of repo checkouts
-- Merkle Search Tree verification for efficient sync
+- Video embeds
 - Ozone (moderation) integration
 - PDS (Personal Data Server) helpers
 - Label and moderation tools
