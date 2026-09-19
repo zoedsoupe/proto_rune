@@ -12,7 +12,7 @@ A type-safe Elixir SDK for the AT Protocol, with a built-in bot framework. The c
 ```elixir
 def deps do
   [
-    {:proto_rune, "~> 0.5.3"}
+    {:proto_rune, "~> 0.5.3"} # x-release-please-version
   ]
 end
 ```
