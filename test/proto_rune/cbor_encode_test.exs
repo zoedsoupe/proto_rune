@@ -36,8 +36,10 @@ defmodule ProtoRune.CBOREncodeTest do
   test "encodes maps with canonical key ordering (length, then bytewise)" do
     assert CBOR.encode(%{"bb" => 1, "a" => 2, "aa" => 3}) ==
              <<0xA3>> <>
-               CBOR.encode("a") <> CBOR.encode(2) <>
-               CBOR.encode("aa") <> CBOR.encode(3) <>
+               CBOR.encode("a") <>
+               CBOR.encode(2) <>
+               CBOR.encode("aa") <>
+               CBOR.encode(3) <>
                CBOR.encode("bb") <> CBOR.encode(1)
   end
 

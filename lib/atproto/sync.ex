@@ -147,8 +147,7 @@ defmodule ProtoRune.Atproto.Sync do
           | {:error, atom() | tuple()}
   def verify_checkout(car, opts \\ [])
 
-  def verify_checkout({:ok, %{body: body}}, opts) when is_binary(body),
-    do: verify_checkout(body, opts)
+  def verify_checkout({:ok, %{body: body}}, opts) when is_binary(body), do: verify_checkout(body, opts)
 
   def verify_checkout(data, opts) when is_binary(data) do
     with {:ok, car} <- CAR.read(data),
