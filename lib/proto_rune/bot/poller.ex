@@ -150,8 +150,7 @@ defmodule ProtoRune.Bot.Poller do
   defp do_poll(%State{} = state) do
     case Bsky.Notification.list_notifications(state.session) do
       {:ok, data} -> handle_notifications(state, data)
-      {:error, {:rate_limited, retry_after}} -> handle_rate_limited(state, retry_after)
-      {:error, %XRPC.Error{reason: {:rate_limited, retry_after}}} -> handle_rate_limited(state, retry_after)
+      {:error, %XRPC.Error{reason: :rate_limited, retry_after: retry_after}} -> handle_rate_limited(state, retry_after)
       {:error, reason} -> handle_error(state, reason)
     end
   end
@@ -186,13 +185,12 @@ defmodule ProtoRune.Bot.Poller do
     {:ok, %{state | attempt: state.attempt + 1}}
   end
 
-  # `Retry-After` header values arrive as a list of strings holding seconds,
-  # while plain integers are already milliseconds.
+  # The `Retry-After` header value holds seconds; plain integers are
+  # already milliseconds.
   defp retry_interval(nil), do: nil
-  defp retry_interval([]), do: nil
   defp retry_interval(ms) when is_integer(ms) and ms > 0, do: ms
 
-  defp retry_interval([seconds | _]) when is_binary(seconds) do
+  defp retry_interval(seconds) when is_binary(seconds) do
     case Integer.parse(seconds) do
       {secs, ""} -> to_timeout(second: secs)
       _invalid -> nil
@@ -241,9 +239,8 @@ defmodule ProtoRune.Bot.Poller do
   end
 
   defp dispatch_notification(%State{} = state, %{reason: "like", reason_subject: reason_subject} = notf) do
-    {:ok, subject} = Atproto.parse_at_uri(reason_subject)
-
-    if match?({_, :post}, subject) do
+    with {:ok, {_repo, collection, _rkey}} <- Atproto.parse_at_uri(reason_subject),
+         true <- collection == "app.bsky.feed.post" do
       case Bsky.Feed.get_post_thread(state.session, uri: reason_subject) do
         {:ok, data} ->
           send(
