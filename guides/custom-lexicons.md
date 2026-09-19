@@ -59,7 +59,7 @@ schema = ProtoRune.Lexicon.Com.Example.Status.get_schema(:main)
   Repo.create_record(
     session,
     %{
-      repo: session.did,
+      repo: ProtoRune.Session.did(session),
       collection: "com.example.status",
       record: %{
         "$type" => "com.example.status",
@@ -80,7 +80,7 @@ Without `:schema`, records to unknown collections are sent as-is:
 ```elixir
 {:ok, result} =
   Repo.create_record(session, %{
-    repo: session.did,
+    repo: ProtoRune.Session.did(session),
     collection: "com.example.status",
     record: %{"anything" => "goes"}
   })
@@ -92,7 +92,7 @@ Typos and malformed records are then only caught by the PDS, if it validates at 
 
 The known collections keep their built-in validation:
 
-- Atom collections (`:post`, `:like`, `:repost`) map to `"app.bsky.feed.<name>"`. Unknown atoms fail with `{:error, {:unsupported_collection, collection}}`, which catches typos like `:psot`.
+- Atom collections (`:post`, `:like`, `:repost`, `:generator`, `:threadgate`, `:postgate`) map to `"app.bsky.feed.<name>"`; posts, likes and reposts validate against the built-in schemas. Unknown atoms fail with `{:error, {:unsupported_collection, collection}}`, which catches typos like `:psot`.
 - The string forms (`"app.bsky.feed.post"` etc.) validate against the same built-in schemas.
 
 Passing `schema:` overrides the built-in validation when both apply.

@@ -26,17 +26,12 @@ Custom PDS:
 
 ## Session management
 
-A session looks like:
+A session is a struct: `%ProtoRune.Atproto.Session{}` for app passwords, `%ProtoRune.Atproto.OAuth.Session{}` for OAuth. Treat it as opaque and read account info through the `ProtoRune.Session` accessors, whose names are stable across both types:
 
 ```elixir
-%{
-  access_jwt: "eyJ...",        # short-lived
-  refresh_jwt: "eyJ...",       # long-lived
-  did: "did:plc:abc123",
-  handle: "alice.bsky.social",
-  service_url: "https://...",
-  did_doc: %{...}
-}
+ProtoRune.Session.did(session)         # "did:plc:abc123"
+ProtoRune.Session.handle(session)      # "alice.bsky.social"
+ProtoRune.Session.service_url(session) # "https://bsky.social/xrpc"
 ```
 
 Refresh when the access token expires:
@@ -53,18 +48,27 @@ Inspect without refreshing:
 
 ## Storing sessions
 
-Persist the tokens, reload and validate on boot:
+Persist the tokens, reload and validate on boot. Rebuild the struct, a plain map won't dispatch:
 
 ```elixir
 def load_or_login(identifier, password) do
   with {:ok, content} <- File.read("session.json"),
        {:ok, data} <- JSON.decode(content),
-       session <- Map.new(data, fn {k, v} -> {String.to_atom(k), v} end),
+       {:ok, session} <- parse_session(data),
        {:ok, _info} <- ProtoRune.get_session(session) do
     {:ok, session}
   else
     _ -> ProtoRune.login(identifier, password)
   end
+end
+
+# JSON.decode/1 returns string keys; the session parser expects atoms
+defp parse_session(data) do
+  data
+  |> Map.new(fn {k, v} -> {String.to_existing_atom(k), v} end)
+  |> ProtoRune.Atproto.Session.parse()
+rescue
+  ArgumentError -> {:error, :invalid_session}
 end
 ```
 
@@ -118,7 +122,7 @@ An OAuth session works anywhere an app password session does:
 Refresh tokens rotate, so always keep the newest session:
 
 ```elixir
-{:ok, fresh_session} = OAuth.refresh(client, session)
+{:ok, fresh_session} = ProtoRune.refresh_session(session, client: client)
 ```
 
 Revoke on logout:

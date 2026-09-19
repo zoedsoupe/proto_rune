@@ -37,7 +37,7 @@ end
 Required:
 
 - `:name`: module name or atom
-- `:strategy`: `:polling` (`:firehose` planned)
+- `:strategy`: `:polling` or `:firehose` (see `ProtoRune.Bot.Firehose`)
 
 Optional:
 

@@ -12,7 +12,7 @@ alias ProtoRune.Atproto.Repo
 # Create
 {:ok, %{uri: uri, cid: cid}} =
   Repo.create_record(session, %{
-    repo: session.did,
+    repo: ProtoRune.Session.did(session),
     collection: "app.bsky.feed.post",
     record: %{
       "$type" => "app.bsky.feed.post",
@@ -32,7 +32,7 @@ alias ProtoRune.Atproto.Repo
 # Update
 {:ok, result} =
   Repo.put_record(session, %{
-    repo: session.did,
+    repo: ProtoRune.Session.did(session),
     collection: "app.bsky.feed.post",
     rkey: "3kxyz...",
     record: updated_record
@@ -41,7 +41,7 @@ alias ProtoRune.Atproto.Repo
 # Delete
 {:ok, result} =
   Repo.delete_record(session, %{
-    repo: session.did,
+    repo: ProtoRune.Session.did(session),
     collection: "app.bsky.feed.post",
     rkey: "3kxyz..."
   })
@@ -49,7 +49,7 @@ alias ProtoRune.Atproto.Repo
 # List (paginated)
 {:ok, %{records: records, cursor: cursor}} =
   Repo.list_records(session, %{
-    repo: session.did,
+    repo: ProtoRune.Session.did(session),
     collection: "app.bsky.feed.post",
     limit: 50
   })
@@ -73,14 +73,14 @@ CIDs are content hashes, used for versioning and concurrency control:
 {:ok, current} = Repo.get_record(session, params)
 
 case Repo.put_record(session, %{
-  repo: session.did,
+  repo: ProtoRune.Session.did(session),
   collection: collection,
   rkey: rkey,
   record: updated,
   swap_record: current.cid  # only succeeds if nobody else touched it
 }) do
   {:ok, result} -> result
-  {:error, %{error: "InvalidSwap"}} -> # record changed underneath you
+  {:error, %ProtoRune.XRPC.Error{reason: :invalid_swap}} -> # record changed underneath you
 end
 ```
 
@@ -116,12 +116,16 @@ end
 
 ## Errors
 
+Failures return `%ProtoRune.XRPC.Error{}` with the lexicon error name snakelized in `:reason`:
+
 ```elixir
+alias ProtoRune.XRPC.Error
+
 case Repo.create_record(session, params) do
   {:ok, result} -> result
-  {:error, %{error: "InvalidRecord"}} -> # doesn't conform to the lexicon
-  {:error, %{error: "InvalidSwap"}} ->   # concurrent modification
-  {:error, %{error: "RecordNotFound"}} -> # gone
+  {:error, %Error{reason: :invalid_record}} -> # doesn't conform to the lexicon
+  {:error, %Error{reason: :invalid_swap}} ->   # concurrent modification
+  {:error, %Error{reason: :record_not_found}} -> # gone
   {:error, reason} -> # network or other
 end
 ```

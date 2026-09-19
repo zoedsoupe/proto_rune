@@ -28,6 +28,9 @@ Create app passwords at `https://bsky.app/settings/app-passwords`.
 
 session.handle # => "you.bsky.social"
 session.did    # => "did:plc:..."
+
+# Or through the behaviour accessors (work for OAuth sessions too):
+ProtoRune.Session.did(session)
 ```
 
 Refresh an expired session with `ProtoRune.refresh_session/1`.
@@ -74,7 +77,7 @@ offsets for you.
 {:ok, _} = ProtoRune.Bsky.like(session, post.uri, post.cid)
 {:ok, _} = ProtoRune.Bsky.repost(session, post.uri, post.cid)
 {:ok, _} = ProtoRune.Bsky.follow(session, "alice.bsky.social")
-:ok = ProtoRune.Bsky.delete_post(session, post.uri)
+{:ok, _} = ProtoRune.Bsky.delete_post(session, post.uri)
 ```
 
 ## Reading
