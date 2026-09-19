@@ -20,6 +20,12 @@ defmodule ProtoRune.Bot.TelemetryTest do
     @behaviour ProtoRune.Bot
 
     @impl true
+    def get_identifier, do: "bot.test"
+
+    @impl true
+    def get_password, do: "password"
+
+    @impl true
     def handle_event(:boom, _payload), do: raise("boom")
     def handle_event(_event, _payload), do: :ok
   end

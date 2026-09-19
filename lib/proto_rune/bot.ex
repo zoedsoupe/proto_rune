@@ -49,90 +49,56 @@ defmodule ProtoRune.Bot do
 
   ### Event Types and Payloads
 
-  - **`:reply`**
-    - Triggered when someone replies to a post involving the bot.
-    - **Payload**:
-      - `:uri` - The URI of the post that was replied to.
-      - `:user` - The user who made the reply.
-      - `:content` - The content of the reply post.
-
-    Example payload:
-    ```elixir
-    %{uri: "at://did:plc:1234", user: "user123", content: "Thanks for your post!"}
-    ```
-
-  - **`:quote`**
-    - Triggered when someone quotes the bot's post.
-    - **Payload**:
-      - `:uri` - The URI of the quoted post.
-      - `:user` - The user who quoted the post.
-      - `:content` - The content of the quote.
-
-    Example payload:
-    ```elixir
-    %{uri: "at://did:plc:1234", user: "user456", content: "Great article!"}
-    ```
-
-  - **`:mention`**
-    - Triggered when the bot is mentioned in a post.
-    - **Payload**:
-      - `:uri` - The URI of the post mentioning the bot.
-      - `:user` - The user who mentioned the bot.
-      - `:content` - The content of the post where the bot was mentioned.
-
-    Example payload:
-    ```elixir
-    %{uri: "at://did:plc:5678", user: "user789", content: "Check out @bot's post!"}
-    ```
+  - **`:reply`**, **`:quote`**, **`:mention`**
+    - Triggered when someone replies to, quotes or mentions the bot.
+    - **Payload**: the post thread view returned by
+      `ProtoRune.Bsky.Feed.get_post_thread/2`, so the triggering post is
+      reachable at `payload.thread.post` (for example
+      `payload.thread.post.author.handle`).
 
   - **`:like`**
     - Triggered when someone likes a post by the bot.
     - **Payload**:
-      - `:uri` - The URI of the liked post.
+      - `:uri` - The URI of the like notification.
       - `:user` - The user who liked the post.
-      - `:subject` - The subject of the post that was liked (full post data).
+      - `:subject` - The thread view of the liked post.
 
     Example payload:
     ```elixir
-    %{uri: "at://did:plc:1234", user: "user123", subject: %{content: "Nice post!"}}
+    %{uri: "at://did:plc:1234", user: %{handle: "user.bsky.social"}, subject: %{thread: %{post: %{}}}}
     ```
 
   - **`:repost`**
     - Triggered when someone reposts content from the bot.
     - **Payload**:
-      - `:uri` - The URI of the reposted content.
+      - `:uri` - The URI of the repost notification.
       - `:user` - The user who reposted the content.
-      - `:post` - The post that was reposted (full post data).
-
-    Example payload:
-    ```elixir
-    %{uri: "at://did:plc:5678", user: "user987", post: %{content: "Check this out!"}}
-    ```
+      - `:post` - The thread view of the reposted post.
 
   - **`:follow`**
     - Triggered when someone follows the bot.
     - **Payload**:
-      - `:uri` - The URI of the follow event.
+      - `:uri` - The URI of the follow notification.
       - `:user` - The user who followed the bot.
 
     Example payload:
     ```elixir
-    %{uri: "at://did:plc:9876", user: "user123"}
+    %{uri: "at://did:plc:9876", user: %{handle: "user.bsky.social"}}
     ```
 
   - **`:error`**
     - Triggered when there is an error while processing an event (e.g., failed to fetch a post).
     - **Payload**:
-      - `:reason` - An atom describing the error.
+      - `:reason` - The error, usually a `ProtoRune.XRPC.Error` struct.
 
     Example payload:
     ```elixir
-    %{reason: {:rate_limited, retry_adter :: integer}}
+    %{reason: %ProtoRune.XRPC.Error{reason: :rate_limited, retry_after: "30"}}
     ```
 
   ## Callbacks
 
-  The following callbacks can be implemented by any bot module that uses `ProtoRune.Bot`:
+  The following callbacks must be implemented by any bot module that uses `ProtoRune.Bot`:
 
   - `get_identifier/0`: Retrieves the bot's identifier (e.g., username or email). This is used
     for logging into the service.
@@ -140,19 +106,14 @@ defmodule ProtoRune.Bot do
   - `get_password/0`: Retrieves the bot's password. This is used alongside the identifier
     to authenticate the bot.
 
+  The following callback is optional (the default does nothing):
+
   - `handle_event/2`: Handles events that are dispatched to the bot. These events can include
     mentions, replies, likes, and other interactions that the bot should process.
 
   The `handle_event/2` function receives:
   - `event`: An atom that represents the type of event (e.g., `:mention`, `:like`, `:reply`).
   - `payload`: A map containing the data related to the event, such as the URI of the post or the user who triggered the event.
-
-  ## Optional Callbacks
-
-  These callbacks are optional and can be overridden by the bot module:
-
-  - `get_identifier/0`: If not implemented, a default error will be raised indicating the callback must be defined.
-  - `get_password/0`: Similar to `get_identifier/0`, this must be implemented by the bot if needed for authentication.
 
   ## Bot Lifecycle
 
@@ -217,8 +178,6 @@ defmodule ProtoRune.Bot do
 
   @callback handle_event(event :: atom(), data :: map()) :: {:ok, term} | {:error, term}
 
-  @optional_callbacks get_identifier: 0, get_password: 0
-
   @spec __using__(Server.options_t()) :: Macro.t()
   defmacro __using__(opts) do
     quote do
@@ -228,18 +187,11 @@ defmodule ProtoRune.Bot do
         Server.start_link(unquote(opts))
       end
 
-      # Default implementation for optional callbacks
+      # Default implementation for the optional event callback
       @impl ProtoRune.Bot
       def handle_event(_, _), do: :ok
 
-      @impl ProtoRune.Bot
-      def get_identifier, do: raise("get_identifier/0 not implemented")
-
-      @impl ProtoRune.Bot
-      def get_password, do: raise("get_password/0 not implemented")
-
-      # Required callback
-      defoverridable handle_event: 2, get_identifier: 0, get_password: 0
+      defoverridable handle_event: 2
     end
   end
 end
