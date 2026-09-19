@@ -26,13 +26,14 @@ defmodule ProtoRune do
 
   alias ProtoRune.Atproto.Identity
   alias ProtoRune.Atproto.Server
-  alias ProtoRune.Atproto.Session
+  alias ProtoRune.Atproto.Session, as: AtprotoSession
+  alias ProtoRune.Session
   alias ProtoRune.XRPC.Client
   alias ProtoRune.XRPC.Procedure
 
   require Identity
 
-  @type session :: Session.t() | ProtoRune.Atproto.OAuth.Session.t()
+  @type session :: Session.t()
   @type user_identifier :: String.t()
   @type user_password :: String.t()
   @type handle :: String.t()
@@ -69,18 +70,21 @@ defmodule ProtoRune do
     base_url =
       opts
       |> Keyword.get(:service, "https://bsky.social")
-      |> Session.normalize_service_url()
+      |> AtprotoSession.normalize_service_url()
 
-    # Built by hand instead of Server.create_session/1 so the createSession
-    # call itself honors the :service opt; the generated function has no
-    # per-call base_url knob.
-    proc = %{
-      Procedure.new("com.atproto.server.createSession", base_url: base_url)
-      | body: %{identifier: identifier, password: password}
-    }
+    # Built with the Procedure struct directly instead of the
+    # Server.create_session/1 helper so the createSession call itself
+    # honors the :service opt; the generated function has no per-call
+    # base_url knob.
+    proc =
+      Procedure.new("com.atproto.server.createSession",
+        from: %{identifier: {:required, :string}, password: {:required, :string}},
+        base_url: base_url
+      )
 
-    with {:ok, data} <- Client.execute(proc),
-         {:ok, session} <- Session.parse(data) do
+    with {:ok, proc} <- Procedure.put_body(proc, %{identifier: identifier, password: password}),
+         {:ok, data} <- Client.execute(proc),
+         {:ok, session} <- AtprotoSession.parse(data) do
       {:ok, %{session | service_url: session.service_url || base_url}}
     end
   end
@@ -88,18 +92,18 @@ defmodule ProtoRune do
   @doc """
   Refreshes an expired session using the refresh token.
 
-  ## Examples
+  Works for both session types. OAuth sessions additionally require the
+  `:client` option with the `ProtoRune.Atproto.OAuth.Client` that issued
+  the session:
 
       {:ok, fresh_session} = ProtoRune.refresh_session(session)
-  """
-  @spec refresh_session(session()) :: {:ok, session()} | error()
-  def refresh_session(%{refresh_jwt: _} = session) do
-    with {:ok, data} <- Server.refresh_session(session) do
-      Session.parse(data)
-    end
-  end
 
-  def refresh_session(_), do: {:error, :missing_refresh_jwt}
+      {:ok, fresh_session} = ProtoRune.refresh_session(oauth_session, client: client)
+  """
+  @spec refresh_session(session(), keyword()) :: {:ok, session()} | error()
+  def refresh_session(session, opts \\ []) do
+    Session.refresh(session, opts)
+  end
 
   @doc """
   Gets current session information.
@@ -109,11 +113,9 @@ defmodule ProtoRune do
       {:ok, info} = ProtoRune.get_session(session)
   """
   @spec get_session(session()) :: {:ok, map()} | error()
-  def get_session(%{access_jwt: _} = session) do
+  def get_session(session) do
     Server.get_session(session)
   end
-
-  def get_session(_), do: {:error, :missing_access_jwt}
 
   @doc """
   Resolves a handle to a DID (Decentralized Identifier).

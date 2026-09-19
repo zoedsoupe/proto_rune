@@ -17,9 +17,27 @@ defmodule ProtoRune.Session do
   `authorization_headers/3` returns the (possibly updated) session so
   implementations can keep per-request state, such as a DPoP nonce,
   explicit and testable.
+
+  ## Accessors
+
+  Treat session structs as opaque: use `did/1`, `handle/1` and
+  `service_url/1` instead of reading struct fields, whose names differ
+  between implementations (`access_jwt` vs `access_token`).
+
+      Repo.create_record(session, %{repo: ProtoRune.Session.did(session), ...})
   """
 
   @type t :: ProtoRune.Atproto.Session.t() | ProtoRune.Atproto.OAuth.Session.t()
+
+  @doc """
+  The DID of the account the session belongs to.
+  """
+  @callback did(session :: t()) :: String.t()
+
+  @doc """
+  The handle of the account the session belongs to, when known.
+  """
+  @callback handle(session :: t()) :: String.t() | nil
 
   @doc """
   The XRPC base URL of the service hosting the session, when known.
@@ -37,6 +55,24 @@ defmodule ProtoRune.Session do
               {:ok, headers :: map(), session :: t()} | {:error, term()}
 
   @doc """
+  Refreshes the session, returning a fresh one.
+
+  Options are implementation-specific: OAuth sessions require
+  `client: ` an `ProtoRune.Atproto.OAuth.Client.t()`.
+  """
+  @callback refresh(session :: t(), opts :: keyword()) :: {:ok, t()} | {:error, term()}
+
+  @doc """
+  Dispatches to the session's `did/1` implementation.
+  """
+  def did(%mod{} = session), do: mod.did(session)
+
+  @doc """
+  Dispatches to the session's `handle/1` implementation.
+  """
+  def handle(%mod{} = session), do: mod.handle(session)
+
+  @doc """
   Dispatches to the session's `service_url/1` implementation.
   """
   def service_url(%mod{} = session), do: mod.service_url(session)
@@ -46,5 +82,12 @@ defmodule ProtoRune.Session do
   """
   def authorization_headers(%mod{} = session, method, url) do
     mod.authorization_headers(session, method, url)
+  end
+
+  @doc """
+  Dispatches to the session's `refresh/2` implementation.
+  """
+  def refresh(%mod{} = session, opts \\ []) do
+    mod.refresh(session, opts)
   end
 end

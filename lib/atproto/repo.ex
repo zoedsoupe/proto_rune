@@ -13,9 +13,9 @@ defmodule ProtoRune.Atproto.Repo do
 
   import ProtoRune.XRPC.DSL
 
+  alias ProtoRune.Config
   alias ProtoRune.Session
   alias ProtoRune.XRPC.Client
-  alias ProtoRune.XRPC.Config
   alias ProtoRune.XRPC.Procedure
 
   @collections [:generator, :like, :post, :postgate, :repost, :threadgate]
@@ -66,6 +66,9 @@ defmodule ProtoRune.Atproto.Repo do
     "app.bsky.feed.repost" => @repost_t
   }
 
+  # Same schemas keyed by atom collection shorthand.
+  @builtin_atom_schemas %{post: @post_t, like: @like_t, repost: @repost_t}
+
   @create_record_t %{
     repo: {:required, :string},
     collection: {:required, :any},
@@ -90,10 +93,11 @@ defmodule ProtoRune.Atproto.Repo do
 
   The `:collection` param accepts any collection NSID:
 
-    * As an atom (`:post`, `:like`, `:repost`), it must be one of the
-      built-in Bluesky collections: it is encoded as `"app.bsky.feed.<name>"`
-      and the record is validated against the built-in schema. Any other
-      atom fails with `{:error, {:unsupported_collection, collection}}`.
+    * As an atom (`:post`, `:like`, `:repost`, `:generator`, `:threadgate`,
+      `:postgate`), it names one of the built-in Bluesky feed collections
+      and is encoded as `"app.bsky.feed.<name>"`. Posts, likes and reposts
+      are validated against the built-in schema; any other atom fails with
+      `{:error, {:unsupported_collection, collection}}`.
     * As a string, the NSID passes through as-is, so custom-lexicon
       collections work out of the box. The known Bluesky NSIDs
       (`"app.bsky.feed.post"`, `"app.bsky.feed.like"`,
@@ -109,11 +113,9 @@ defmodule ProtoRune.Atproto.Repo do
 
   https://docs.bsky.app/docs/api/com-atproto-repo-create-record
   """
-  @spec create_record(map(), map() | keyword(), keyword()) :: {:ok, map()} | {:error, term()}
-  def create_record(session, params, opts \\ [])
-
-  def create_record(%{access_jwt: access_token} = session, params, opts) do
-    execute_write("com.atproto.repo.createRecord", @create_record_t, session, access_token, params, opts)
+  @spec create_record(Session.t(), map() | keyword(), keyword()) :: {:ok, map()} | {:error, term()}
+  def create_record(session, params, opts \\ []) do
+    execute_write("com.atproto.repo.createRecord", @create_record_t, session, params, opts)
   end
 
   @doc """
@@ -143,11 +145,9 @@ defmodule ProtoRune.Atproto.Repo do
 
   https://docs.bsky.app/docs/api/com-atproto-repo-put-record
   """
-  @spec put_record(map(), map() | keyword(), keyword()) :: {:ok, map()} | {:error, term()}
-  def put_record(session, params, opts \\ [])
-
-  def put_record(%{access_jwt: access_token} = session, params, opts) do
-    execute_write("com.atproto.repo.putRecord", @put_record_t, session, access_token, params, opts)
+  @spec put_record(Session.t(), map() | keyword(), keyword()) :: {:ok, map()} | {:error, term()}
+  def put_record(session, params, opts \\ []) do
+    execute_write("com.atproto.repo.putRecord", @put_record_t, session, params, opts)
   end
 
   @doc """
@@ -176,23 +176,17 @@ defmodule ProtoRune.Atproto.Repo do
     param :reverse, :boolean
   end
 
-  def encode_collection(col), do: "app.bsky.feed.#{col}"
-
-  def parse_record_schema(%{collection: :post}), do: {:ok, @post_t}
-  def parse_record_schema(%{collection: :like}), do: {:ok, @like_t}
-  def parse_record_schema(%{collection: :repost}), do: {:ok, @repost_t}
-
-  def parse_record_schema(%{collection: collection}), do: {:error, {:unsupported_collection, collection}}
-
-  defp execute_write(method, schema, session, access_token, params, opts) do
-    base_url = Map.get(session, :service_url)
+  defp execute_write(method, schema, session, params, opts) do
+    base_url = Session.service_url(session) || Config.default_base_url()
+    url = Path.join(base_url, method)
     proc = Procedure.new(method, from: schema, base_url: base_url)
 
     with {:ok, proc} <- Procedure.put_body(proc, Map.new(params)),
-         {:ok, collection, record} <- resolve_collection_and_record(proc.body, opts) do
+         {:ok, collection, record} <- resolve_collection_and_record(proc.body, opts),
+         {:ok, headers, session} <- Session.authorization_headers(session, "POST", url) do
       %{proc | body: %{proc.body | collection: collection, record: record}}
-      |> Procedure.put_header(:authorization, "Bearer #{access_token}")
-      |> Client.execute()
+      |> then(&%{&1 | headers: Map.merge(&1.headers, headers)})
+      |> Client.execute(session: session)
     end
   end
 
@@ -200,23 +194,23 @@ defmodule ProtoRune.Atproto.Repo do
     do_resolve(collection, record, Keyword.get(opts, :schema))
   end
 
-  # Atom collections keep the closed-enum behavior: only the built-in Bluesky
-  # collections are accepted and the record is validated against the built-in
-  # schema. A caller-supplied schema overrides the built-in one.
-  defp do_resolve(collection, record, nil) when is_atom(collection) do
-    with {:ok, schema} <- parse_record_schema(%{collection: collection}),
-         {:ok, record} <- Peri.validate(schema, record) do
-      {:ok, encode_collection(collection), record}
-    end
-  end
-
+  # Atom collections name one of the built-in Bluesky feed collections and
+  # encode as "app.bsky.feed.<name>". The built-in schema validates posts,
+  # likes and reposts; a caller-supplied schema overrides it.
   defp do_resolve(collection, record, schema) when is_atom(collection) do
-    if collection in @collections do
-      with {:ok, record} <- Peri.validate(schema, record) do
+    schema = schema || Map.get(@builtin_atom_schemas, collection)
+
+    cond do
+      collection not in @collections ->
+        {:error, {:unsupported_collection, collection}}
+
+      is_nil(schema) ->
         {:ok, encode_collection(collection), record}
-      end
-    else
-      {:error, {:unsupported_collection, collection}}
+
+      true ->
+        with {:ok, record} <- Peri.validate(schema, record) do
+          {:ok, encode_collection(collection), record}
+        end
     end
   end
 
@@ -241,6 +235,8 @@ defmodule ProtoRune.Atproto.Repo do
   end
 
   defp do_resolve(collection, _record, _schema), do: {:error, {:unsupported_collection, collection}}
+
+  defp encode_collection(col), do: "app.bsky.feed.#{col}"
 
   @doc """
   Upload a blob of binary data to be stored with the account, for later

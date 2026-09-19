@@ -47,6 +47,12 @@ defmodule ProtoRune.Atproto.OAuth.Session do
               ]
 
   @impl true
+  def did(%__MODULE__{} = session), do: session.did
+
+  @impl true
+  def handle(%__MODULE__{} = session), do: session.handle
+
+  @impl true
   def service_url(%__MODULE__{service_url: nil}), do: nil
 
   def service_url(%__MODULE__{service_url: url}) do
@@ -69,6 +75,17 @@ defmodule ProtoRune.Atproto.OAuth.Session do
     }
 
     {:ok, headers, session}
+  end
+
+  @impl true
+  def refresh(%__MODULE__{} = session, opts) do
+    case Keyword.fetch(opts, :client) do
+      {:ok, %ProtoRune.Atproto.OAuth.Client{} = client} ->
+        ProtoRune.Atproto.OAuth.refresh(client, session)
+
+      _ ->
+        {:error, :missing_oauth_client}
+    end
   end
 
   @doc """

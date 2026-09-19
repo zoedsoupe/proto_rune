@@ -62,11 +62,25 @@ defmodule ProtoRune.Atproto.Session do
   defstruct Map.keys(@t)
 
   @impl true
+  def did(%__MODULE__{} = session), do: session.did
+
+  @impl true
+  def handle(%__MODULE__{} = session), do: session.handle
+
+  @impl true
   def service_url(%__MODULE__{} = session), do: session.service_url
 
   @impl true
   def authorization_headers(%__MODULE__{} = session, _method, _url) do
     {:ok, %{"authorization" => "Bearer #{session.access_jwt}"}, session}
+  end
+
+  @impl true
+  def refresh(%__MODULE__{} = session, _opts) do
+    with {:ok, data} <- ProtoRune.Atproto.Server.refresh_session(session),
+         {:ok, fresh} <- parse(data) do
+      {:ok, %{fresh | service_url: fresh.service_url || session.service_url}}
+    end
   end
 
   @doc """
