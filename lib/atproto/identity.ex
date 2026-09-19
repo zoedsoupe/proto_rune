@@ -14,9 +14,10 @@ defmodule ProtoRune.Atproto.Identity do
   alias ProtoRune.Atproto.Identity.Cache
   alias ProtoRune.Atproto.Identity.DIDResolver
   alias ProtoRune.Atproto.Identity.HandleResolver
+  alias ProtoRune.Atproto.Identity.SigningKey
   alias ProtoRune.Atproto.Session
+  alias ProtoRune.Config
   alias ProtoRune.XRPC.Client
-  alias ProtoRune.XRPC.Config
   alias ProtoRune.XRPC.Query
 
   # Constants for timeouts and retries
@@ -215,8 +216,15 @@ defmodule ProtoRune.Atproto.Identity do
   def validate_identity(_), do: {:error, :invalid_format}
 
   @impl true
-  def verify_signature(did, message, _signature) when is_binary(did) and is_binary(message) do
-    raise "not implemented"
+  def verify_signature(did, message, signature) when is_binary(did) and is_binary(message) and is_binary(signature) do
+    with {:ok, doc} <- resolve_did(did),
+         {:ok, point, curve} <- SigningKey.from_did_doc(doc) do
+      if SigningKey.verify(point, curve, message, signature) do
+        :ok
+      else
+        {:error, :invalid_signature}
+      end
+    end
   end
 
   def verify_signature(_, _, _), do: {:error, :invalid_format}
@@ -230,8 +238,6 @@ defmodule ProtoRune.Atproto.Identity do
   def refresh_did(did) when is_binary(did) do
     Cache.invalidate_did(did)
   end
-
-  # Private Functions
 
   defp verify_handle_binding(doc, handle) do
     if Enum.any?(doc.also_known_as, &(&1 == "at://#{handle}")) do
