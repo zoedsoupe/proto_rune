@@ -3,53 +3,11 @@
 #
 # Run from the project root:
 #
-#     mix run test/fixtures/sync/generate_repo_car.exs
-#
-# ProtoRune.CBOR only decodes, so this script carries the minimal DAG-CBOR
-# encoder needed to build the fixture: integers, text strings, byte strings
-# (wrapped as {:bytes, binary}), arrays, maps with canonical key ordering,
-# nil and CID links (wrapped as {:link, %ProtoRune.CID{}}).
+#     mix run test/fixtures/sync/generate_repo_car.ex
 
+alias ProtoRune.CBOR
 alias ProtoRune.CID
 alias ProtoRune.Varint
-
-defmodule DAGCBOR do
-  @moduledoc false
-
-  def encode(value) when is_integer(value) and value >= 0, do: head(0, value)
-  def encode(value) when is_integer(value) and value < 0, do: head(1, -1 - value)
-  def encode(nil), do: <<0xF6>>
-  def encode(true), do: <<0xF5>>
-  def encode(false), do: <<0xF4>>
-
-  def encode({:bytes, bytes}) when is_binary(bytes), do: head(2, byte_size(bytes)) <> bytes
-
-  def encode({:link, %CID{} = cid}) do
-    {:bytes, <<0>> <> CID.to_binary(cid)} |> encode() |> then(&(<<0xD8, 0x2A>> <> &1))
-  end
-
-  def encode(value) when is_binary(value), do: head(3, byte_size(value)) <> value
-
-  def encode(value) when is_list(value) do
-    head(4, length(value)) <> Enum.map_join(value, &encode/1)
-  end
-
-  def encode(value) when is_map(value) do
-    entries =
-      value
-      |> Enum.map(fn {key, val} -> {encode(key), encode(val)} end)
-      |> Enum.sort_by(fn {key, _val} -> {byte_size(key), key} end)
-
-    head(5, map_size(value)) <> Enum.map_join(entries, fn {key, val} -> key <> val end)
-  end
-
-  # major type head with the smallest argument encoding
-  defp head(major, arg) when arg < 24, do: <<major::3, arg::5>>
-  defp head(major, arg) when arg < 0x100, do: <<major::3, 24::5, arg::8>>
-  defp head(major, arg) when arg < 0x10000, do: <<major::3, 25::5, arg::16>>
-  defp head(major, arg) when arg < 0x100000000, do: <<major::3, 26::5, arg::32>>
-  defp head(major, arg), do: <<major::3, 27::5, arg::64>>
-end
 
 defmodule RepoFixture do
   @moduledoc false
@@ -63,11 +21,13 @@ defmodule RepoFixture do
 
     blocks = [{commit_cid, commit_block} | node_blocks ++ Enum.map(records, & &1.block)]
 
-    header = DAGCBOR.encode(%{"version" => 1, "roots" => [{:link, commit_cid}]})
+    header = CBOR.encode(%{"version" => 1, "roots" => [link(commit_cid)]})
     car = segment(header) <> Enum.map_join(blocks, fn {cid, bytes} -> segment(CID.to_binary(cid) <> bytes) end)
 
     {car, commit_cid}
   end
+
+  defp link(%CID{} = cid), do: {:tag, 42, <<0>> <> CID.to_binary(cid)}
 
   # Records keyed by their MST position (sorted traversal order)
   defp build_records do
@@ -94,7 +54,7 @@ defmodule RepoFixture do
 
     records =
       Enum.map(data, fn {key, record} ->
-        bytes = DAGCBOR.encode(record)
+        bytes = CBOR.encode(record)
         %{key: key, record: record, block: {cid_for(bytes), bytes}}
       end)
 
@@ -131,30 +91,30 @@ defmodule RepoFixture do
       Enum.map(entries, fn entry ->
         %{
           "p" => entry["p"],
-          "k" => {:bytes, entry["k"]},
-          "v" => {:link, entry["v"]},
+          "k" => entry["k"],
+          "v" => link(entry["v"]),
           "t" => link_or_nil(entry["t"])
         }
       end)
 
-    bytes = DAGCBOR.encode(%{"l" => link_or_nil(left), "e" => encoded_entries})
+    bytes = CBOR.encode(%{"l" => link_or_nil(left), "e" => encoded_entries})
     {cid_for(bytes), bytes}
   end
 
   defp link_or_nil(nil), do: nil
-  defp link_or_nil(%CID{} = cid), do: {:link, cid}
+  defp link_or_nil(%CID{} = cid), do: link(cid)
 
   defp build_commit(mst_root) do
     commit = %{
       "did" => @did,
       "version" => 3,
-      "data" => {:link, mst_root},
+      "data" => link(mst_root),
       "rev" => "3jxs2aaa2ai",
       "prev" => nil,
-      "sig" => {:bytes, :crypto.strong_rand_bytes(64)}
+      "sig" => :crypto.strong_rand_bytes(64)
     }
 
-    bytes = DAGCBOR.encode(commit)
+    bytes = CBOR.encode(commit)
     {cid_for(bytes), bytes}
   end
 
