@@ -100,7 +100,7 @@ defmodule ProtoRune.XRPC.Query do
   end
 
   defimpl String.Chars, for: __MODULE__ do
-    alias ProtoRune.XRPC.Config
+    alias ProtoRune.Config
     alias ProtoRune.XRPC.Query
 
     def to_string(%Query{} = query) do

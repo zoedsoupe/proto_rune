@@ -73,9 +73,9 @@ defmodule ProtoRune.XRPC.DSL do
   - `mute/0` is generated as a function that creates a procedure for `app.bsky.actor.mute` with the parameter `:actor_id` of type `:string`.
   """
 
+  alias ProtoRune.Config
   alias ProtoRune.Session
   alias ProtoRune.XRPC.Client
-  alias ProtoRune.XRPC.Config
   alias ProtoRune.XRPC.Procedure
   alias ProtoRune.XRPC.Query
 
