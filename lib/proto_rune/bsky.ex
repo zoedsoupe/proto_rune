@@ -23,6 +23,7 @@ defmodule ProtoRune.Bsky do
   alias ProtoRune.Atproto.Identity
   alias ProtoRune.Atproto.Repo
   alias ProtoRune.Bsky.Actor
+  alias ProtoRune.Bsky.Embed
   alias ProtoRune.Bsky.Feed
   alias ProtoRune.Bsky.Graph
   alias ProtoRune.Bsky.Notification
@@ -40,6 +41,11 @@ defmodule ProtoRune.Bsky do
   - `:langs` - List of language codes (default: `["en"]`)
   - `:reply_to` - AT-URI of post to reply to
   - `:created_at` - Timestamp (default: now)
+  - `:embed` - An embed map built with `ProtoRune.Bsky.Embed`
+  - `:images` - A list of `{data, content_type, alt}` tuples (1 to 4). The
+    images are uploaded as blobs and attached as an
+    `app.bsky.embed.images` embed. When `:embed` is a quote
+    (`Embed.record/2`), the result is a `recordWithMedia` embed.
 
   ## Examples
 
@@ -49,6 +55,21 @@ defmodule ProtoRune.Bsky do
       # Reply to a post
       {:ok, reply} = Bsky.post(session, "Great point!",
         reply_to: "at://did:plc:xyz/app.bsky.feed.post/3k..."
+      )
+
+      # Post with images
+      {:ok, post} = Bsky.post(session, "cat tax",
+        images: [{File.read!("cat.png"), "image/png", "a cat"}]
+      )
+
+      # Quote post
+      {:ok, post} = Bsky.post(session, "this!",
+        embed: Bsky.Embed.record(quoted_uri, quoted_cid)
+      )
+
+      # Link card
+      {:ok, post} = Bsky.post(session, "read this",
+        embed: Bsky.Embed.external(url, "Title", "Description")
       )
 
       # Rich text with mentions and links
@@ -67,14 +88,26 @@ defmodule ProtoRune.Bsky do
   def post(session, text, opts \\ [])
 
   def post(session, text, opts) when is_binary(text) do
-    record = %{
-      "$type": "app.bsky.feed.post",
-      text: text,
-      langs: Keyword.get(opts, :langs, ["en"]),
-      created_at: opts |> Keyword.get(:created_at, DateTime.utc_now()) |> DateTime.to_iso8601()
-    }
+    build_post(session, %{text: text}, opts)
+  end
 
-    with {:ok, record} <- maybe_put_reply(session, record, opts) do
+  def post(session, %{text: text, facets: facets}, opts) when is_binary(text) and is_list(facets) do
+    build_post(session, %{text: text, facets: facets}, opts)
+  end
+
+  defp build_post(session, base, opts) do
+    record =
+      Map.merge(
+        %{
+          "$type": "app.bsky.feed.post",
+          langs: Keyword.get(opts, :langs, ["en"]),
+          created_at: opts |> Keyword.get(:created_at, DateTime.utc_now()) |> DateTime.to_iso8601()
+        },
+        base
+      )
+
+    with {:ok, record} <- maybe_put_reply(session, record, opts),
+         {:ok, record} <- maybe_put_embed(session, record, opts) do
       Repo.create_record(session, %{
         repo: session.did,
         collection: :post,
@@ -83,21 +116,40 @@ defmodule ProtoRune.Bsky do
     end
   end
 
-  def post(session, %{text: text, facets: facets}, opts) when is_binary(text) and is_list(facets) do
-    record = %{
-      "$type": "app.bsky.feed.post",
-      text: text,
-      facets: facets,
-      langs: Keyword.get(opts, :langs, ["en"]),
-      created_at: opts |> Keyword.get(:created_at, DateTime.utc_now()) |> DateTime.to_iso8601()
-    }
+  defp maybe_put_embed(session, record, opts) do
+    with {:ok, media} <- maybe_images_embed(session, Keyword.get(opts, :images)) do
+      case {Keyword.get(opts, :embed), media} do
+        {nil, nil} ->
+          {:ok, record}
 
-    with {:ok, record} <- maybe_put_reply(session, record, opts) do
-      Repo.create_record(session, %{
-        repo: session.did,
-        collection: :post,
-        record: record
-      })
+        {embed, nil} ->
+          {:ok, Map.put(record, :embed, embed)}
+
+        {nil, media} ->
+          {:ok, Map.put(record, :embed, media)}
+
+        {%{:"$type" => "app.bsky.embed.record"} = quote, media} ->
+          {:ok, Map.put(record, :embed, Embed.record_with_media(quote, media))}
+
+        {_embed, _media} ->
+          {:error, :conflicting_embeds}
+      end
+    end
+  end
+
+  defp maybe_images_embed(_session, nil), do: {:ok, nil}
+
+  defp maybe_images_embed(session, images) when is_list(images) do
+    images
+    |> Enum.reduce_while({:ok, []}, fn {data, content_type, alt}, {:ok, acc} ->
+      case Repo.upload_blob(session, data, content_type) do
+        {:ok, %{blob: blob}} -> {:cont, {:ok, [%{alt: alt, image: blob} | acc]}}
+        {:error, _} = error -> {:halt, error}
+      end
+    end)
+    |> case do
+      {:ok, uploaded} -> {:ok, Embed.images(Enum.reverse(uploaded))}
+      {:error, _} = error -> error
     end
   end
 

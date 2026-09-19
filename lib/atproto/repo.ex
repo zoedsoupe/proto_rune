@@ -53,6 +53,7 @@ defmodule ProtoRune.Atproto.Repo do
     langs: {:list, :string},
     facets: {:list, @facet_t},
     tags: {:list, {:string, {:max, 640}}},
+    embed: :any,
     labels: {:list, %{values: {:list, @self_label_t}}},
     created_at: :string
   }
