@@ -15,9 +15,11 @@ defmodule ProtoRune.Atproto.Sync do
 
   ## Trust model
 
-  Checkouts are trusted against the source PDS: no commit or signature
-  verification is performed. If you cannot trust the PDS you are reading
-  from, verify the commit chain yourself before consuming the data.
+  `get_repo/2` and `parse_car/1` perform no verification: blocks are
+  trusted as delivered by the source PDS. When you cannot trust that PDS,
+  use `verify_checkout/2`, which checks every block against its CID and
+  verifies the signed commit against the repo's DID document, before
+  consuming the data.
 
   ## Examples
 
@@ -27,10 +29,12 @@ defmodule ProtoRune.Atproto.Sync do
       {:ok, blocks} = Sync.parse_car(car)
   """
 
+  alias ProtoRune.Atproto.Identity
   alias ProtoRune.Atproto.Session
   alias ProtoRune.CAR
   alias ProtoRune.CBOR
   alias ProtoRune.CID
+  alias ProtoRune.Commit
   alias ProtoRune.XRPC.Client
   alias ProtoRune.XRPC.Query
 
@@ -108,6 +112,88 @@ defmodule ProtoRune.Atproto.Sync do
   def parse_car(data) when is_binary(data) do
     with {:ok, car} <- CAR.read(data), do: decode_blocks(car.blocks, %{})
   end
+
+  @doc """
+  Verifies a repository checkout and returns its decoded blocks.
+
+  Performs, in order:
+
+    1. **Block integrity**: every CAR block's bytes must hash to its CID
+       (sha2-256 multihash). This covers the whole MST: a tampered node or
+       record block never matches its content address.
+    2. **Commit verification**: the commit block under the CAR's root CID
+       is verified against the signing key of the repo's DID document (see
+       `ProtoRune.Commit.verify/2`), resolving the DID through
+       `ProtoRune.Atproto.Identity`.
+
+  Accepts the raw CAR binary or the `{:ok, %{body: car}}` tuple returned
+  by `get_repo/2`. On success returns `{:ok, checkout}` with the decoded
+  `blocks` (same shape as `parse_car/1`), the verified commit's `did`,
+  `rev` and the MST root CID under `data`, ready for
+  `ProtoRune.MST.entries/2`.
+
+  ## Options
+
+    * `:did` - expected repo DID. When given, the commit's `did` must
+      match it before the DID document is even resolved.
+
+  ## Examples
+
+      {:ok, %{did: did, data: root, blocks: blocks}} = Sync.verify_checkout(car)
+      {:ok, records} = ProtoRune.MST.records(blocks, root)
+  """
+  @spec verify_checkout(binary | {:ok, %{body: binary()}}, keyword()) ::
+          {:ok, %{did: String.t(), rev: String.t(), data: CID.t(), blocks: %{CID.t() => term()}}}
+          | {:error, atom() | tuple()}
+  def verify_checkout(car, opts \\ [])
+
+  def verify_checkout({:ok, %{body: body}}, opts) when is_binary(body),
+    do: verify_checkout(body, opts)
+
+  def verify_checkout(data, opts) when is_binary(data) do
+    with {:ok, car} <- CAR.read(data),
+         :ok <- verify_blocks(car.blocks),
+         {:ok, blocks} <- decode_blocks(car.blocks, %{}),
+         {:ok, commit_cid} <- fetch_commit_cid(car),
+         {:ok, commit} <- fetch_commit(blocks, commit_cid),
+         :ok <- check_expected_did(commit, Keyword.get(opts, :did)),
+         {:ok, did_doc} <- Identity.resolve_did(commit["did"]),
+         :ok <- Commit.verify(commit, did_doc) do
+      with {:ok, data_cid} <- CID.from_link(commit["data"]) do
+        {:ok, %{did: commit["did"], rev: commit["rev"], data: data_cid, blocks: blocks}}
+      end
+    end
+  end
+
+  defp verify_blocks(blocks) do
+    Enum.reduce_while(blocks, :ok, fn {cid, bytes}, :ok ->
+      if valid_block?(cid, bytes), do: {:cont, :ok}, else: {:halt, {:error, {:block_hash_mismatch, cid}}}
+    end)
+  end
+
+  # CID multihash layout: hash function code varint (0x12 = sha2-256),
+  # digest size varint (0x20 = 32 bytes), digest.
+  defp valid_block?(%CID{multihash: <<0x12, 0x20, digest::binary-32>>}, bytes) do
+    :crypto.hash(:sha256, bytes) == digest
+  end
+
+  defp valid_block?(_cid, _bytes), do: false
+
+  defp fetch_commit_cid(%{roots: [commit_cid | _]}), do: {:ok, commit_cid}
+  defp fetch_commit_cid(_car), do: {:error, :missing_commit_root}
+
+  defp fetch_commit(blocks, commit_cid) do
+    case Map.fetch(blocks, commit_cid) do
+      {:ok, %{"sig" => _} = commit} -> {:ok, commit}
+      {:ok, _other} -> {:error, :invalid_commit}
+      :error -> {:error, {:missing_block, commit_cid}}
+    end
+  end
+
+  defp check_expected_did(_commit, nil), do: :ok
+
+  defp check_expected_did(%{"did" => did}, did), do: :ok
+  defp check_expected_did(_commit, _did), do: {:error, :did_mismatch}
 
   defp decode_blocks([], blocks), do: {:ok, blocks}
 
