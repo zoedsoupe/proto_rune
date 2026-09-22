@@ -207,6 +207,6 @@ defmodule ProtoRune.JetstreamTest do
 
     send(pid, :fake_close)
 
-    assert_receive {:EXIT, ^pid, {:jetstream_disconnected, :closed}}
+    assert_receive {:EXIT, ^pid, {:jetstream_disconnected, :closed}}, 1_000
   end
 end

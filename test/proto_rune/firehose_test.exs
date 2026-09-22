@@ -165,6 +165,6 @@ defmodule ProtoRune.FirehoseTest do
 
     send(pid, :fake_close)
 
-    assert_receive {:EXIT, ^pid, {:firehose_disconnected, :closed}}
+    assert_receive {:EXIT, ^pid, {:firehose_disconnected, :closed}}, 1_000
   end
 end
