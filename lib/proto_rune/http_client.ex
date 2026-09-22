@@ -116,4 +116,27 @@ defmodule ProtoRune.HTTPClient do
       _uri -> url
     end
   end
+
+  @doc """
+  Reads a header value from a response headers collection,
+  case-insensitively.
+
+  Adapters deliver headers either as a list of `{name, value}` tuples or
+  as a map of downcased names to value lists (Req); both shapes are
+  accepted. Returns `nil` when the header is absent.
+  """
+  @spec get_header(term(), String.t()) :: String.t() | nil
+  def get_header(headers, name) when is_list(headers) do
+    Enum.find_value(headers, fn {key, value} ->
+      if String.downcase(to_string(key)) == name, do: value
+    end)
+  end
+
+  def get_header(headers, name) when is_map(headers) do
+    Enum.find_value(headers, fn {key, value} ->
+      if String.downcase(to_string(key)) == name, do: value |> List.wrap() |> List.first()
+    end)
+  end
+
+  def get_header(_headers, _name), do: nil
 end

@@ -142,21 +142,7 @@ defmodule ProtoRune.XRPC.Client do
 
   defp decode_error_body(_body), do: %{}
 
-  # Adapters deliver headers either as a list of tuples (test stubs) or
-  # as a map of downcased names to value lists (Req)
-  defp get_header(headers, name) when is_list(headers) do
-    Enum.find_value(headers, fn {key, value} ->
-      if String.downcase(to_string(key)) == name, do: value
-    end)
-  end
-
-  defp get_header(headers, name) when is_map(headers) do
-    Enum.find_value(headers, fn {key, value} ->
-      if String.downcase(to_string(key)) == name, do: value |> List.wrap() |> List.first()
-    end)
-  end
-
-  defp get_header(_headers, _name), do: nil
+  defp get_header(headers, name), do: HTTPClient.get_header(headers, name)
 
   defp parse_http({:error, err}, _response), do: {:error, err}
 
