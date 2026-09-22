@@ -32,7 +32,32 @@ That's the whole setup. From here you can like, repost, follow, read timelines, 
 ```elixir
 {:ok, timeline} = ProtoRune.Bsky.get_timeline(session, limit: 20)
 {:ok, like} = ProtoRune.Bsky.like(session, post.uri, post.cid)
+{:ok, repost} = ProtoRune.Bsky.repost(session, post.uri, post.cid)
+{:ok, follow} = ProtoRune.Bsky.follow(session, "alice.bsky.social")
+{:ok, thread} = ProtoRune.Bsky.get_post_thread(session, post.uri)
 {:ok, did} = ProtoRune.resolve_handle("alice.bsky.social")
+{:ok, doc} = ProtoRune.resolve_did("did:plc:abc123xyz")
+```
+
+## Sessions
+
+A session holds your tokens and account info. Every API call takes it as the first argument, there is no global state. Access tokens expire; refresh when needed:
+
+```elixir
+{:ok, fresh_session} = ProtoRune.refresh_session(session)
+```
+
+For long-running apps, `ProtoRune.SessionManager` keeps a session fresh for you. See the [authentication guide](guides/authentication.md).
+
+## Error handling
+
+Everything returns tagged tuples:
+
+```elixir
+case ProtoRune.login(identifier, password) do
+  {:ok, session} -> ProtoRune.Bsky.post(session, "Success!")
+  {:error, reason} -> IO.puts("Login failed: #{inspect(reason)}")
+end
 ```
 
 ## Rich text
@@ -85,7 +110,6 @@ Bots are OTP processes with polling out of the box, so they fit into your superv
 
 Full API reference on [hexdocs.pm/proto_rune](https://hexdocs.pm/proto_rune). Guides:
 
-- [Getting started](guides/getting-started.md)
 - [Authentication](guides/authentication.md) (app passwords, OAuth, token storage)
 - [Posting content](guides/posting-content.md) (rich text, replies, languages)
 - [Bot development](guides/bot-development.md)

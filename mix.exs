@@ -63,7 +63,6 @@ defmodule ProtoRune.MixProject do
 
   defp docs do
     guides = [
-      "guides/getting-started.md",
       "guides/authentication.md",
       "guides/posting-content.md",
       "guides/bot-development.md",

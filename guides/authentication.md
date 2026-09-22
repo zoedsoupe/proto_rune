@@ -48,29 +48,11 @@ Inspect without refreshing:
 
 ## Storing sessions
 
-Persist the tokens, reload and validate on boot. Rebuild the struct, a plain map won't dispatch:
-
-```elixir
-def load_or_login(identifier, password) do
-  with {:ok, content} <- File.read("session.json"),
-       {:ok, data} <- JSON.decode(content),
-       {:ok, session} <- parse_session(data),
-       {:ok, _info} <- ProtoRune.get_session(session) do
-    {:ok, session}
-  else
-    _ -> ProtoRune.login(identifier, password)
-  end
-end
-
-# JSON.decode/1 returns string keys; the session parser expects atoms
-defp parse_session(data) do
-  data
-  |> Map.new(fn {k, v} -> {String.to_existing_atom(k), v} end)
-  |> ProtoRune.Atproto.Session.parse()
-rescue
-  ArgumentError -> {:error, :invalid_session}
-end
-```
+Persist the tokens somewhere safe and rebuild the struct with
+`ProtoRune.Atproto.Session.parse/1` on boot (a plain map won't dispatch).
+For anything long-lived, prefer the `SessionManager` below: it keeps the
+session fresh and persists each rotation encrypted, which makes
+hand-rolled reload logic unnecessary.
 
 ## Security
 
