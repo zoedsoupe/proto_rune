@@ -3,7 +3,7 @@ defmodule ProtoRune.PDSTest do
   End-to-end tests against a fake PDS served by Bypass, exercising the
   real HTTP stack (Req adapter) instead of the env-stubbed adapter.
   """
-  use ExUnit.Case, async: false
+  use ProtoRune.TestCase, async: true
 
   import Plug.Conn
 
@@ -16,17 +16,8 @@ defmodule ProtoRune.PDSTest do
   setup do
     bypass = Bypass.open()
 
-    for key <- [:rate_limit, :retry] do
-      previous = Application.get_env(:proto_rune, key)
-      Application.put_env(:proto_rune, key, false)
-      on_exit(fn -> restore_env(key, previous) end)
-    end
-
     {:ok, bypass: bypass, url: "http://localhost:#{bypass.port}"}
   end
-
-  defp restore_env(key, nil), do: Application.delete_env(:proto_rune, key)
-  defp restore_env(key, value), do: Application.put_env(:proto_rune, key, value)
 
   defp session(url) do
     %Session{

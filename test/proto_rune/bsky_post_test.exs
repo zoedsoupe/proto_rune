@@ -1,25 +1,8 @@
 defmodule ProtoRune.BskyPostTest do
-  use ExUnit.Case, async: false
+  use ProtoRune.TestCase, async: true
 
   alias ProtoRune.Bsky
   alias ProtoRune.RichText
-
-  defmodule CaptureAdapter do
-    @moduledoc false
-    @behaviour ProtoRune.HTTPClient.Adapter
-
-    @impl true
-    def request(method, url, opts) do
-      send(Application.fetch_env!(:proto_rune, :bsky_post_test_pid), {:request, method, url, opts})
-
-      {:ok,
-       %{
-         status: 200,
-         headers: %{},
-         body: %{"uri" => "at://did:plc:test/app.bsky.feed.post/abc", "cid" => "cid1"}
-       }}
-    end
-  end
 
   @session %ProtoRune.Atproto.Session{
     access_jwt: "token123",
@@ -30,26 +13,27 @@ defmodule ProtoRune.BskyPostTest do
   }
 
   setup do
-    previous = Application.get_env(:proto_rune, :http_client)
-    on_exit(fn -> restore_env(:http_client, previous) end)
+    test_pid = self()
 
-    Application.put_env(:proto_rune, :http_client, CaptureAdapter)
-    Application.put_env(:proto_rune, :rate_limit, false)
-    on_exit(fn -> Application.delete_env(:proto_rune, :rate_limit) end)
+    http =
+      fake_http(fn method, url, opts ->
+        send(test_pid, {:request, method, url, opts})
 
-    Application.put_env(:proto_rune, :bsky_post_test_pid, self())
-    on_exit(fn -> Application.delete_env(:proto_rune, :bsky_post_test_pid) end)
+        {:ok,
+         %{
+           status: 200,
+           headers: %{},
+           body: %{"uri" => "at://did:plc:test/app.bsky.feed.post/abc", "cid" => "cid1"}
+         }}
+      end)
 
-    :ok
+    {:ok, http: http}
   end
 
-  defp restore_env(key, nil), do: Application.delete_env(:proto_rune, key)
-  defp restore_env(key, value), do: Application.put_env(:proto_rune, key, value)
-
   describe "post/3 with plain text" do
-    test "sends a wire body that conforms to the createRecord schema" do
+    test "sends a wire body that conforms to the createRecord schema", %{http: http} do
       assert {:ok, %{uri: "at://did:plc:test/app.bsky.feed.post/abc"}} =
-               Bsky.post(@session, "Hello Bluesky!")
+               Bsky.post(@session, "Hello Bluesky!", http: http)
 
       assert_received {:request, :post, url, opts}
       assert url =~ "com.atproto.repo.createRecord"
@@ -68,14 +52,14 @@ defmodule ProtoRune.BskyPostTest do
   end
 
   describe "post/3 with rich text" do
-    test "sends facets with camelized byte offsets on the wire" do
+    test "sends facets with camelized byte offsets on the wire", %{http: http} do
       {:ok, rt} =
         RichText.new()
         |> RichText.text("Olá, ")
         |> RichText.link("this project", "https://example.com")
         |> RichText.build()
 
-      assert {:ok, %{uri: "at://did:plc:test/app.bsky.feed.post/abc"}} = Bsky.post(@session, rt)
+      assert {:ok, %{uri: "at://did:plc:test/app.bsky.feed.post/abc"}} = Bsky.post(@session, rt, http: http)
 
       assert_received {:request, :post, _url, opts}
 
@@ -98,9 +82,9 @@ defmodule ProtoRune.BskyPostTest do
   end
 
   describe "like/3" do
-    test "sends a wire body that conforms to the createRecord schema" do
+    test "sends a wire body that conforms to the createRecord schema", %{http: http} do
       assert {:ok, %{uri: "at://did:plc:test/app.bsky.feed.post/abc"}} =
-               Bsky.like(@session, "at://did:plc:x/app.bsky.feed.post/1", "cid1")
+               Bsky.like(@session, "at://did:plc:x/app.bsky.feed.post/1", "cid1", http: http)
 
       assert_received {:request, :post, url, opts}
       assert url =~ "com.atproto.repo.createRecord"
@@ -118,9 +102,9 @@ defmodule ProtoRune.BskyPostTest do
   end
 
   describe "repost/3" do
-    test "sends a wire body that conforms to the createRecord schema" do
+    test "sends a wire body that conforms to the createRecord schema", %{http: http} do
       assert {:ok, %{uri: "at://did:plc:test/app.bsky.feed.post/abc"}} =
-               Bsky.repost(@session, "at://did:plc:x/app.bsky.feed.post/1", "cid1")
+               Bsky.repost(@session, "at://did:plc:x/app.bsky.feed.post/1", "cid1", http: http)
 
       assert_received {:request, :post, url, opts}
       assert url =~ "com.atproto.repo.createRecord"
@@ -138,8 +122,8 @@ defmodule ProtoRune.BskyPostTest do
   end
 
   describe "post/3 with the :langs option" do
-    test "sends the given language codes" do
-      assert {:ok, _} = Bsky.post(@session, "alô mundo", langs: ["pt"])
+    test "sends the given language codes", %{http: http} do
+      assert {:ok, _} = Bsky.post(@session, "alô mundo", langs: ["pt"], http: http)
 
       assert_received {:request, :post, _url, opts}
       assert opts[:json][:record][:langs] == ["pt"]

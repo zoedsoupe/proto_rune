@@ -1,57 +1,44 @@
 defmodule ProtoRune.LoginTest do
-  use ExUnit.Case, async: false
+  use ProtoRune.TestCase, async: true
 
   alias ProtoRune.Atproto.Session
 
-  defmodule CaptureAdapter do
-    @moduledoc false
-    @behaviour ProtoRune.HTTPClient.Adapter
-
-    @impl true
-    def request(method, url, _opts) do
-      send(Application.fetch_env!(:proto_rune, :capture_adapter_test_pid), {method, url})
-
-      {:ok,
-       %{
-         status: 200,
-         headers: %{},
-         body: %{
-           access_jwt: "access",
-           refresh_jwt: "refresh",
-           handle: "alice.bsky.social",
-           did: "did:plc:alice"
-         }
-       }}
-    end
-  end
-
   setup do
-    previous = Application.get_env(:proto_rune, :http_client)
-    on_exit(fn -> restore_env(:http_client, previous) end)
+    test_pid = self()
 
-    Application.put_env(:proto_rune, :http_client, CaptureAdapter)
-    Application.put_env(:proto_rune, :rate_limit, false)
-    on_exit(fn -> Application.delete_env(:proto_rune, :rate_limit) end)
+    http =
+      fake_http(fn method, url, _opts ->
+        send(test_pid, {method, url})
 
-    Application.put_env(:proto_rune, :capture_adapter_test_pid, self())
-    on_exit(fn -> Application.delete_env(:proto_rune, :capture_adapter_test_pid) end)
+        {:ok,
+         %{
+           status: 200,
+           headers: %{},
+           body: %{
+             access_jwt: "access",
+             refresh_jwt: "refresh",
+             handle: "alice.bsky.social",
+             did: "did:plc:alice"
+           }
+         }}
+      end)
 
-    :ok
+    {:ok, http: http}
   end
-
-  defp restore_env(key, nil), do: Application.delete_env(:proto_rune, key)
-  defp restore_env(key, value), do: Application.put_env(:proto_rune, key, value)
 
   describe "login/3" do
-    test "createSession defaults to bsky.social" do
-      assert {:ok, %Session{}} = ProtoRune.login("alice.bsky.social", "app-password")
+    test "createSession defaults to bsky.social", %{http: http} do
+      assert {:ok, %Session{}} = ProtoRune.login("alice.bsky.social", "app-password", http: http)
 
       assert_received {:post, "https://bsky.social/xrpc/com.atproto.server.createSession"}
     end
 
-    test ":service opt targets the createSession call itself, normalized with /xrpc" do
+    test ":service opt targets the createSession call itself, normalized with /xrpc", %{http: http} do
       assert {:ok, %Session{} = session} =
-               ProtoRune.login("alice.bsky.social", "app-password", service: "https://pds.example.com")
+               ProtoRune.login("alice.bsky.social", "app-password",
+                 service: "https://pds.example.com",
+                 http: http
+               )
 
       assert_received {:post, "https://pds.example.com/xrpc/com.atproto.server.createSession"}
       assert session.service_url == "https://pds.example.com/xrpc"

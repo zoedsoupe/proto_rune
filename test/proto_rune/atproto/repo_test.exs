@@ -1,19 +1,7 @@
 defmodule ProtoRune.Atproto.RepoTest do
-  use ExUnit.Case, async: false
+  use ProtoRune.TestCase, async: true
 
   alias ProtoRune.Atproto.Repo
-
-  defmodule HTTPStub do
-    @moduledoc false
-
-    @behaviour ProtoRune.HTTPClient.Adapter
-
-    @impl true
-    def request(method, url, opts) do
-      handler = Application.fetch_env!(:proto_rune, :http_stub_handler)
-      handler.(method, url, opts)
-    end
-  end
 
   @session %ProtoRune.Atproto.Session{
     access_jwt: "token123",
@@ -23,19 +11,8 @@ defmodule ProtoRune.Atproto.RepoTest do
     service_url: "https://pds.test/xrpc"
   }
 
-  setup do
-    Application.put_env(:proto_rune, :http_client, HTTPStub)
-
-    on_exit(fn ->
-      Application.delete_env(:proto_rune, :http_client)
-      Application.delete_env(:proto_rune, :http_stub_handler)
-    end)
-
-    :ok
-  end
-
   defp stub_json(test_pid, body) do
-    Application.put_env(:proto_rune, :http_stub_handler, fn method, url, opts ->
+    fake_http(fn method, url, opts ->
       send(test_pid, {:request, method, url, opts})
       {:ok, %{status: 200, body: body}}
     end)
@@ -50,16 +27,18 @@ defmodule ProtoRune.Atproto.RepoTest do
 
   describe "create_record" do
     test "custom string NSID passes through unvalidated and sends the NSID in the body" do
-      stub_json(self(), %{"uri" => "at://did:plc:test/com.example.thing/abc", "cid" => "bafy123"})
+      http = stub_json(self(), %{"uri" => "at://did:plc:test/com.example.thing/abc", "cid" => "bafy123"})
 
       record = %{"$type" => "com.example.thing", "anything" => "goes"}
 
       assert {:ok, _} =
-               Repo.create_record(@session, %{
-                 repo: "did:plc:test",
-                 collection: "com.example.thing",
-                 record: record
-               })
+               Repo.create_record(
+                 @session,
+                 %{
+                   repo: "did:plc:test",
+                   collection: "com.example.thing",
+                   record: record
+                 }, http: http)
 
       assert_received {:request, :post, url, opts}
       assert url =~ "com.atproto.repo.createRecord"
@@ -72,7 +51,7 @@ defmodule ProtoRune.Atproto.RepoTest do
     end
 
     test "known bsky NSID validates against the built-in schema and passes through" do
-      stub_json(self(), %{"uri" => "at://did:plc:test/app.bsky.feed.post/abc", "cid" => "bafy123"})
+      http = stub_json(self(), %{"uri" => "at://did:plc:test/app.bsky.feed.post/abc", "cid" => "bafy123"})
 
       record = %{
         "$type": "app.bsky.feed.post",
@@ -81,44 +60,50 @@ defmodule ProtoRune.Atproto.RepoTest do
       }
 
       assert {:ok, _} =
-               Repo.create_record(@session, %{
-                 repo: "did:plc:test",
-                 collection: "app.bsky.feed.post",
-                 record: record
-               })
+               Repo.create_record(
+                 @session,
+                 %{
+                   repo: "did:plc:test",
+                   collection: "app.bsky.feed.post",
+                   record: record
+                 }, http: http)
 
       assert_received {:request, :post, _url, opts}
       assert Keyword.fetch!(opts, :json)[:collection] == "app.bsky.feed.post"
     end
 
     test "atom collection is rejected by the params schema and makes no request" do
-      stub_json(self(), %{})
+      http = stub_json(self(), %{})
 
       assert {:error, _} =
-               Repo.create_record(@session, %{
-                 repo: "did:plc:test",
-                 collection: :post,
-                 record: %{}
-               })
+               Repo.create_record(
+                 @session,
+                 %{
+                   repo: "did:plc:test",
+                   collection: :post,
+                   record: %{}
+                 }, http: http)
 
       refute_received {:request, _, _, _}
     end
 
     test "string form of a known bsky NSID still gets the built-in validation" do
-      stub_json(self(), %{})
+      http = stub_json(self(), %{})
 
       assert {:error, _} =
-               Repo.create_record(@session, %{
-                 repo: "did:plc:test",
-                 collection: "app.bsky.feed.post",
-                 record: %{"$type": "app.bsky.feed.post"}
-               })
+               Repo.create_record(
+                 @session,
+                 %{
+                   repo: "did:plc:test",
+                   collection: "app.bsky.feed.post",
+                   record: %{"$type": "app.bsky.feed.post"}
+                 }, http: http)
 
       refute_received {:request, _, _, _}
     end
 
     test "schema option validates a custom collection record" do
-      stub_json(self(), %{"uri" => "at://did:plc:test/com.example.thing/abc", "cid" => "bafy123"})
+      http = stub_json(self(), %{"uri" => "at://did:plc:test/com.example.thing/abc", "cid" => "bafy123"})
 
       schema = %{text: {:required, :string}}
 
@@ -126,7 +111,8 @@ defmodule ProtoRune.Atproto.RepoTest do
                Repo.create_record(
                  @session,
                  %{repo: "did:plc:test", collection: "com.example.thing", record: %{text: "hi"}},
-                 schema: schema
+                 schema: schema,
+                 http: http
                )
 
       assert_received {:request, :post, _url, opts}
@@ -134,7 +120,7 @@ defmodule ProtoRune.Atproto.RepoTest do
     end
 
     test "schema option returns the Peri error and makes no request on invalid records" do
-      stub_json(self(), %{})
+      http = stub_json(self(), %{})
 
       schema = %{text: {:required, :string}}
 
@@ -142,14 +128,15 @@ defmodule ProtoRune.Atproto.RepoTest do
                Repo.create_record(
                  @session,
                  %{repo: "did:plc:test", collection: "com.example.thing", record: %{}},
-                 schema: schema
+                 schema: schema,
+                 http: http
                )
 
       refute_received {:request, _, _, _}
     end
 
     test "schema option overrides the built-in validation for known collections" do
-      stub_json(self(), %{"uri" => "at://did:plc:test/app.bsky.feed.post/abc", "cid" => "bafy123"})
+      http = stub_json(self(), %{"uri" => "at://did:plc:test/app.bsky.feed.post/abc", "cid" => "bafy123"})
 
       schema = %{text: {:required, :string}}
 
@@ -157,26 +144,29 @@ defmodule ProtoRune.Atproto.RepoTest do
                Repo.create_record(
                  @session,
                  %{repo: "did:plc:test", collection: "app.bsky.feed.post", record: %{text: "no dollar type needed"}},
-                 schema: schema
+                 schema: schema,
+                 http: http
                )
 
       assert_received {:request, :post, _url, _opts}
     end
 
     test "optional params keep the same camelized wire keys" do
-      stub_json(self(), %{"uri" => "at://did:plc:test/app.bsky.feed.post/abc", "cid" => "bafy123"})
+      http = stub_json(self(), %{"uri" => "at://did:plc:test/app.bsky.feed.post/abc", "cid" => "bafy123"})
 
       record = %{"$type": "app.bsky.feed.post", text: "hello"}
 
       assert {:ok, _} =
-               Repo.create_record(@session, %{
-                 repo: "did:plc:test",
-                 collection: "app.bsky.feed.post",
-                 rkey: "abc",
-                 validate: false,
-                 swap_commit: "bafyrei123",
-                 record: record
-               })
+               Repo.create_record(
+                 @session,
+                 %{
+                   repo: "did:plc:test",
+                   collection: "app.bsky.feed.post",
+                   rkey: "abc",
+                   validate: false,
+                   swap_commit: "bafyrei123",
+                   record: record
+                 }, http: http)
 
       assert_received {:request, :post, _url, opts}
       body = Keyword.fetch!(opts, :json)
@@ -188,17 +178,19 @@ defmodule ProtoRune.Atproto.RepoTest do
 
   describe "put_record" do
     test "custom string NSID passes through unvalidated and sends the NSID in the body" do
-      stub_json(self(), %{"uri" => "at://did:plc:test/com.example.thing/self", "cid" => "bafy123"})
+      http = stub_json(self(), %{"uri" => "at://did:plc:test/com.example.thing/self", "cid" => "bafy123"})
 
       record = %{"$type" => "com.example.thing", "anything" => "goes"}
 
       assert {:ok, _} =
-               Repo.put_record(@session, %{
-                 repo: "did:plc:test",
-                 collection: "com.example.thing",
-                 rkey: "self",
-                 record: record
-               })
+               Repo.put_record(
+                 @session,
+                 %{
+                   repo: "did:plc:test",
+                   collection: "com.example.thing",
+                   rkey: "self",
+                   record: record
+                 }, http: http)
 
       assert_received {:request, :post, url, opts}
       assert url =~ "com.atproto.repo.putRecord"
@@ -211,35 +203,39 @@ defmodule ProtoRune.Atproto.RepoTest do
     end
 
     test "atom collection is rejected by the params schema and makes no request" do
-      stub_json(self(), %{})
+      http = stub_json(self(), %{})
 
       assert {:error, _} =
-               Repo.put_record(@session, %{
-                 repo: "did:plc:test",
-                 collection: :post,
-                 rkey: "abc",
-                 record: %{}
-               })
+               Repo.put_record(
+                 @session,
+                 %{
+                   repo: "did:plc:test",
+                   collection: :post,
+                   rkey: "abc",
+                   record: %{}
+                 }, http: http)
 
       refute_received {:request, _, _, _}
     end
 
     test "string form of a known bsky NSID still gets the built-in validation" do
-      stub_json(self(), %{})
+      http = stub_json(self(), %{})
 
       assert {:error, _} =
-               Repo.put_record(@session, %{
-                 repo: "did:plc:test",
-                 collection: "app.bsky.feed.post",
-                 rkey: "abc",
-                 record: %{"$type": "app.bsky.feed.post"}
-               })
+               Repo.put_record(
+                 @session,
+                 %{
+                   repo: "did:plc:test",
+                   collection: "app.bsky.feed.post",
+                   rkey: "abc",
+                   record: %{"$type": "app.bsky.feed.post"}
+                 }, http: http)
 
       refute_received {:request, _, _, _}
     end
 
     test "schema option validates a custom collection record" do
-      stub_json(self(), %{"uri" => "at://did:plc:test/com.example.thing/self", "cid" => "bafy123"})
+      http = stub_json(self(), %{"uri" => "at://did:plc:test/com.example.thing/self", "cid" => "bafy123"})
 
       schema = %{text: {:required, :string}}
 
@@ -252,14 +248,15 @@ defmodule ProtoRune.Atproto.RepoTest do
                    rkey: "self",
                    record: %{text: "hi"}
                  },
-                 schema: schema
+                 schema: schema,
+                 http: http
                )
 
       assert_received {:request, :post, _url, _opts}
     end
 
     test "schema option returns the Peri error and makes no request on invalid records" do
-      stub_json(self(), %{})
+      http = stub_json(self(), %{})
 
       schema = %{text: {:required, :string}}
 
@@ -267,26 +264,29 @@ defmodule ProtoRune.Atproto.RepoTest do
                Repo.put_record(
                  @session,
                  %{repo: "did:plc:test", collection: "com.example.thing", rkey: "self", record: %{}},
-                 schema: schema
+                 schema: schema,
+                 http: http
                )
 
       refute_received {:request, _, _, _}
     end
 
     test "swap params keep the same camelized wire keys" do
-      stub_json(self(), %{"uri" => "at://did:plc:test/app.bsky.feed.post/abc", "cid" => "bafy456"})
+      http = stub_json(self(), %{"uri" => "at://did:plc:test/app.bsky.feed.post/abc", "cid" => "bafy456"})
 
       record = %{"$type": "app.bsky.feed.post", text: "updated"}
 
       assert {:ok, _} =
-               Repo.put_record(@session, %{
-                 repo: "did:plc:test",
-                 collection: "app.bsky.feed.post",
-                 rkey: "abc",
-                 record: record,
-                 swap_record: "bafy123",
-                 swap_commit: "bafyrei123"
-               })
+               Repo.put_record(
+                 @session,
+                 %{
+                   repo: "did:plc:test",
+                   collection: "app.bsky.feed.post",
+                   rkey: "abc",
+                   record: record,
+                   swap_record: "bafy123",
+                   swap_commit: "bafyrei123"
+                 }, http: http)
 
       assert_received {:request, :post, _url, opts}
       body = Keyword.fetch!(opts, :json)
@@ -297,13 +297,13 @@ defmodule ProtoRune.Atproto.RepoTest do
 
   describe "get_record" do
     test "with session sends the Bearer token" do
-      stub_json(self(), %{"uri" => "at://did:plc:test/app.bsky.feed.post/abc"})
+      http = stub_json(self(), %{"uri" => "at://did:plc:test/app.bsky.feed.post/abc"})
 
       assert {:ok, _} =
-               Repo.get_record(@session,
-                 repo: "did:plc:test",
-                 collection: "app.bsky.feed.post",
-                 rkey: "abc"
+               Repo.get_record(
+                 @session,
+                 %{repo: "did:plc:test", collection: "app.bsky.feed.post", rkey: "abc"},
+                 http: http
                )
 
       assert_received {:request, :get, url, opts}
@@ -312,13 +312,13 @@ defmodule ProtoRune.Atproto.RepoTest do
     end
 
     test "without session sends no authorization header" do
-      stub_json(self(), %{"uri" => "at://did:plc:test/app.bsky.feed.post/abc"})
+      http = stub_json(self(), %{"uri" => "at://did:plc:test/app.bsky.feed.post/abc"})
 
       assert {:ok, _} =
                Repo.get_record(
-                 repo: "did:plc:test",
-                 collection: "app.bsky.feed.post",
-                 rkey: "abc"
+                 nil,
+                 %{repo: "did:plc:test", collection: "app.bsky.feed.post", rkey: "abc"},
+                 http: http
                )
 
       assert_received {:request, :get, url, opts}
@@ -329,18 +329,18 @@ defmodule ProtoRune.Atproto.RepoTest do
 
   describe "list_records" do
     test "with session sends the Bearer token" do
-      stub_json(self(), %{"records" => []})
+      http = stub_json(self(), %{"records" => []})
 
-      assert {:ok, _} = Repo.list_records(@session, repo: "did:plc:test", collection: "app.bsky.feed.post")
+      assert {:ok, _} = Repo.list_records(@session, %{repo: "did:plc:test", collection: "app.bsky.feed.post"}, http: http)
 
       assert_received {:request, :get, _url, opts}
       assert auth_header(opts) == "Bearer token123"
     end
 
     test "without session sends no authorization header" do
-      stub_json(self(), %{"records" => []})
+      http = stub_json(self(), %{"records" => []})
 
-      assert {:ok, _} = Repo.list_records(repo: "did:plc:test", collection: "app.bsky.feed.post")
+      assert {:ok, _} = Repo.list_records(nil, %{repo: "did:plc:test", collection: "app.bsky.feed.post"}, http: http)
 
       assert_received {:request, :get, _url, opts}
       assert auth_header(opts) == nil

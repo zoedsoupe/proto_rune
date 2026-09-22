@@ -1,22 +1,10 @@
 defmodule ProtoRune.SessionTest do
-  use ExUnit.Case, async: false
+  use ProtoRune.TestCase, async: true
 
   alias ProtoRune.Atproto.OAuth.DPoP
   alias ProtoRune.Atproto.OAuth.Session, as: OAuthSession
   alias ProtoRune.Atproto.Repo
   alias ProtoRune.Atproto.Session
-
-  defmodule HTTPStub do
-    @moduledoc false
-
-    @behaviour ProtoRune.HTTPClient.Adapter
-
-    @impl true
-    def request(method, url, opts) do
-      handler = Application.fetch_env!(:proto_rune, :http_stub_handler)
-      handler.(method, url, opts)
-    end
-  end
 
   @app_session %Session{
     access_jwt: "token123",
@@ -25,17 +13,6 @@ defmodule ProtoRune.SessionTest do
     handle: "alice.test",
     service_url: "https://pds.test/xrpc"
   }
-
-  setup do
-    Application.put_env(:proto_rune, :http_client, HTTPStub)
-
-    on_exit(fn ->
-      Application.delete_env(:proto_rune, :http_client)
-      Application.delete_env(:proto_rune, :http_stub_handler)
-    end)
-
-    :ok
-  end
 
   defp oauth_session(opts \\ []) do
     {dpop_key, dpop_jwk} = DPoP.generate_key()
@@ -96,16 +73,17 @@ defmodule ProtoRune.SessionTest do
       session = oauth_session()
       test_pid = self()
 
-      Application.put_env(:proto_rune, :http_stub_handler, fn method, url, opts ->
-        send(test_pid, {:request, method, url, opts})
-        {:ok, %{status: 200, body: %{"uri" => "at://did:plc:test/app.bsky.feed.post/abc"}}}
-      end)
+      http =
+        fake_http(fn method, url, opts ->
+          send(test_pid, {:request, method, url, opts})
+          {:ok, %{status: 200, body: %{"uri" => "at://did:plc:test/app.bsky.feed.post/abc"}}}
+        end)
 
       assert {:ok, _} =
-               Repo.get_record(session,
-                 repo: "did:plc:test",
-                 collection: "app.bsky.feed.post",
-                 rkey: "abc"
+               Repo.get_record(
+                 session,
+                 %{repo: "did:plc:test", collection: "app.bsky.feed.post", rkey: "abc"},
+                 http: http
                )
 
       assert_received {:request, :get, url, opts}
@@ -127,28 +105,29 @@ defmodule ProtoRune.SessionTest do
       test_pid = self()
       {:ok, calls} = Agent.start_link(fn -> 0 end)
 
-      Application.put_env(:proto_rune, :http_stub_handler, fn method, url, opts ->
-        send(test_pid, {:request, method, url, opts})
+      http =
+        fake_http(fn method, url, opts ->
+          send(test_pid, {:request, method, url, opts})
 
-        case Agent.get_and_update(calls, &{&1 + 1, &1 + 1}) do
-          1 ->
-            {:ok,
-             %{
-               status: 401,
-               body: %{"error" => "use_dpop_nonce"},
-               headers: [{"dpop-nonce", "nonce-r1"}]
-             }}
+          case Agent.get_and_update(calls, &{&1 + 1, &1 + 1}) do
+            1 ->
+              {:ok,
+               %{
+                 status: 401,
+                 body: %{"error" => "use_dpop_nonce"},
+                 headers: [{"dpop-nonce", "nonce-r1"}]
+               }}
 
-          2 ->
-            {:ok, %{status: 200, body: %{"uri" => "at://did:plc:test/app.bsky.feed.post/abc"}}}
-        end
-      end)
+            2 ->
+              {:ok, %{status: 200, body: %{"uri" => "at://did:plc:test/app.bsky.feed.post/abc"}}}
+          end
+        end)
 
       assert {:ok, %{uri: _}} =
-               Repo.get_record(session,
-                 repo: "did:plc:test",
-                 collection: "app.bsky.feed.post",
-                 rkey: "abc"
+               Repo.get_record(
+                 session,
+                 %{repo: "did:plc:test", collection: "app.bsky.feed.post", rkey: "abc"},
+                 http: http
                )
 
       assert_received {:request, :get, _url, first_opts}

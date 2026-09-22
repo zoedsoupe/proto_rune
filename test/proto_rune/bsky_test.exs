@@ -1,20 +1,8 @@
 defmodule ProtoRune.BskyTest do
-  use ExUnit.Case, async: false
+  use ProtoRune.TestCase, async: true
 
   alias ProtoRune.Bsky
   alias ProtoRune.XRPC.Error
-
-  defmodule HTTPStub do
-    @moduledoc false
-
-    @behaviour ProtoRune.HTTPClient.Adapter
-
-    @impl true
-    def request(method, url, opts) do
-      handler = Application.fetch_env!(:proto_rune, :http_stub_handler)
-      handler.(method, url, opts)
-    end
-  end
 
   @session %ProtoRune.Atproto.Session{
     access_jwt: "token123",
@@ -24,34 +12,22 @@ defmodule ProtoRune.BskyTest do
     service_url: "https://pds.test/xrpc"
   }
 
-  setup do
-    Application.put_env(:proto_rune, :http_client, HTTPStub)
-
-    on_exit(fn ->
-      Application.delete_env(:proto_rune, :http_client)
-      Application.delete_env(:proto_rune, :http_stub_handler)
-    end)
-
-    :ok
-  end
-
-  defp stub(fun), do: Application.put_env(:proto_rune, :http_stub_handler, fun)
-
   defp ok(body), do: {:ok, %{status: 200, body: body}}
 
   describe "search_posts/3" do
     test "searches posts with a plain query" do
-      stub(fn :get, url, opts ->
-        send(self(), {:request, url, opts})
+      http =
+        fake_http(fn :get, url, opts ->
+          send(self(), {:request, url, opts})
 
-        ok(%{
-          "posts" => [%{"uri" => "at://did:plc:x/app.bsky.feed.post/1", "cid" => "cid1"}],
-          "cursor" => "next-page"
-        })
-      end)
+          ok(%{
+            "posts" => [%{"uri" => "at://did:plc:x/app.bsky.feed.post/1", "cid" => "cid1"}],
+            "cursor" => "next-page"
+          })
+        end)
 
       assert {:ok, %{posts: [%{uri: "at://did:plc:x/app.bsky.feed.post/1"}], cursor: "next-page"}} =
-               Bsky.search_posts(@session, "elixir lang")
+               Bsky.search_posts(@session, "elixir lang", http: http)
 
       assert_received {:request, url, opts}
       assert url =~ "app.bsky.feed.searchPosts"
@@ -61,13 +37,14 @@ defmodule ProtoRune.BskyTest do
     end
 
     test "forwards search options" do
-      stub(fn :get, url, _opts ->
-        send(self(), {:request, url})
-        ok(%{"posts" => []})
-      end)
+      http =
+        fake_http(fn :get, url, _opts ->
+          send(self(), {:request, url})
+          ok(%{"posts" => []})
+        end)
 
       assert {:ok, %{posts: []}} =
-               Bsky.search_posts(@session, "elixir", sort: :latest, author: "alice.bsky.social", limit: 10)
+               Bsky.search_posts(@session, "elixir", sort: :latest, author: "alice.bsky.social", limit: 10, http: http)
 
       assert_received {:request, url}
       assert url =~ "sort=latest"
@@ -76,31 +53,33 @@ defmodule ProtoRune.BskyTest do
     end
 
     test "propagates request errors" do
-      stub(fn :get, _url, _opts ->
-        {:ok,
-         %Req.Response{
-           status: 400,
-           body: %{"error" => "BadQueryString", "message" => "bad query"}
-         }}
-      end)
+      http =
+        fake_http(fn :get, _url, _opts ->
+          {:ok,
+           %Req.Response{
+             status: 400,
+             body: %{"error" => "BadQueryString", "message" => "bad query"}
+           }}
+        end)
 
-      assert {:error, %Error{reason: :bad_query_string}} = Bsky.search_posts(@session, "nope")
+      assert {:error, %Error{reason: :bad_query_string}} = Bsky.search_posts(@session, "nope", http: http)
     end
   end
 
   describe "search_actors/3" do
     test "searches actors with a plain query" do
-      stub(fn :get, url, _opts ->
-        send(self(), {:request, url})
+      http =
+        fake_http(fn :get, url, _opts ->
+          send(self(), {:request, url})
 
-        ok(%{
-          "actors" => [%{"did" => "did:plc:alice", "handle" => "alice.bsky.social"}],
-          "cursor" => "next-page"
-        })
-      end)
+          ok(%{
+            "actors" => [%{"did" => "did:plc:alice", "handle" => "alice.bsky.social"}],
+            "cursor" => "next-page"
+          })
+        end)
 
       assert {:ok, %{actors: [%{handle: "alice.bsky.social"}], cursor: "next-page"}} =
-               Bsky.search_actors(@session, "alice")
+               Bsky.search_actors(@session, "alice", http: http)
 
       assert_received {:request, url}
       assert url =~ "app.bsky.actor.searchActors"
@@ -109,12 +88,13 @@ defmodule ProtoRune.BskyTest do
     end
 
     test "forwards pagination options" do
-      stub(fn :get, url, _opts ->
-        send(self(), {:request, url})
-        ok(%{"actors" => []})
-      end)
+      http =
+        fake_http(fn :get, url, _opts ->
+          send(self(), {:request, url})
+          ok(%{"actors" => []})
+        end)
 
-      assert {:ok, %{actors: []}} = Bsky.search_actors(@session, "alice", limit: 5, cursor: "abc")
+      assert {:ok, %{actors: []}} = Bsky.search_actors(@session, "alice", limit: 5, cursor: "abc", http: http)
 
       assert_received {:request, url}
       assert url =~ "limit=5"
@@ -124,26 +104,27 @@ defmodule ProtoRune.BskyTest do
 
   describe "update_profile/2" do
     test "merges changes into the existing profile record" do
-      stub(fn
-        :get, url, _opts ->
-          send(self(), {:request, :get, url})
+      http =
+        fake_http(fn
+          :get, url, _opts ->
+            send(self(), {:request, :get, url})
 
-          ok(%{
-            "uri" => "at://did:plc:test/app.bsky.actor.profile/self",
-            "cid" => "cid1",
-            "value" => %{
-              "$type" => "app.bsky.actor.profile",
-              "displayName" => "Old Name",
-              "description" => "old bio"
-            }
-          })
+            ok(%{
+              "uri" => "at://did:plc:test/app.bsky.actor.profile/self",
+              "cid" => "cid1",
+              "value" => %{
+                "$type" => "app.bsky.actor.profile",
+                "displayName" => "Old Name",
+                "description" => "old bio"
+              }
+            })
 
-        :post, url, opts ->
-          send(self(), {:request, :post, url, opts})
-          ok(%{"uri" => "at://did:plc:test/app.bsky.actor.profile/self", "cid" => "cid2"})
-      end)
+          :post, url, opts ->
+            send(self(), {:request, :post, url, opts})
+            ok(%{"uri" => "at://did:plc:test/app.bsky.actor.profile/self", "cid" => "cid2"})
+        end)
 
-      assert {:ok, %{cid: "cid2"}} = Bsky.update_profile(@session, display_name: "New Name")
+      assert {:ok, %{cid: "cid2"}} = Bsky.update_profile(@session, display_name: "New Name", http: http)
 
       assert_received {:request, :get, get_url}
       assert get_url =~ "com.atproto.repo.getRecord"
@@ -163,33 +144,34 @@ defmodule ProtoRune.BskyTest do
     end
 
     test "uploads the avatar blob before writing the record" do
-      stub(fn
-        :get, _url, _opts ->
-          ok(%{
-            "uri" => "at://did:plc:test/app.bsky.actor.profile/self",
-            "cid" => "cid1",
-            "value" => %{"$type" => "app.bsky.actor.profile", "displayName" => "Alice"}
-          })
-
-        :post, url, opts ->
-          send(self(), {:request, :post, url, opts})
-
-          if url =~ "uploadBlob" do
+      http =
+        fake_http(fn
+          :get, _url, _opts ->
             ok(%{
-              "blob" => %{
-                "$type" => "blob",
-                "ref" => %{"$link" => "bafkreid"},
-                "mimeType" => "image/png",
-                "size" => 3
-              }
+              "uri" => "at://did:plc:test/app.bsky.actor.profile/self",
+              "cid" => "cid1",
+              "value" => %{"$type" => "app.bsky.actor.profile", "displayName" => "Alice"}
             })
-          else
-            ok(%{"uri" => "at://did:plc:test/app.bsky.actor.profile/self", "cid" => "cid2"})
-          end
-      end)
+
+          :post, url, opts ->
+            send(self(), {:request, :post, url, opts})
+
+            if url =~ "uploadBlob" do
+              ok(%{
+                "blob" => %{
+                  "$type" => "blob",
+                  "ref" => %{"$link" => "bafkreid"},
+                  "mimeType" => "image/png",
+                  "size" => 3
+                }
+              })
+            else
+              ok(%{"uri" => "at://did:plc:test/app.bsky.actor.profile/self", "cid" => "cid2"})
+            end
+        end)
 
       assert {:ok, %{cid: "cid2"}} =
-               Bsky.update_profile(@session, avatar: {<<1, 2, 3>>, "image/png"})
+               Bsky.update_profile(@session, avatar: {<<1, 2, 3>>, "image/png"}, http: http)
 
       assert_received {:request, :post, upload_url, upload_opts}
       assert upload_url =~ "com.atproto.repo.uploadBlob"
@@ -204,20 +186,21 @@ defmodule ProtoRune.BskyTest do
     end
 
     test "starts from an empty record when no profile exists yet" do
-      stub(fn
-        :get, _url, _opts ->
-          {:ok,
-           %Req.Response{
-             status: 400,
-             body: %{"error" => "RecordNotFound", "message" => "could not find record"}
-           }}
+      http =
+        fake_http(fn
+          :get, _url, _opts ->
+            {:ok,
+             %Req.Response{
+               status: 400,
+               body: %{"error" => "RecordNotFound", "message" => "could not find record"}
+             }}
 
-        :post, url, opts ->
-          send(self(), {:request, :post, url, opts})
-          ok(%{"uri" => "at://did:plc:test/app.bsky.actor.profile/self", "cid" => "cid1"})
-      end)
+          :post, url, opts ->
+            send(self(), {:request, :post, url, opts})
+            ok(%{"uri" => "at://did:plc:test/app.bsky.actor.profile/self", "cid" => "cid1"})
+        end)
 
-      assert {:ok, %{cid: "cid1"}} = Bsky.update_profile(@session, description: "hello")
+      assert {:ok, %{cid: "cid1"}} = Bsky.update_profile(@session, description: "hello", http: http)
 
       assert_received {:request, :post, _url, opts}
       assert opts[:json][:record][:"$type"] == "app.bsky.actor.profile"
@@ -226,16 +209,17 @@ defmodule ProtoRune.BskyTest do
     end
 
     test "propagates errors from fetching the current profile" do
-      stub(fn :get, _url, _opts ->
-        {:ok,
-         %Req.Response{
-           status: 401,
-           body: %{"error" => "ExpiredToken", "message" => "token expired"}
-         }}
-      end)
+      http =
+        fake_http(fn :get, _url, _opts ->
+          {:ok,
+           %Req.Response{
+             status: 401,
+             body: %{"error" => "ExpiredToken", "message" => "token expired"}
+           }}
+        end)
 
       assert {:error, %Error{reason: :expired_token}} =
-               Bsky.update_profile(@session, display_name: "New Name")
+               Bsky.update_profile(@session, display_name: "New Name", http: http)
     end
   end
 end

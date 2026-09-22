@@ -1,5 +1,5 @@
 defmodule ProtoRune.Atproto.OAuthTest do
-  use ExUnit.Case, async: false
+  use ProtoRune.TestCase, async: false
 
   alias ProtoRune.Atproto.Identity.Cache
   alias ProtoRune.Atproto.OAuth
@@ -16,40 +16,24 @@ defmodule ProtoRune.Atproto.OAuthTest do
   @revoke_url "https://auth.test/oauth/revoke"
   @did "did:plc:test123"
 
-  defmodule FakeHTTP do
-    @moduledoc false
-
-    @behaviour ProtoRune.HTTPClient.Adapter
-
-    @impl true
-    def request(method, url, opts) do
-      handler =
-        Agent.get(ProtoRune.Atproto.OAuthTest.FakeHTTPServer, fn state ->
-          Map.get(state, {:request, method, url})
-        end)
-
-      case handler do
-        nil -> raise "unexpected request: #{method} #{url}"
-        fun when is_function(fun, 1) -> fun.(opts)
-        response -> response
-      end
-    end
-  end
-
   setup do
     {:ok, _agent} = Agent.start_link(fn -> %{} end, name: @fake_server)
 
-    previous = Application.get_env(:proto_rune, :http_client)
-    Application.put_env(:proto_rune, :http_client, FakeHTTP)
-    start_supervised!(Cache)
+    http =
+      fake_http(fn method, url, opts ->
+        handler =
+          Agent.get(@fake_server, fn state ->
+            Map.get(state, {:request, method, url})
+          end)
 
-    on_exit(fn ->
-      if previous do
-        Application.put_env(:proto_rune, :http_client, previous)
-      else
-        Application.delete_env(:proto_rune, :http_client)
-      end
-    end)
+        case handler do
+          nil -> raise "unexpected request: #{method} #{url}"
+          fun when is_function(fun, 1) -> fun.(opts)
+          response -> response
+        end
+      end)
+
+    start_supervised!(Cache)
 
     {:ok, client} =
       Client.new(
@@ -57,14 +41,14 @@ defmodule ProtoRune.Atproto.OAuthTest do
         redirect_uri: "https://myapp.test/oauth/callback"
       )
 
-    {:ok, client: client}
+    {:ok, client: client, http: http}
   end
 
   describe "authorization_url/3" do
-    test "resolves a DID and builds the authorize URL from a PAR", %{client: client} do
+    test "resolves a DID and builds the authorize URL from a PAR", %{client: client, http: http} do
       stub_authorization_server(%{client: client})
 
-      assert {:ok, url, pending} = OAuth.authorization_url(client, @did)
+      assert {:ok, url, pending} = OAuth.authorization_url(client, @did, http: http)
 
       assert url =~ @authorize_url <> "?"
       assert url =~ "client_id=https%3A%2F%2Fmyapp.test%2Foauth%2Fclient-metadata.json"
@@ -81,18 +65,18 @@ defmodule ProtoRune.Atproto.OAuthTest do
       assert pending.dpop_key == client.dpop_key
     end
 
-    test "resolves a handle through the identity cache", %{client: client} do
+    test "resolves a handle through the identity cache", %{client: client, http: http} do
       stub_authorization_server(%{client: client, login_hint: "alice.test"})
 
       expires_at = System.system_time(:millisecond) + 60_000
       :ets.insert(:handle_cache, {"alice.test", @did, %{expires_at: expires_at}})
 
-      assert {:ok, _url, pending} = OAuth.authorization_url(client, "alice.test")
+      assert {:ok, _url, pending} = OAuth.authorization_url(client, "alice.test", http: http)
       assert pending.handle == "alice.test"
       assert pending.did == @did
     end
 
-    test "retries PAR once with the server-provided DPoP nonce", %{client: client} do
+    test "retries PAR once with the server-provided DPoP nonce", %{client: client, http: http} do
       stub_identity()
       stub_metadata()
 
@@ -122,24 +106,24 @@ defmodule ProtoRune.Atproto.OAuthTest do
         end
       end)
 
-      assert {:ok, _url, pending} = OAuth.authorization_url(client, @did)
+      assert {:ok, _url, pending} = OAuth.authorization_url(client, @did, http: http)
       assert pending.dpop_nonce == "nonce-y"
     end
 
-    test "returns an error for invalid identifiers", %{client: client} do
-      assert {:error, :invalid_identifier} = OAuth.authorization_url(client, "not a handle")
+    test "returns an error for invalid identifiers", %{client: client, http: http} do
+      assert {:error, :invalid_identifier} = OAuth.authorization_url(client, "not a handle", http: http)
     end
 
-    test "returns an error when the DID document has no PDS", %{client: client} do
+    test "returns an error when the DID document has no PDS", %{client: client, http: http} do
       stub(:get, "https://plc.directory/#{@did}", %{
         status: 200,
         body: JSON.encode!(%{"id" => @did, "service" => []})
       })
 
-      assert {:error, :pds_not_found} = OAuth.authorization_url(client, @did)
+      assert {:error, :pds_not_found} = OAuth.authorization_url(client, @did, http: http)
     end
 
-    test "returns an error when protected resource metadata is malformed", %{client: client} do
+    test "returns an error when protected resource metadata is malformed", %{client: client, http: http} do
       stub_identity()
 
       stub(:get, @pds_url <> "/.well-known/oauth-protected-resource", %{
@@ -147,10 +131,10 @@ defmodule ProtoRune.Atproto.OAuthTest do
         body: %{"resource" => @pds_url}
       })
 
-      assert {:error, :invalid_protected_resource_metadata} = OAuth.authorization_url(client, @did)
+      assert {:error, :invalid_protected_resource_metadata} = OAuth.authorization_url(client, @did, http: http)
     end
 
-    test "returns an error when the metadata issuer does not match", %{client: client} do
+    test "returns an error when the metadata issuer does not match", %{client: client, http: http} do
       stub_identity()
       stub_protected_resource()
 
@@ -162,12 +146,12 @@ defmodule ProtoRune.Atproto.OAuthTest do
           })
       })
 
-      assert {:error, :issuer_mismatch} = OAuth.authorization_url(client, @did)
+      assert {:error, :issuer_mismatch} = OAuth.authorization_url(client, @did, http: http)
     end
   end
 
   describe "exchange_code/3" do
-    test "exchanges the code for a DPoP-bound session", %{client: client} do
+    test "exchanges the code for a DPoP-bound session", %{client: client, http: http} do
       pending = pending(client)
 
       stub(:post, @token_url, fn opts ->
@@ -202,7 +186,7 @@ defmodule ProtoRune.Atproto.OAuthTest do
 
       params = %{"code" => "code-123", "state" => pending.state, "iss" => @issuer}
 
-      assert {:ok, %Session{} = session} = OAuth.exchange_code(client, pending, params)
+      assert {:ok, %Session{} = session} = OAuth.exchange_code(client, pending, params, http: http)
 
       assert session.did == @did
       assert session.access_token == "at-1"
@@ -217,38 +201,38 @@ defmodule ProtoRune.Atproto.OAuthTest do
       assert session.expires_at > System.system_time(:second)
     end
 
-    test "accepts atom-keyed callback params", %{client: client} do
+    test "accepts atom-keyed callback params", %{client: client, http: http} do
       pending = pending(client)
       stub_token_response()
 
       params = %{code: "code-123", state: pending.state}
 
-      assert {:ok, %Session{}} = OAuth.exchange_code(client, pending, params)
+      assert {:ok, %Session{}} = OAuth.exchange_code(client, pending, params, http: http)
     end
 
-    test "rejects a mismatched state", %{client: client} do
+    test "rejects a mismatched state", %{client: client, http: http} do
       pending = pending(client)
 
       assert {:error, :state_mismatch} =
-               OAuth.exchange_code(client, pending, %{"code" => "code-123", "state" => "forged"})
+               OAuth.exchange_code(client, pending, %{"code" => "code-123", "state" => "forged"}, http: http)
     end
 
-    test "rejects a mismatched issuer", %{client: client} do
+    test "rejects a mismatched issuer", %{client: client, http: http} do
       pending = pending(client)
 
       params = %{"code" => "code-123", "state" => pending.state, "iss" => "https://evil.test"}
 
-      assert {:error, :issuer_mismatch} = OAuth.exchange_code(client, pending, params)
+      assert {:error, :issuer_mismatch} = OAuth.exchange_code(client, pending, params, http: http)
     end
 
-    test "rejects callbacks without a code", %{client: client} do
+    test "rejects callbacks without a code", %{client: client, http: http} do
       pending = pending(client)
 
       assert {:error, :missing_code} =
-               OAuth.exchange_code(client, pending, %{"state" => pending.state, "error" => "access_denied"})
+               OAuth.exchange_code(client, pending, %{"state" => pending.state, "error" => "access_denied"}, http: http)
     end
 
-    test "propagates token endpoint errors", %{client: client} do
+    test "propagates token endpoint errors", %{client: client, http: http} do
       pending = pending(client)
 
       stub(:post, @token_url, %{
@@ -258,12 +242,12 @@ defmodule ProtoRune.Atproto.OAuthTest do
       })
 
       assert {:error, {:oauth_error, 400, %{"error" => "invalid_grant"}}} =
-               OAuth.exchange_code(client, pending, %{"code" => "bad", "state" => pending.state})
+               OAuth.exchange_code(client, pending, %{"code" => "bad", "state" => pending.state}, http: http)
     end
   end
 
   describe "refresh/2" do
-    test "refreshes tokens and rotates the refresh token", %{client: client} do
+    test "refreshes tokens and rotates the refresh token", %{client: client, http: http} do
       session = session(client)
 
       stub(:post, @token_url, fn opts ->
@@ -287,7 +271,7 @@ defmodule ProtoRune.Atproto.OAuthTest do
          }}
       end)
 
-      assert {:ok, fresh} = OAuth.refresh(client, session)
+      assert {:ok, fresh} = OAuth.refresh(client, session, http: http)
 
       assert fresh.access_token == "at-2"
       assert fresh.refresh_token == "rt-2"
@@ -296,7 +280,7 @@ defmodule ProtoRune.Atproto.OAuthTest do
       assert fresh.issuer == session.issuer
     end
 
-    test "keeps the previous refresh token when none is issued", %{client: client} do
+    test "keeps the previous refresh token when none is issued", %{client: client, http: http} do
       session = session(client)
 
       stub(:post, @token_url, %{
@@ -305,19 +289,19 @@ defmodule ProtoRune.Atproto.OAuthTest do
         headers: []
       })
 
-      assert {:ok, fresh} = OAuth.refresh(client, session)
+      assert {:ok, fresh} = OAuth.refresh(client, session, http: http)
       assert fresh.refresh_token == "rt-1"
     end
 
-    test "returns an error without a refresh token", %{client: client} do
+    test "returns an error without a refresh token", %{client: client, http: http} do
       session = %{session(client) | refresh_token: nil}
 
-      assert {:error, :missing_refresh_token} = OAuth.refresh(client, session)
+      assert {:error, :missing_refresh_token} = OAuth.refresh(client, session, http: http)
     end
   end
 
   describe "revoke/2" do
-    test "revokes the refresh token with a DPoP-bound form post", %{client: client} do
+    test "revokes the refresh token with a DPoP-bound form post", %{client: client, http: http} do
       session = session(client)
       stub_revocation_metadata()
 
@@ -336,10 +320,10 @@ defmodule ProtoRune.Atproto.OAuthTest do
         {:ok, %{status: 200, body: "", headers: []}}
       end)
 
-      assert {:ok, :revoked} = OAuth.revoke(session, client_id: client.client_id)
+      assert {:ok, :revoked} = OAuth.revoke(session, client_id: client.client_id, http: http)
     end
 
-    test "returns :revocation_not_supported when the server declares no endpoint", %{client: client} do
+    test "returns :revocation_not_supported when the server declares no endpoint", %{client: client, http: http} do
       session = session(client)
 
       stub(:get, @issuer <> "/.well-known/oauth-authorization-server", %{
@@ -347,10 +331,10 @@ defmodule ProtoRune.Atproto.OAuthTest do
         body: authorization_server_metadata()
       })
 
-      assert {:error, :revocation_not_supported} = OAuth.revoke(session, client_id: client.client_id)
+      assert {:error, :revocation_not_supported} = OAuth.revoke(session, client_id: client.client_id, http: http)
     end
 
-    test "propagates revocation endpoint errors", %{client: client} do
+    test "propagates revocation endpoint errors", %{client: client, http: http} do
       session = session(client)
       stub_revocation_metadata()
 
@@ -361,16 +345,16 @@ defmodule ProtoRune.Atproto.OAuthTest do
       })
 
       assert {:error, {:oauth_error, 400, %{"error" => "invalid_client"}}} =
-               OAuth.revoke(session, client_id: client.client_id)
+               OAuth.revoke(session, client_id: client.client_id, http: http)
     end
 
-    test "returns an error without a refresh token", %{client: client} do
+    test "returns an error without a refresh token", %{client: client, http: http} do
       session = %{session(client) | refresh_token: nil}
 
-      assert {:error, :missing_refresh_token} = OAuth.revoke(session, client_id: client.client_id)
+      assert {:error, :missing_refresh_token} = OAuth.revoke(session, client_id: client.client_id, http: http)
     end
 
-    test "requires a client_id", %{client: client} do
+    test "requires a client_id", %{client: client, http: http} do
       assert {:error, :missing_client_id} = OAuth.revoke(session(client))
     end
   end

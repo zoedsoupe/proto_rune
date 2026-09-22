@@ -1,5 +1,5 @@
 defmodule ProtoRune.Atproto.OAuth.SessionManagerTest do
-  use ExUnit.Case, async: false
+  use ProtoRune.TestCase, async: true
 
   alias ProtoRune.Atproto.OAuth.Client
   alias ProtoRune.Atproto.OAuth.Session
@@ -20,18 +20,6 @@ defmodule ProtoRune.Atproto.OAuth.SessionManagerTest do
     [:proto_rune, :oauth, :revoke, :stop],
     [:proto_rune, :oauth, :revoke, :exception]
   ]
-
-  defmodule HTTPStub do
-    @moduledoc false
-
-    @behaviour ProtoRune.HTTPClient.Adapter
-
-    @impl true
-    def request(method, url, opts) do
-      handler = Application.fetch_env!(:proto_rune, :http_stub_handler)
-      handler.(method, url, opts)
-    end
-  end
 
   defmodule MemoryStore do
     @moduledoc false
@@ -54,15 +42,6 @@ defmodule ProtoRune.Atproto.OAuth.SessionManagerTest do
   end
 
   setup do
-    for key <- [:http_client, :http_stub_handler, :retry, :rate_limit] do
-      previous = Application.get_env(:proto_rune, key)
-      on_exit(fn -> restore_env(key, previous) end)
-    end
-
-    Application.put_env(:proto_rune, :http_client, HTTPStub)
-    Application.put_env(:proto_rune, :retry, false)
-    Application.put_env(:proto_rune, :rate_limit, false)
-
     {:ok, store_pid} = Agent.start_link(fn -> %{} end)
 
     {:ok, client} =
@@ -96,26 +75,27 @@ defmodule ProtoRune.Atproto.OAuth.SessionManagerTest do
   } do
     session = session(client, expires_at: System.system_time(:second) + 2)
 
-    Application.put_env(:proto_rune, :http_stub_handler, fn :post, @token_url, opts ->
-      form = opts[:form]
+    http =
+      fake_http(fn :post, @token_url, opts ->
+        form = opts[:form]
 
-      assert form["grant_type"] == "refresh_token"
-      assert form["refresh_token"] == "rt-1"
-      assert form["client_id"] == client.client_id
+        assert form["grant_type"] == "refresh_token"
+        assert form["refresh_token"] == "rt-1"
+        assert form["client_id"] == client.client_id
 
-      {:ok,
-       %{
-         status: 200,
-         body: %{
-           "access_token" => "at-2",
-           "refresh_token" => "rt-2",
-           "token_type" => "DPoP",
-           "expires_in" => 3600,
-           "sub" => @did
-         },
-         headers: [{"dpop-nonce", "nonce-9"}]
-       }}
-    end)
+        {:ok,
+         %{
+           status: 200,
+           body: %{
+             "access_token" => "at-2",
+             "refresh_token" => "rt-2",
+             "token_type" => "DPoP",
+             "expires_in" => 3600,
+             "sub" => @did
+           },
+           headers: [{"dpop-nonce", "nonce-9"}]
+         }}
+      end)
 
     {:ok, pid} =
       SessionManager.start_link(
@@ -123,6 +103,7 @@ defmodule ProtoRune.Atproto.OAuth.SessionManagerTest do
         client: client,
         store: store,
         key: key,
+        http: http,
         refresh_fraction: 0.1
       )
 
@@ -157,9 +138,10 @@ defmodule ProtoRune.Atproto.OAuth.SessionManagerTest do
 
     session = session(client, expires_at: System.system_time(:second) + 2)
 
-    Application.put_env(:proto_rune, :http_stub_handler, fn :post, @token_url, _opts ->
-      {:ok, %{status: 500, body: %{"error" => "server_error"}, headers: []}}
-    end)
+    http =
+      fake_http(fn :post, @token_url, _opts ->
+        {:ok, %{status: 500, body: %{"error" => "server_error"}, headers: []}}
+      end)
 
     {:ok, pid} =
       SessionManager.start_link(
@@ -167,6 +149,7 @@ defmodule ProtoRune.Atproto.OAuth.SessionManagerTest do
         client: client,
         store: store,
         key: key,
+        http: http,
         refresh_fraction: 0.1
       )
 
@@ -187,10 +170,11 @@ defmodule ProtoRune.Atproto.OAuth.SessionManagerTest do
 
     session = session(client, expires_at: System.system_time(:second) + 2)
 
-    Application.put_env(:proto_rune, :http_stub_handler, fn :post, @token_url, _opts ->
-      {:ok,
-       %{status: 400, body: %{"error" => "invalid_grant", "error_description" => "Refresh token replayed"}, headers: []}}
-    end)
+    http =
+      fake_http(fn :post, @token_url, _opts ->
+        {:ok,
+         %{status: 400, body: %{"error" => "invalid_grant", "error_description" => "Refresh token replayed"}, headers: []}}
+      end)
 
     MemoryStore.put(@did, "stale-blob", pid: store_pid)
 
@@ -200,6 +184,7 @@ defmodule ProtoRune.Atproto.OAuth.SessionManagerTest do
         client: client,
         store: store,
         key: key,
+        http: http,
         refresh_fraction: 0.1
       )
 
@@ -219,25 +204,26 @@ defmodule ProtoRune.Atproto.OAuth.SessionManagerTest do
     session = session(client)
     test_pid = self()
 
-    Application.put_env(:proto_rune, :http_stub_handler, fn
-      :get, @issuer <> "/.well-known/oauth-authorization-server", _opts ->
-        {:ok, %{status: 200, body: authorization_server_metadata(), headers: []}}
+    http =
+      fake_http(fn
+        :get, @issuer <> "/.well-known/oauth-authorization-server", _opts ->
+          {:ok, %{status: 200, body: authorization_server_metadata(), headers: []}}
 
-      :post, @revoke_url, opts ->
-        form = opts[:form]
+        :post, @revoke_url, opts ->
+          form = opts[:form]
 
-        assert form["token"] == "rt-1"
-        assert form["client_id"] == client.client_id
-        assert {"dpop", _proof} = List.keyfind(opts[:headers], "dpop", 0)
+          assert form["token"] == "rt-1"
+          assert form["client_id"] == client.client_id
+          assert {"dpop", _proof} = List.keyfind(opts[:headers], "dpop", 0)
 
-        send(test_pid, :revoked)
+          send(test_pid, :revoked)
 
-        {:ok, %{status: 200, body: "", headers: []}}
-    end)
+          {:ok, %{status: 200, body: "", headers: []}}
+      end)
 
     :ok = MemoryStore.put(@did, :erlang.term_to_binary(session), pid: store_pid)
 
-    {:ok, pid} = SessionManager.start_link(session: session, client: client, store: store, key: key)
+    {:ok, pid} = SessionManager.start_link(session: session, client: client, store: store, key: key, http: http)
     ref = Process.monitor(pid)
 
     assert :ok = SessionManager.logout(pid)
@@ -273,9 +259,6 @@ defmodule ProtoRune.Atproto.OAuth.SessionManagerTest do
   end
 
   # Helpers
-
-  defp restore_env(key, nil), do: Application.delete_env(:proto_rune, key)
-  defp restore_env(key, value), do: Application.put_env(:proto_rune, key, value)
 
   defp session(client, opts \\ []) do
     %Session{

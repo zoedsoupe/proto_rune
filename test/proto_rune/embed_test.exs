@@ -1,27 +1,8 @@
 defmodule ProtoRune.Bsky.EmbedTest do
-  use ExUnit.Case, async: false
+  use ProtoRune.TestCase, async: true
 
   alias ProtoRune.Bsky
   alias ProtoRune.Bsky.Embed
-
-  defmodule CaptureAdapter do
-    @moduledoc false
-    @behaviour ProtoRune.HTTPClient.Adapter
-
-    @impl true
-    def request(method, url, opts) do
-      send(Application.fetch_env!(:proto_rune, :embed_test_pid), {:request, method, url, opts})
-
-      body =
-        if url =~ "uploadBlob" do
-          %{"blob" => %{"$type" => "blob", "ref" => %{"$link" => "bafkfake"}, "mimeType" => "image/png", "size" => 3}}
-        else
-          %{"uri" => "at://did:plc:test/app.bsky.feed.post/abc", "cid" => "cid1"}
-        end
-
-      {:ok, %{status: 200, headers: %{}, body: body}}
-    end
-  end
 
   @session %ProtoRune.Atproto.Session{
     access_jwt: "token123",
@@ -34,23 +15,24 @@ defmodule ProtoRune.Bsky.EmbedTest do
   @blob %{"$type": "blob", ref: %{"$link": "bafkfake"}, mime_type: "image/png", size: 3}
 
   setup do
-    previous = Application.get_env(:proto_rune, :http_client)
-    on_exit(fn -> restore_env(:http_client, previous) end)
+    test_pid = self()
 
-    Application.put_env(:proto_rune, :http_client, CaptureAdapter)
-    Application.put_env(:proto_rune, :rate_limit, false)
-    Application.put_env(:proto_rune, :embed_test_pid, self())
+    http =
+      fake_http(fn method, url, opts ->
+        send(test_pid, {:request, method, url, opts})
 
-    on_exit(fn ->
-      Application.delete_env(:proto_rune, :rate_limit)
-      Application.delete_env(:proto_rune, :embed_test_pid)
-    end)
+        body =
+          if url =~ "uploadBlob" do
+            %{"blob" => %{"$type" => "blob", "ref" => %{"$link" => "bafkfake"}, "mimeType" => "image/png", "size" => 3}}
+          else
+            %{"uri" => "at://did:plc:test/app.bsky.feed.post/abc", "cid" => "cid1"}
+          end
 
-    :ok
+        {:ok, %{status: 200, headers: %{}, body: body}}
+      end)
+
+    {:ok, http: http}
   end
-
-  defp restore_env(key, nil), do: Application.delete_env(:proto_rune, key)
-  defp restore_env(key, value), do: Application.put_env(:proto_rune, key, value)
 
   describe "builders" do
     test "images/1 builds an images embed with optional aspect ratio" do
@@ -92,17 +74,17 @@ defmodule ProtoRune.Bsky.EmbedTest do
   end
 
   describe "Bsky.post/3 with embeds" do
-    test "attaches an embed map to the record" do
+    test "attaches an embed map to the record", %{http: http} do
       embed = Embed.external("https://x.test", "Title", "Desc")
 
-      assert {:ok, _} = Bsky.post(@session, "read this", embed: embed)
+      assert {:ok, _} = Bsky.post(@session, "read this", embed: embed, http: http)
 
       assert_received {:request, :post, _url, opts}
       assert opts[:json][:record][:embed] == embed
     end
 
-    test "uploads :images and attaches an images embed" do
-      assert {:ok, _} = Bsky.post(@session, "cat tax", images: [{"png", "image/png", "a cat"}])
+    test "uploads :images and attaches an images embed", %{http: http} do
+      assert {:ok, _} = Bsky.post(@session, "cat tax", images: [{"png", "image/png", "a cat"}], http: http)
 
       assert_received {:request, :post, upload_url, upload_opts}
       assert upload_url =~ "com.atproto.repo.uploadBlob"
@@ -115,10 +97,10 @@ defmodule ProtoRune.Bsky.EmbedTest do
       assert [%{alt: "a cat", image: %{mimeType: "image/png"}}] = embed[:images]
     end
 
-    test "wraps a quote and :images into recordWithMedia" do
+    test "wraps a quote and :images into recordWithMedia", %{http: http} do
       quote = Embed.record("at://did:plc:x/app.bsky.feed.post/1", "cid1")
 
-      assert {:ok, _} = Bsky.post(@session, "this!", embed: quote, images: [{"png", "image/png", "a cat"}])
+      assert {:ok, _} = Bsky.post(@session, "this!", embed: quote, images: [{"png", "image/png", "a cat"}], http: http)
 
       assert_received {:request, :post, upload_url, _opts}
       assert upload_url =~ "uploadBlob"
@@ -130,11 +112,11 @@ defmodule ProtoRune.Bsky.EmbedTest do
       assert embed[:media][:"$type"] == "app.bsky.embed.images"
     end
 
-    test "refuses :images combined with a non-record embed" do
+    test "refuses :images combined with a non-record embed", %{http: http} do
       card = Embed.external("https://x.test", "T", "D")
 
       assert {:error, :conflicting_embeds} =
-               Bsky.post(@session, "nope", embed: card, images: [{"png", "image/png", "x"}])
+               Bsky.post(@session, "nope", embed: card, images: [{"png", "image/png", "x"}], http: http)
     end
   end
 end

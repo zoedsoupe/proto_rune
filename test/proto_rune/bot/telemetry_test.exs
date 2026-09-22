@@ -1,5 +1,5 @@
 defmodule ProtoRune.Bot.TelemetryTest do
-  use ExUnit.Case, async: false
+  use ProtoRune.TestCase, async: true
 
   alias ProtoRune.Bot.Poller
   alias ProtoRune.Bot.Server
@@ -30,33 +30,7 @@ defmodule ProtoRune.Bot.TelemetryTest do
     def handle_event(_event, _payload), do: :ok
   end
 
-  defmodule FakeAdapter do
-    @moduledoc false
-    @behaviour ProtoRune.HTTPClient.Adapter
-
-    def start_link(responses) do
-      Agent.start_link(fn -> responses end, name: __MODULE__)
-    end
-
-    @impl true
-    def request(_method, _url, _opts) do
-      Agent.get_and_update(__MODULE__, fn
-        [next | rest] -> {next, rest}
-        [] -> {nil, []}
-      end) || raise("FakeAdapter received an unexpected request")
-    end
-  end
-
   setup do
-    for key <- [:http_client, :retry, :rate_limit] do
-      previous = Application.get_env(:proto_rune, key)
-      on_exit(fn -> restore_env(key, previous) end)
-    end
-
-    Application.put_env(:proto_rune, :http_client, FakeAdapter)
-    Application.put_env(:proto_rune, :rate_limit, false)
-    Application.put_env(:proto_rune, :retry, false)
-
     test_pid = self()
     handler_id = "bot-telemetry-test-#{System.unique_integer([:positive])}"
 
@@ -73,9 +47,6 @@ defmodule ProtoRune.Bot.TelemetryTest do
 
     :ok
   end
-
-  defp restore_env(key, nil), do: Application.delete_env(:proto_rune, key)
-  defp restore_env(key, value), do: Application.put_env(:proto_rune, key, value)
 
   describe "event processing" do
     test "emits a dispatch count and start/stop around handle_event/2" do
@@ -148,8 +119,6 @@ defmodule ProtoRune.Bot.TelemetryTest do
   end
 
   defp start_poller(responses) do
-    {:ok, _pid} = FakeAdapter.start_link(responses)
-
     name = :"poller_#{System.unique_integer([:positive])}"
 
     start_supervised!(
@@ -164,7 +133,8 @@ defmodule ProtoRune.Bot.TelemetryTest do
            did: "did:plc:test",
            handle: "bot.test"
          },
-         server_pid: self()
+         server_pid: self(),
+         http: fake_http_from(responses)
        ]}
     )
 
