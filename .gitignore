@@ -35,3 +35,4 @@ atproto-*.tar
 .DS_Store
 
 /.claude/
+erl_crash.dump
