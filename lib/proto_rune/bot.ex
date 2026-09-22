@@ -176,7 +176,7 @@ defmodule ProtoRune.Bot do
   @callback get_identifier :: String.t()
   @callback get_password :: String.t()
 
-  @callback handle_event(event :: atom(), data :: map()) :: {:ok, term} | {:error, term}
+  @callback handle_event(event :: atom(), data :: map()) :: term
 
   @spec __using__(Server.options_t()) :: Macro.t()
   defmacro __using__(opts) do

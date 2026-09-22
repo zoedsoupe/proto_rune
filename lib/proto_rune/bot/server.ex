@@ -17,12 +17,14 @@ defmodule ProtoRune.Bot.Server do
   - **Polling Strategy**: Supports polling for notifications at regular intervals via the
     `ProtoRune.Bot.Poller`.
   - **Session Management**: Automatically handles session creation, refresh, and expiration.
-  - **Event and Message Handling**: Provides a unified interface for handling events and messages
-    via `handle_message/1` and `handle_event/2`.
+  - **Event Handling**: Dispatches events to the bot's `handle_event/2` callback.
 
   ## Options
 
   - `:name` (required) - The name of the bot process.
+  - `:module` - The module implementing the `ProtoRune.Bot` callbacks
+    (defaults to `:name`, which covers the usual
+    `use ProtoRune.Bot, name: __MODULE__` setup).
   - `:lang` - A list of languages the bot supports (default: `["en"]`).
   - `:service` - The service endpoint the bot will connect to (default: `"https://bsky.social"`).
   - `:identifier` - The bot's login identifier (e.g., email or username).
@@ -70,7 +72,6 @@ defmodule ProtoRune.Bot.Server do
   ## Functions
 
   - `start_link/1`: Starts the bot process with the given configuration options.
-  - `handle_message/2`: Handles incoming messages for the bot.
   - `handle_event/3`: Handles events dispatched to the bot.
   - `format_status/1`: Formats the bot's internal state for debugging.
 
@@ -95,10 +96,9 @@ defmodule ProtoRune.Bot.Server do
   This will start a bot that uses the polling strategy to retrieve notifications from the
   Bsky service every 5 seconds.
 
-  The bot can handle messages and events like this:
+  Events can be injected directly:
 
   ```elixir
-  ProtoRune.Bot.Server.handle_message(:my_bot, "hello")
   ProtoRune.Bot.Server.handle_event(:my_bot, :user_joined, %{user: "user123"})
   ```
 
@@ -135,10 +135,10 @@ defmodule ProtoRune.Bot.Server do
 
   import Peri
 
-  alias ProtoRune.Atproto
   alias ProtoRune.Bot.Firehose
   alias ProtoRune.Bot.Poller
   alias ProtoRune.Bsky
+  alias ProtoRune.Session
 
   require Logger
 
@@ -155,6 +155,7 @@ defmodule ProtoRune.Bot.Server do
 
   @type option ::
           {:name, atom}
+          | {:module, atom}
           | {:lang, list(String.t())}
           | {:service, String.t()}
           | {:identifier, String.t() | nil}
@@ -178,10 +179,9 @@ defmodule ProtoRune.Bot.Server do
 
   @type options_t :: kwargs | mapargs
 
-  @dialyzer {:nowarn_function, options_t_changeset: 1}
-
   defschema(:options_t, %{
     name: {:required, :atom},
+    module: :atom,
     langs: {{:list, :string}, {:default, ["en"]}},
     service: {:string, {:default, "https://bsky.social"}},
     identifier: :string,
@@ -209,11 +209,6 @@ defmodule ProtoRune.Bot.Server do
     GenServer.start_link(__MODULE__, data, name: data[:name])
   end
 
-  @spec handle_message(pid | atom, String.t()) :: :ok
-  def handle_message(name, message) do
-    GenServer.cast(name, {:handle_message, message})
-  end
-
   @spec handle_event(pid | atom, atom, map) :: :ok
   def handle_event(name, event, payload \\ %{}) do
     GenServer.cast(name, {:handle_event, event, payload})
@@ -227,31 +222,27 @@ defmodule ProtoRune.Bot.Server do
 
   @impl true
   def handle_continue(:fetch_bot_profile, state) do
-    identifier = state[:identifier] || state[:name].get_identifier()
-    password = state[:password] || state[:name].get_password()
+    bot = bot_module(state)
+    identifier = state[:identifier] || bot.get_identifier()
+    password = state[:password] || bot.get_password()
 
-    with {:ok, data} <-
-           Atproto.Server.create_session(identifier: identifier, password: password),
-         {:ok, %Atproto.Session{} = session} <- Atproto.Session.parse(data) do
-      # Route requests through the session's service_url, falling back
-      # to the configured service when the DID document is absent
-      base_url = Atproto.Session.normalize_service_url(state[:service])
-      session = %{session | service_url: session.service_url || base_url}
+    case ProtoRune.login(identifier, password, service: state[:service]) do
+      {:ok, session} ->
+        case Bsky.Actor.get_profile(session, actor: session.did) do
+          {:ok, profile} ->
+            schedule_refresh_session()
 
-      case Bsky.Actor.get_profile(session, actor: session.did) do
-        {:ok, profile} ->
-          schedule_refresh_session()
+            {:noreply,
+             state
+             |> Map.put(:did, profile[:did])
+             |> Map.put(:session, session), {:continue, :start_listener}}
 
-          {:noreply,
-           state
-           |> Map.put(:did, profile[:did])
-           |> Map.put(:session, session), {:continue, :start_listener}}
+          err ->
+            {:stop, err, state}
+        end
 
-        err ->
-          {:stop, err, state}
-      end
-    else
-      err -> {:stop, err, state}
+      err ->
+        {:stop, err, state}
     end
   end
 
@@ -288,27 +279,14 @@ defmodule ProtoRune.Bot.Server do
   end
 
   @impl true
-  def handle_cast({:handle_message, message}, %{name: bot} = state) do
-    bot.handle_message(message)
-    {:noreply, state}
-  end
-
-  @impl true
-  def handle_cast({:handle_event, event, payload}, %{name: bot} = state) do
-    metadata = %{bot: bot, event: event}
-
-    :telemetry.execute([:proto_rune, :bot, :event, :dispatch], %{count: 1}, metadata)
-
-    :telemetry.span([:proto_rune, :bot, :event], metadata, fn ->
-      {bot.handle_event(event, payload), metadata}
-    end)
-
+  def handle_cast({:handle_event, event, payload}, state) do
+    dispatch_event(state, event, payload)
     {:noreply, state}
   end
 
   @impl true
   def handle_info({:handle_event, event, payload}, state) do
-    handle_event(state[:name], event, payload)
+    dispatch_event(state, event, payload)
     {:noreply, state}
   end
 
@@ -316,17 +294,14 @@ defmodule ProtoRune.Bot.Server do
   def handle_info(:refresh_session, state) do
     Logger.info("[#{__MODULE__}] ==> Refreshing session for bot #{state[:name]}")
 
-    with {:ok, data} <- Atproto.Server.refresh_session(state[:session]),
-         {:ok, %Atproto.Session{} = session} <- Atproto.Session.parse(data) do
-      # The refresh response carries no DID document, so keep the
-      # previously resolved service_url
-      session = %{session | service_url: session.service_url || state[:session].service_url}
+    case Session.refresh(state[:session]) do
+      {:ok, session} ->
+        if state[:poller], do: send(state[:poller], {:refresh_session, session})
+        schedule_refresh_session()
+        {:noreply, Map.put(state, :session, session)}
 
-      if state[:poller], do: send(state[:poller], {:refresh_session, session})
-      schedule_refresh_session()
-      {:noreply, Map.put(state, :session, session)}
-    else
-      err -> {:stop, err, state}
+      err ->
+        {:stop, err, state}
     end
   end
 
@@ -336,6 +311,22 @@ defmodule ProtoRune.Bot.Server do
   end
 
   def format_status(key), do: key
+
+  defp dispatch_event(state, event, payload) do
+    bot = bot_module(state)
+    metadata = %{bot: bot, event: event}
+
+    :telemetry.execute([:proto_rune, :bot, :event, :dispatch], %{count: 1}, metadata)
+
+    :telemetry.span([:proto_rune, :bot, :event], metadata, fn ->
+      {bot.handle_event(event, payload), metadata}
+    end)
+  end
+
+  # The `:module` option names the callback module explicitly; when absent
+  # the process `:name` doubles as the callback module (the historical
+  # `use ProtoRune.Bot, name: __MODULE__` setup).
+  defp bot_module(state), do: state[:module] || state[:name]
 
   defp schedule_refresh_session do
     Process.send_after(self(), :refresh_session, to_timeout(minute: 5))

@@ -162,14 +162,22 @@ defmodule ProtoRune.Bot.Poller do
     {:ok, indexed_at} = NaiveDateTime.from_iso8601(indexed_at)
     last_seen = state.last_seen || indexed_at
 
-    for notification <- data[:notifications],
-        NaiveDateTime.after?(indexed_at, last_seen) do
+    data[:notifications]
+    |> Enum.filter(&after_last_seen?(&1, last_seen))
+    |> Enum.each(fn notification ->
       Task.start(fn ->
         dispatch_notification(state, notification)
       end)
-    end
+    end)
 
     {:ok, %{state | last_seen: indexed_at, cursor: data[:cursor]}}
+  end
+
+  defp after_last_seen?(notification, last_seen) do
+    case NaiveDateTime.from_iso8601(notification[:indexed_at]) do
+      {:ok, indexed_at} -> NaiveDateTime.after?(indexed_at, last_seen)
+      _other -> false
+    end
   end
 
   defp handle_rate_limited(%State{} = state, retry_after) do
