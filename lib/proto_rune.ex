@@ -76,7 +76,8 @@ defmodule ProtoRune do
              nil,
              %{identifier: identifier, password: password},
              %{identifier: {:required, :string}, password: {:required, :string}},
-             base_url: base_url
+             base_url: base_url,
+             http: Keyword.get(opts, :http, [])
            ),
          {:ok, session} <- AtprotoSession.parse(data) do
       {:ok, %{session | service_url: session.service_url || base_url}}

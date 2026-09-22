@@ -148,7 +148,7 @@ defmodule ProtoRune.Bot.Poller do
   end
 
   defp do_poll(%State{} = state) do
-    case Bsky.Notification.list_notifications(state.session) do
+    case Bsky.Notification.list_notifications(state.session, %{}, http: state.http) do
       {:ok, data} -> handle_notifications(state, data)
       {:error, %XRPC.Error{reason: :rate_limited, retry_after: retry_after}} -> handle_rate_limited(state, retry_after)
       {:error, reason} -> handle_error(state, reason)
@@ -213,28 +213,28 @@ defmodule ProtoRune.Bot.Poller do
   defp dispatch_notification(%State{} = state, %{reason: "reply", uri: uri}) do
     # credo:disable-for-next-line Credo.Check.Design.TagTODO
     # TODO ignore replies that aren't to the bot
-    case Bsky.Feed.get_post_thread(state.session, uri: uri) do
+    case Bsky.Feed.get_post_thread(state.session, %{uri: uri}, http: state.http) do
       {:ok, data} -> send(state.server_pid, {:handle_event, :reply, data})
       {:error, reason} -> send(state.server_pid, {:handle_event, :error, reason})
     end
   end
 
   defp dispatch_notification(%State{} = state, %{reason: "quote", uri: uri}) do
-    case Bsky.Feed.get_post_thread(state.session, uri: uri) do
+    case Bsky.Feed.get_post_thread(state.session, %{uri: uri}, http: state.http) do
       {:ok, data} -> send(state.server_pid, {:handle_event, :quote, data})
       {:error, reason} -> send(state.server_pid, {:handle_event, :error, reason})
     end
   end
 
   defp dispatch_notification(%State{} = state, %{reason: "mention", uri: uri}) do
-    case Bsky.Feed.get_post_thread(state.session, uri: uri) do
+    case Bsky.Feed.get_post_thread(state.session, %{uri: uri}, http: state.http) do
       {:ok, data} -> send(state.server_pid, {:handle_event, :mention, data})
       {:error, reason} -> send(state.server_pid, {:handle_event, :error, reason})
     end
   end
 
   defp dispatch_notification(%State{} = state, %{reason: "repost"} = notf) do
-    case Bsky.Feed.get_post_thread(state.session, uri: notf.reason_subject) do
+    case Bsky.Feed.get_post_thread(state.session, %{uri: notf.reason_subject}, http: state.http) do
       {:ok, data} ->
         send(
           state.server_pid,
@@ -249,7 +249,7 @@ defmodule ProtoRune.Bot.Poller do
   defp dispatch_notification(%State{} = state, %{reason: "like", reason_subject: reason_subject} = notf) do
     with {:ok, {_repo, collection, _rkey}} <- Atproto.parse_at_uri(reason_subject),
          true <- collection == "app.bsky.feed.post" do
-      case Bsky.Feed.get_post_thread(state.session, uri: reason_subject) do
+      case Bsky.Feed.get_post_thread(state.session, %{uri: reason_subject}, http: state.http) do
         {:ok, data} ->
           send(
             state.server_pid,

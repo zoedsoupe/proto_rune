@@ -160,8 +160,10 @@ defmodule ProtoRune.Atproto.Identity do
 
   https://docs.bsky.app/docs/api/com-atproto-identity-resolve-handle
   """
-  @spec resolve_handle(String.t() | nil, String.t()) :: {:ok, String.t()} | {:error, term()}
-  def resolve_handle(pds_url, handle) when is_handle(handle) do
+  @spec resolve_handle(String.t() | nil, String.t(), keyword()) :: {:ok, String.t()} | {:error, term()}
+  def resolve_handle(pds_url, handle, opts \\ [])
+
+  def resolve_handle(pds_url, handle, opts) when is_handle(handle) do
     if valid_handle?(handle) do
       base_url =
         case pds_url do
@@ -172,7 +174,7 @@ defmodule ProtoRune.Atproto.Identity do
       "com.atproto.identity.resolveHandle"
       |> Query.new(base_url: base_url)
       |> Query.put_param(:handle, handle)
-      |> Client.execute()
+      |> Client.execute(http: Keyword.get(opts, :http, []))
       |> case do
         {:ok, %{did: did}} -> {:ok, did}
         {:error, reason} -> {:error, reason}
@@ -182,12 +184,14 @@ defmodule ProtoRune.Atproto.Identity do
     end
   end
 
-  def resolve_handle(_, _), do: {:error, :invalid_format}
+  def resolve_handle(_, _, _), do: {:error, :invalid_format}
 
-  def resolve_did(did) when is_did(did) do
+  def resolve_did(did, opts \\ [])
+
+  def resolve_did(did, opts) when is_did(did) do
     if valid_did?(did) do
       with {:error, _} <- Cache.get_did_doc(did),
-           {:ok, doc} <- DIDResolver.resolve(did) do
+           {:ok, doc} <- DIDResolver.resolve(did, opts) do
         Cache.put_did_doc(did, doc)
         {:ok, doc}
       end
@@ -196,7 +200,7 @@ defmodule ProtoRune.Atproto.Identity do
     end
   end
 
-  def resolve_did(_), do: {:error, :invalid_format}
+  def resolve_did(_, _), do: {:error, :invalid_format}
 
   def validate_identity(handle) when is_handle(handle) do
     with {:ok, did} <- resolve_handle(handle),

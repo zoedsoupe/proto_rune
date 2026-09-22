@@ -27,6 +27,11 @@ defmodule ProtoRune.HTTPClient do
       HTTPClient.request(:get, url, retry: [max_attempts: 1])
       HTTPClient.request(:get, url, rate_limit: false)
 
+  The `:adapter` option overrides the configured adapter for a single
+  request:
+
+      HTTPClient.request(:get, url, adapter: MyApp.HTTPStub)
+
   Retry options:
 
     * `:max_attempts` - total attempts, including the first one (default 3)
@@ -44,11 +49,11 @@ defmodule ProtoRune.HTTPClient do
   @default_retry [max_attempts: 3, base_delay: 500, max_delay: 10_000]
   @default_requests_per_minute 3_000
 
-  defp impl do
-    Config.get(:http_client) || Adapters.Req
-  end
+  defp impl(nil), do: Config.get(:http_client) || Adapters.Req
+  defp impl(adapter), do: adapter
 
   def request(method, url, opts \\ []) do
+    {adapter, opts} = Keyword.pop(opts, :adapter)
     {retry_opts, opts} = Keyword.pop(opts, :retry, [])
     {rate_limit_opts, opts} = Keyword.pop(opts, :rate_limit, [])
 
@@ -56,11 +61,11 @@ defmodule ProtoRune.HTTPClient do
     |> host_key()
     |> RateLimiter.await_turn(rate_limit_config(rate_limit_opts))
 
-    do_request(method, url, opts, retry_config(retry_opts), 1)
+    do_request(method, url, opts, retry_config(retry_opts), 1, adapter)
   end
 
-  defp do_request(method, url, opts, retry, attempt) do
-    case impl().request(method, url, opts) do
+  defp do_request(method, url, opts, retry, attempt, adapter) do
+    case impl(adapter).request(method, url, opts) do
       {:ok, %{status: 429} = response} = result ->
         if attempt < retry[:max_attempts] do
           delay =
@@ -71,7 +76,7 @@ defmodule ProtoRune.HTTPClient do
             )
 
           retry[:sleep_fun].(delay)
-          do_request(method, url, opts, retry, attempt + 1)
+          do_request(method, url, opts, retry, attempt + 1, adapter)
         else
           result
         end

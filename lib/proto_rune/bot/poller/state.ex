@@ -9,6 +9,7 @@ defmodule ProtoRune.Bot.Poller.State do
           process_from: NaiveDateTime.t(),
           server_pid: pid,
           session: ProtoRune.Session.t(),
+          http: keyword,
           last_seen: NaiveDateTime.t() | nil,
           cursor: String.t() | nil,
           attempt: integer
@@ -21,6 +22,7 @@ defmodule ProtoRune.Bot.Poller.State do
     last_seen: :date,
     cursor: :string,
     attempt: {:integer, {:default, 0}},
+    http: {{:list, :any}, {:default, []}},
     server_pid: {:required, :pid},
     session: {:required, :map}
   })
@@ -33,6 +35,7 @@ defmodule ProtoRune.Bot.Poller.State do
     :last_seen,
     :cursor,
     :attempt,
+    :http,
     :server_pid,
     :session
   ]

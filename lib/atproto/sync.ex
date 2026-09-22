@@ -45,12 +45,12 @@ defmodule ProtoRune.Atproto.Sync do
 
   https://docs.bsky.app/docs/api/com-atproto-sync-describe-repo
   """
-  @spec describe_repo(String.t(), String.t()) :: {:ok, map()} | {:error, term()}
-  def describe_repo(pds_url, repo) when is_binary(pds_url) and is_binary(repo) do
+  @spec describe_repo(String.t(), String.t(), keyword()) :: {:ok, map()} | {:error, term()}
+  def describe_repo(pds_url, repo, opts \\ []) when is_binary(pds_url) and is_binary(repo) do
     "com.atproto.sync.describeRepo"
     |> Query.new(base_url: Session.normalize_service_url(pds_url))
     |> Query.put_param(:repo, repo)
-    |> Client.execute()
+    |> Client.execute(http: Keyword.get(opts, :http, []))
   end
 
   @doc """
@@ -63,14 +63,14 @@ defmodule ProtoRune.Atproto.Sync do
 
   https://docs.bsky.app/docs/api/com-atproto-sync-get-blob
   """
-  @spec get_blob(String.t(), String.t(), String.t()) ::
+  @spec get_blob(String.t(), String.t(), String.t(), keyword()) ::
           {:ok, %{content_type: String.t() | nil, body: binary()}} | {:error, term()}
-  def get_blob(pds_url, did, cid) when is_binary(pds_url) and is_binary(did) and is_binary(cid) do
+  def get_blob(pds_url, did, cid, opts \\ []) when is_binary(pds_url) and is_binary(did) and is_binary(cid) do
     "com.atproto.sync.getBlob"
     |> Query.new(base_url: Session.normalize_service_url(pds_url), response: :binary)
     |> Query.put_param(:did, did)
     |> Query.put_param(:cid, cid)
-    |> Client.execute()
+    |> Client.execute(http: Keyword.get(opts, :http, []))
   end
 
   @doc """
@@ -82,13 +82,13 @@ defmodule ProtoRune.Atproto.Sync do
 
   https://docs.bsky.app/docs/api/com-atproto-sync-get-repo
   """
-  @spec get_repo(String.t(), String.t()) ::
+  @spec get_repo(String.t(), String.t(), keyword()) ::
           {:ok, %{content_type: String.t() | nil, body: binary()}} | {:error, term()}
-  def get_repo(pds_url, did) when is_binary(pds_url) and is_binary(did) do
+  def get_repo(pds_url, did, opts \\ []) when is_binary(pds_url) and is_binary(did) do
     "com.atproto.sync.getRepo"
     |> Query.new(base_url: Session.normalize_service_url(pds_url), response: :binary)
     |> Query.put_param(:did, did)
-    |> Client.execute()
+    |> Client.execute(http: Keyword.get(opts, :http, []))
   end
 
   @doc """
@@ -156,7 +156,7 @@ defmodule ProtoRune.Atproto.Sync do
          {:ok, commit_cid} <- fetch_commit_cid(car),
          {:ok, commit} <- fetch_commit(blocks, commit_cid),
          :ok <- check_expected_did(commit, Keyword.get(opts, :did)),
-         {:ok, did_doc} <- Identity.resolve_did(commit["did"]),
+         {:ok, did_doc} <- Identity.resolve_did(commit["did"], http: Keyword.get(opts, :http, [])),
          :ok <- Commit.verify(commit, did_doc) do
       with {:ok, data_cid} <- CID.from_link(commit["data"]) do
         {:ok, %{did: commit["did"], rev: commit["rev"], data: data_cid, blocks: blocks}}

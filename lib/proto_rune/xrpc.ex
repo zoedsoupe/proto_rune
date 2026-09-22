@@ -17,6 +17,8 @@ defmodule ProtoRune.XRPC do
     * `:base_url` - overrides the XRPC base URL. Resolution order:
       this option, then the session's `service_url`, then the
       `:base_url` application env, then `"https://bsky.social/xrpc"`.
+    * `:http` - options forwarded to `ProtoRune.HTTPClient.request/3`
+      (`:adapter`, `:retry`, `:rate_limit`, ...).
   """
 
   alias ProtoRune.Config
@@ -46,7 +48,7 @@ defmodule ProtoRune.XRPC do
 
     with {:ok, query} <- add_params(query, params),
          {:ok, headers, session} <- authorization_headers(session, "GET", url) do
-      Client.execute(%{query | headers: Map.merge(query.headers, headers)}, session_opt(session))
+      Client.execute(%{query | headers: Map.merge(query.headers, headers)}, exec_opts(session, opts))
     end
   end
 
@@ -71,7 +73,7 @@ defmodule ProtoRune.XRPC do
 
     with {:ok, proc} <- put_body(proc, params),
          {:ok, headers, session} <- authorization_headers(session, "POST", url) do
-      Client.execute(%{proc | headers: Map.merge(proc.headers, headers)}, session_opt(session))
+      Client.execute(%{proc | headers: Map.merge(proc.headers, headers)}, exec_opts(session, opts))
     end
   end
 
@@ -96,6 +98,8 @@ defmodule ProtoRune.XRPC do
 
   defp session_opt(nil), do: []
   defp session_opt(session), do: [session: session]
+
+  defp exec_opts(session, opts), do: [{:http, Keyword.get(opts, :http, [])} | session_opt(session)]
 
   @doc """
   Lazily paginates a cursor-based endpoint into a stream of items.

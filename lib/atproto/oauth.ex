@@ -97,10 +97,12 @@ defmodule ProtoRune.Atproto.OAuth do
   @spec authorization_url(Client.t(), String.t(), keyword()) ::
           {:ok, String.t(), pending()} | error()
   def authorization_url(%Client{} = client, identifier, opts \\ []) when is_binary(identifier) do
+    http = Keyword.get(opts, :http, [])
+
     with {:ok, did, handle} <- resolve_account(identifier),
-         {:ok, pds} <- resolve_pds(did),
-         {:ok, issuer} <- protected_resource_issuer(pds),
-         {:ok, metadata} <- authorization_server_metadata(issuer),
+         {:ok, pds} <- resolve_pds(did, http),
+         {:ok, issuer} <- protected_resource_issuer(pds, http),
+         {:ok, metadata} <- authorization_server_metadata(issuer, http),
          {:ok, par} <- push_authorization_request(client, metadata, identifier, opts) do
       query = URI.encode_query(%{"client_id" => client.client_id, "request_uri" => par.request_uri})
 
@@ -130,12 +132,12 @@ defmodule ProtoRune.Atproto.OAuth do
 
   Returns an OAuth `Session` with DPoP-bound tokens.
   """
-  @spec exchange_code(Client.t(), pending(), map()) :: {:ok, Session.t()} | error()
-  def exchange_code(%Client{} = client, pending, params) when is_map(pending) and is_map(params) do
+  @spec exchange_code(Client.t(), pending(), map(), keyword()) :: {:ok, Session.t()} | error()
+  def exchange_code(%Client{} = client, pending, params, opts \\ []) when is_map(pending) and is_map(params) do
     with :ok <- verify_state(pending, params),
          :ok <- verify_issuer(pending, params),
          {:ok, code} <- fetch_code(params),
-         {:ok, data, nonce} <- exchange_request(client, pending, code) do
+         {:ok, data, nonce} <- exchange_request(client, pending, code, Keyword.get(opts, :http, [])) do
       Session.parse(data, %{
         handle: pending.handle,
         service_url: pending.service_url,
@@ -154,10 +156,12 @@ defmodule ProtoRune.Atproto.OAuth do
   Follows refresh token rotation: when the server issues a new refresh
   token it replaces the old one, otherwise the previous one is kept.
   """
-  @spec refresh(Client.t(), Session.t()) :: {:ok, Session.t()} | error()
-  def refresh(%Client{}, %Session{refresh_token: nil}), do: {:error, :missing_refresh_token}
+  @spec refresh(Client.t(), Session.t(), keyword()) :: {:ok, Session.t()} | error()
+  def refresh(client, session, opts \\ [])
 
-  def refresh(%Client{} = client, %Session{} = session) do
+  def refresh(%Client{}, %Session{refresh_token: nil}, _opts), do: {:error, :missing_refresh_token}
+
+  def refresh(%Client{} = client, %Session{} = session, opts) do
     form = %{
       "grant_type" => "refresh_token",
       "refresh_token" => session.refresh_token,
@@ -169,7 +173,8 @@ defmodule ProtoRune.Atproto.OAuth do
     # cnf.jkt) to the key the session was issued with, and a host that
     # restored a persisted session may hold a Client built with a
     # fresh key.
-    with {:ok, data, nonce} <- dpop_post(session.token_endpoint, form, session, session.dpop_nonce),
+    with {:ok, data, nonce} <-
+           dpop_post(session.token_endpoint, form, session, session.dpop_nonce, true, nil, Keyword.get(opts, :http, [])),
          {:ok, fresh} <-
            Session.parse(data, %{
              handle: session.handle,
@@ -211,11 +216,13 @@ defmodule ProtoRune.Atproto.OAuth do
   def revoke(%Session{refresh_token: nil}, _opts), do: {:error, :missing_refresh_token}
 
   def revoke(%Session{} = session, opts) do
+    http = Keyword.get(opts, :http, [])
+
     with {:ok, client_id} <- fetch_client_id(opts),
-         {:ok, endpoint} <- revocation_endpoint(session) do
+         {:ok, endpoint} <- revocation_endpoint(session, http) do
       form = %{"token" => session.refresh_token, "client_id" => client_id}
 
-      case dpop_post(endpoint, form, session, session.dpop_nonce, true, session.access_token) do
+      case dpop_post(endpoint, form, session, session.dpop_nonce, true, session.access_token, http) do
         {:ok, _body, _nonce} -> {:ok, :revoked}
         {:error, reason} -> {:error, reason}
       end
@@ -229,10 +236,10 @@ defmodule ProtoRune.Atproto.OAuth do
     end
   end
 
-  defp revocation_endpoint(%Session{issuer: nil}), do: {:error, :revocation_not_supported}
+  defp revocation_endpoint(%Session{issuer: nil}, _http), do: {:error, :revocation_not_supported}
 
-  defp revocation_endpoint(%Session{issuer: issuer}) do
-    with {:ok, metadata} <- authorization_server_metadata(issuer) do
+  defp revocation_endpoint(%Session{issuer: issuer}, http) do
+    with {:ok, metadata} <- authorization_server_metadata(issuer, http) do
       case metadata.revocation_endpoint do
         url when is_binary(url) -> {:ok, url}
         _other -> {:error, :revocation_not_supported}
@@ -258,8 +265,8 @@ defmodule ProtoRune.Atproto.OAuth do
     end
   end
 
-  defp resolve_pds(did) do
-    with {:ok, doc} <- Identity.resolve_did(did) do
+  defp resolve_pds(did, http) do
+    with {:ok, doc} <- Identity.resolve_did(did, http: http) do
       # Note: Identity returns DID documents normalized by Case.snakelize_enum/1,
       # where nested maps become keyword lists. Key access works for both.
       doc
@@ -277,10 +284,10 @@ defmodule ProtoRune.Atproto.OAuth do
 
   # Authorization server discovery
 
-  defp protected_resource_issuer(pds) do
+  defp protected_resource_issuer(pds, http) do
     url = String.trim_trailing(pds, "/") <> "/.well-known/oauth-protected-resource"
 
-    case fetch_json(url) do
+    case fetch_json(url, http) do
       {:ok, %{"authorization_servers" => [issuer | _]}} when is_binary(issuer) -> {:ok, issuer}
       {:ok, _other} -> {:error, :invalid_protected_resource_metadata}
       {:error, reason} -> {:error, reason}
@@ -294,10 +301,10 @@ defmodule ProtoRune.Atproto.OAuth do
     "pushed_authorization_request_endpoint"
   ]
 
-  defp authorization_server_metadata(issuer) do
+  defp authorization_server_metadata(issuer, http) do
     url = String.trim_trailing(issuer, "/") <> "/.well-known/oauth-authorization-server"
 
-    with {:ok, metadata} <- fetch_json(url),
+    with {:ok, metadata} <- fetch_json(url, http),
          :ok <- require_fields(metadata, @required_metadata_fields),
          :ok <- verify_metadata_issuer(metadata, issuer) do
       {:ok,
@@ -344,7 +351,15 @@ defmodule ProtoRune.Atproto.OAuth do
       "login_hint" => identifier
     }
 
-    case dpop_post(metadata.par_endpoint, form, client, Keyword.get(opts, :dpop_nonce)) do
+    case dpop_post(
+           metadata.par_endpoint,
+           form,
+           client,
+           Keyword.get(opts, :dpop_nonce),
+           true,
+           nil,
+           Keyword.get(opts, :http, [])
+         ) do
       {:ok, %{"request_uri" => request_uri}, nonce} ->
         {:ok, %{request_uri: request_uri, state: state, code_verifier: verifier, nonce: nonce}}
 
@@ -356,7 +371,7 @@ defmodule ProtoRune.Atproto.OAuth do
     end
   end
 
-  defp exchange_request(client, pending, code) do
+  defp exchange_request(client, pending, code, http) do
     form = %{
       "grant_type" => "authorization_code",
       "code" => code,
@@ -365,28 +380,37 @@ defmodule ProtoRune.Atproto.OAuth do
       "code_verifier" => pending.code_verifier
     }
 
-    dpop_post(pending.token_endpoint, form, client, pending.dpop_nonce)
+    dpop_post(pending.token_endpoint, form, client, pending.dpop_nonce, true, nil, http)
   end
 
   # Performs a form POST with a DPoP proof, retrying once with the
   # server-provided nonce when the response demands it. `keys` is any
   # struct carrying the DPoP key material (a `Client` or a `Session`);
   # `access_token`, when given, binds the proof via the `ath` claim.
-  defp dpop_post(url, form, keys, nonce, allow_retry \\ true, access_token \\ nil) do
+  defp dpop_post(url, form, keys, nonce, allow_retry, access_token, http) do
     proof =
       DPoP.proof(keys.dpop_key, keys.dpop_jwk, :post, url, nonce: nonce, access_token: access_token)
 
     headers = [{"dpop", proof}, {"accept", "application/json"}]
 
     :post
-    |> HTTPClient.request(url, form: form, headers: headers)
-    |> handle_dpop_response(url, form, keys, nonce, allow_retry, access_token)
+    |> HTTPClient.request(url, [form: form, headers: headers] ++ http)
+    |> handle_dpop_response(url, form, keys, nonce, allow_retry, access_token, http)
   end
 
   # The HTTP adapter returns raw bodies: decode JSON before matching on
   # error payloads like "use_dpop_nonce". Non-JSON bodies (the revocation
   # endpoint answers 200 with an empty body) pass through as-is.
-  defp handle_dpop_response({:ok, %{status: status, body: body} = resp}, url, form, keys, nonce, retry, access_token)
+  defp handle_dpop_response(
+         {:ok, %{status: status, body: body} = resp},
+         url,
+         form,
+         keys,
+         nonce,
+         retry,
+         access_token,
+         http
+       )
        when is_binary(body) do
     case JSON.decode(body) do
       {:ok, decoded} when is_map(decoded) ->
@@ -397,7 +421,8 @@ defmodule ProtoRune.Atproto.OAuth do
           keys,
           nonce,
           retry,
-          access_token
+          access_token,
+          http
         )
 
       _ when status in 200..299 ->
@@ -418,7 +443,8 @@ defmodule ProtoRune.Atproto.OAuth do
          _keys,
          nonce,
          _retry,
-         _access_token
+         _access_token,
+         _http
        )
        when status in 200..299 do
     {:ok, body, get_header(resp_headers, "dpop-nonce") || nonce}
@@ -431,25 +457,35 @@ defmodule ProtoRune.Atproto.OAuth do
          keys,
          _nonce,
          true,
-         access_token
+         access_token,
+         http
        )
        when status in [400, 401] do
     case get_header(resp_headers, "dpop-nonce") do
       nil -> {:error, {:oauth_error, status, body}}
-      new_nonce -> dpop_post(url, form, keys, new_nonce, false, access_token)
+      new_nonce -> dpop_post(url, form, keys, new_nonce, false, access_token, http)
     end
   end
 
-  defp handle_dpop_response({:ok, %{status: status, body: body}}, _url, _form, _keys, _nonce, _retry, _access_token) do
+  defp handle_dpop_response(
+         {:ok, %{status: status, body: body}},
+         _url,
+         _form,
+         _keys,
+         _nonce,
+         _retry,
+         _access_token,
+         _http
+       ) do
     {:error, {:oauth_error, status, body}}
   end
 
-  defp handle_dpop_response({:error, reason}, _url, _form, _keys, _nonce, _retry, _access_token) do
+  defp handle_dpop_response({:error, reason}, _url, _form, _keys, _nonce, _retry, _access_token, _http) do
     {:error, reason}
   end
 
-  defp fetch_json(url) do
-    case HTTPClient.request(:get, url, headers: [{"accept", "application/json"}]) do
+  defp fetch_json(url, http) do
+    case HTTPClient.request(:get, url, [headers: [{"accept", "application/json"}]] ++ http) do
       {:ok, %{status: status, body: body}} when status in 200..299 ->
         decode_json_body(body)
 

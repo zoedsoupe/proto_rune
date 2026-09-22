@@ -102,27 +102,33 @@ defmodule ProtoRune.XRPC.DSL do
 
   defp authed_clause(kind, method, fun) do
     quote do
-      def unquote(fun)(session, params \\ %{}) do
-        ProtoRune.XRPC.unquote(kind)(unquote(method), session, params, @proto_rune_schema)
+      def unquote(fun)(session, params \\ %{}, opts \\ []) do
+        ProtoRune.XRPC.unquote(kind)(unquote(method), session, params, @proto_rune_schema, opts)
       end
     end
   end
 
   defp public_clause(kind, method, fun) do
     quote do
-      def unquote(fun)(params \\ %{}) do
-        ProtoRune.XRPC.unquote(kind)(unquote(method), nil, params, @proto_rune_schema)
+      def unquote(fun)(params \\ %{}, opts \\ []) do
+        ProtoRune.XRPC.unquote(kind)(unquote(method), nil, params, @proto_rune_schema, opts)
       end
     end
   end
 
   # No default arguments here: `fun(session)` and `fun(params)` would be
   # indistinguishable at arity 1, so the session variant keeps both
-  # arguments required.
+  # arguments required. `opts` (forwarded to `ProtoRune.XRPC.query/5` and
+  # `procedure/5`) only fits on the authenticated clause at arity 3; for an
+  # anonymous call with options, pass `nil` as the session.
   defp optional_clauses(kind, method, fun) do
     quote do
       def unquote(fun)(session, params) do
         ProtoRune.XRPC.unquote(kind)(unquote(method), session, params, @proto_rune_schema)
+      end
+
+      def unquote(fun)(session, params, opts) do
+        ProtoRune.XRPC.unquote(kind)(unquote(method), session, params, @proto_rune_schema, opts)
       end
 
       def unquote(fun)(params) do
@@ -136,13 +142,13 @@ defmodule ProtoRune.XRPC.DSL do
   # behaviour pipeline.
   defp refresh_clause(method, fun) do
     quote do
-      def unquote(fun)(%{refresh_jwt: refresh} = session) do
+      def unquote(fun)(%{refresh_jwt: refresh} = session, opts \\ []) do
         base_url = Map.get(session, :service_url)
 
         unquote(method)
         |> XRPC.Procedure.new(base_url: base_url)
         |> XRPC.Procedure.put_header(:authorization, "Bearer #{refresh}")
-        |> XRPC.Client.execute()
+        |> XRPC.Client.execute(http: Keyword.get(opts, :http, []))
       end
     end
   end

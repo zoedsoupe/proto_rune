@@ -65,7 +65,7 @@ defmodule ProtoRune.Atproto.Identity.DIDResolver do
 
     url = "#{@plc_directory_url}/#{did}"
 
-    case HTTPClient.request(:get, url, timeout: timeout) do
+    case HTTPClient.request(:get, url, [timeout: timeout] ++ http_opts(opts)) do
       {:ok, %{status: 200, body: body}} ->
         decode_did_document(body)
 
@@ -96,7 +96,7 @@ defmodule ProtoRune.Atproto.Identity.DIDResolver do
     retries = Keyword.get(opts, :retry_count, @default_retries)
 
     with {:ok, domain} <- extract_domain(did),
-         {:ok, response} <- fetch_well_known_document(domain, timeout) do
+         {:ok, response} <- fetch_well_known_document(domain, timeout, http_opts(opts)) do
       decode_did_document(response.body)
     else
       {:error, :invalid_domain} ->
@@ -123,16 +123,18 @@ defmodule ProtoRune.Atproto.Identity.DIDResolver do
     end
   end
 
-  defp fetch_well_known_document(domain, timeout) do
+  defp fetch_well_known_document(domain, timeout, http_opts) do
     url = "https://#{domain}/.well-known/did.json"
 
-    case HTTPClient.request(:get, url, timeout: timeout) do
+    case HTTPClient.request(:get, url, [timeout: timeout] ++ http_opts) do
       {:ok, %{status: 200} = response} -> {:ok, response}
       {:ok, %{status: 404}} -> {:error, :not_found}
       {:ok, %{status: status}} -> {:error, {:http_error, status}}
       _ -> {:error, :network_error}
     end
   end
+
+  defp http_opts(opts), do: Keyword.get(opts, :http, [])
 
   defp decode_did_document(body) do
     case JSON.decode(body) do

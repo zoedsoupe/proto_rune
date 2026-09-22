@@ -36,6 +36,8 @@ defmodule ProtoRune.XRPC.Client do
   - `:session` - A session implementing the `ProtoRune.Session`
     behaviour. When given, a 401 response demanding a fresh DPoP nonce
     (`use_dpop_nonce`) is retried once with the server-provided nonce.
+  - `:http` - Options forwarded to `ProtoRune.HTTPClient.request/3`
+    (`:adapter`, `:retry`, `:rate_limit`, ...).
 
   ## Examples
 
@@ -54,7 +56,7 @@ defmodule ProtoRune.XRPC.Client do
     url = to_string(query)
 
     request = fn headers ->
-      HTTPClient.request(:get, url, headers: format_headers(headers))
+      HTTPClient.request(:get, url, [headers: format_headers(headers)] ++ http_opts(opts))
     end
 
     query.headers
@@ -67,7 +69,7 @@ defmodule ProtoRune.XRPC.Client do
     url = to_string(proc)
 
     request = fn headers ->
-      HTTPClient.request(:post, url, body: proc.body, headers: format_headers(headers))
+      HTTPClient.request(:post, url, [body: proc.body, headers: format_headers(headers)] ++ http_opts(opts))
     end
 
     proc.headers
@@ -81,7 +83,7 @@ defmodule ProtoRune.XRPC.Client do
     body = ProtoRune.Case.camelize_enum(proc.body)
 
     request = fn headers ->
-      HTTPClient.request(:post, url, json: body, headers: format_headers(headers))
+      HTTPClient.request(:post, url, [json: body, headers: format_headers(headers)] ++ http_opts(opts))
     end
 
     proc.headers
@@ -90,6 +92,8 @@ defmodule ProtoRune.XRPC.Client do
   end
 
   # Convert headers map to list of tuples for HTTPClient
+  defp http_opts(opts), do: Keyword.get(opts, :http, [])
+
   defp format_headers(headers) when is_map(headers) do
     Enum.map(headers, fn {k, v} -> {to_string(k), v} end)
   end

@@ -50,7 +50,7 @@ defmodule ProtoRune.Atproto.Identity.HandleResolver do
     timeout = Keyword.get(opts, :timeout, @default_timeout)
     retries = Keyword.get(opts, :retry_count, @default_retries)
 
-    do_resolve_https(url, timeout, retries)
+    do_resolve_https(url, timeout, retries, Keyword.get(opts, :http, []))
   end
 
   # Private Functions
@@ -74,8 +74,8 @@ defmodule ProtoRune.Atproto.Identity.HandleResolver do
     end
   end
 
-  defp do_resolve_https(url, timeout, retries) do
-    case HTTPClient.request(:get, url, timeout: timeout) do
+  defp do_resolve_https(url, timeout, retries, http_opts) do
+    case HTTPClient.request(:get, url, [timeout: timeout] ++ http_opts) do
       {:ok, %{status: 200, body: body, headers: headers}} ->
         with true <- text_response?(headers),
              {:ok, did} <- validate_did_response(body) do
@@ -89,7 +89,7 @@ defmodule ProtoRune.Atproto.Identity.HandleResolver do
 
       _ when retries > 0 ->
         Logger.warning("HTTPS resolution failed for #{url}, retrying...")
-        do_resolve_https(url, timeout, retries - 1)
+        do_resolve_https(url, timeout, retries - 1, http_opts)
 
       err ->
         Logger.error("HTTPS resolution failed for #{url}: #{inspect(err)}")

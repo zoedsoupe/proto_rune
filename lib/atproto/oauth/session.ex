@@ -82,7 +82,7 @@ defmodule ProtoRune.Atproto.OAuth.Session do
   def refresh(%__MODULE__{} = session, opts) do
     case Keyword.fetch(opts, :client) do
       {:ok, %Atproto.OAuth.Client{} = client} ->
-        Atproto.OAuth.refresh(client, session)
+        Atproto.OAuth.refresh(client, session, opts)
 
       _ ->
         {:error, :missing_oauth_client}

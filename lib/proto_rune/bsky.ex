@@ -56,6 +56,7 @@ defmodule ProtoRune.Bsky do
     images are uploaded as blobs and attached as an
     `app.bsky.embed.images` embed. When `:embed` is a quote
     (`Embed.record/2`), the result is a `recordWithMedia` embed.
+  - `:http` - Options forwarded to `ProtoRune.HTTPClient.request/3`.
 
   ## Examples
 
@@ -106,6 +107,8 @@ defmodule ProtoRune.Bsky do
   end
 
   defp build_post(session, base, opts) do
+    http = Keyword.get(opts, :http, [])
+
     record =
       %{"$type": "app.bsky.feed.post", created_at: format_created_at(opts)}
       |> maybe_put(:langs, Keyword.get(opts, :langs))
@@ -113,11 +116,15 @@ defmodule ProtoRune.Bsky do
 
     with {:ok, record} <- maybe_put_reply(session, record, opts),
          {:ok, record} <- maybe_put_embed(session, record, opts) do
-      Repo.create_record(session, %{
-        repo: Session.did(session),
-        collection: "app.bsky.feed.post",
-        record: record
-      })
+      Repo.create_record(
+        session,
+        %{
+          repo: Session.did(session),
+          collection: "app.bsky.feed.post",
+          record: record
+        },
+        http: http
+      )
     end
   end
 
@@ -129,7 +136,9 @@ defmodule ProtoRune.Bsky do
   defp maybe_put(map, key, value), do: Map.put(map, key, value)
 
   defp maybe_put_embed(session, record, opts) do
-    with {:ok, media} <- maybe_images_embed(session, Keyword.get(opts, :images)) do
+    http = Keyword.get(opts, :http, [])
+
+    with {:ok, media} <- maybe_images_embed(session, Keyword.get(opts, :images), http) do
       case {Keyword.get(opts, :embed), media} do
         {nil, nil} ->
           {:ok, record}
@@ -149,12 +158,12 @@ defmodule ProtoRune.Bsky do
     end
   end
 
-  defp maybe_images_embed(_session, nil), do: {:ok, nil}
+  defp maybe_images_embed(_session, nil, _http), do: {:ok, nil}
 
-  defp maybe_images_embed(session, images) when is_list(images) do
+  defp maybe_images_embed(session, images, http) when is_list(images) do
     images
     |> Enum.reduce_while({:ok, []}, fn {data, content_type, alt}, {:ok, acc} ->
-      case Repo.upload_blob(session, data, content_type) do
+      case Repo.upload_blob(session, data, content_type, http: http) do
         {:ok, %{blob: blob}} -> {:cont, {:ok, [%{alt: alt, image: blob} | acc]}}
         {:error, _} = error -> {:halt, error}
       end
@@ -172,19 +181,23 @@ defmodule ProtoRune.Bsky do
 
       {:ok, like} = Bsky.like(session, post.uri, post.cid)
   """
-  @spec like(session(), String.t(), String.t()) :: {:ok, map()} | {:error, term()}
-  def like(session, uri, cid) when is_binary(uri) and is_binary(cid) do
+  @spec like(session(), String.t(), String.t(), keyword()) :: {:ok, map()} | {:error, term()}
+  def like(session, uri, cid, opts \\ []) when is_binary(uri) and is_binary(cid) do
     record = %{
       "$type": "app.bsky.feed.like",
       subject: %{uri: uri, cid: cid},
       created_at: DateTime.to_iso8601(DateTime.utc_now())
     }
 
-    Repo.create_record(session, %{
-      repo: Session.did(session),
-      collection: "app.bsky.feed.like",
-      record: record
-    })
+    Repo.create_record(
+      session,
+      %{
+        repo: Session.did(session),
+        collection: "app.bsky.feed.like",
+        record: record
+      },
+      http: Keyword.get(opts, :http, [])
+    )
   end
 
   @doc """
@@ -206,19 +219,23 @@ defmodule ProtoRune.Bsky do
 
       {:ok, repost} = Bsky.repost(session, post.uri, post.cid)
   """
-  @spec repost(session(), String.t(), String.t()) :: {:ok, map()} | {:error, term()}
-  def repost(session, uri, cid) when is_binary(uri) and is_binary(cid) do
+  @spec repost(session(), String.t(), String.t(), keyword()) :: {:ok, map()} | {:error, term()}
+  def repost(session, uri, cid, opts \\ []) when is_binary(uri) and is_binary(cid) do
     record = %{
       "$type": "app.bsky.feed.repost",
       subject: %{uri: uri, cid: cid},
       created_at: DateTime.to_iso8601(DateTime.utc_now())
     }
 
-    Repo.create_record(session, %{
-      repo: Session.did(session),
-      collection: "app.bsky.feed.repost",
-      record: record
-    })
+    Repo.create_record(
+      session,
+      %{
+        repo: Session.did(session),
+        collection: "app.bsky.feed.repost",
+        record: record
+      },
+      http: Keyword.get(opts, :http, [])
+    )
   end
 
   @doc """
@@ -372,8 +389,10 @@ defmodule ProtoRune.Bsky do
   """
   @spec update_profile(session(), keyword()) :: {:ok, map()} | {:error, term()}
   def update_profile(session, updates) when is_list(updates) do
-    with {:ok, current} <- current_profile(session),
-         {:ok, avatar} <- maybe_upload_avatar(session, Keyword.get(updates, :avatar)) do
+    http = Keyword.get(updates, :http, [])
+
+    with {:ok, current} <- current_profile(session, http),
+         {:ok, avatar} <- maybe_upload_avatar(session, Keyword.get(updates, :avatar), http) do
       record =
         current
         |> maybe_update(:display_name, Keyword.get(updates, :display_name))
@@ -381,12 +400,16 @@ defmodule ProtoRune.Bsky do
         |> maybe_update(:avatar, avatar)
         |> Map.put(:"$type", "app.bsky.actor.profile")
 
-      Repo.put_record(session, %{
-        repo: Session.did(session),
-        collection: "app.bsky.actor.profile",
-        rkey: "self",
-        record: record
-      })
+      Repo.put_record(
+        session,
+        %{
+          repo: Session.did(session),
+          collection: "app.bsky.actor.profile",
+          rkey: "self",
+          record: record
+        },
+        http: http
+      )
     end
   end
 
@@ -421,7 +444,7 @@ defmodule ProtoRune.Bsky do
       |> Map.put(:q, query)
       |> Map.put_new(:limit, 25)
 
-    Feed.search_posts(session, params)
+    Feed.search_posts(session, params, http: Keyword.get(opts, :http, []))
   end
 
   @doc """
@@ -445,7 +468,7 @@ defmodule ProtoRune.Bsky do
       |> Map.put(:q, query)
       |> Map.put_new(:limit, 25)
 
-    Actor.search_actors(session, params)
+    Actor.search_actors(session, params, http: Keyword.get(opts, :http, []))
   end
 
   @doc """
@@ -585,7 +608,7 @@ defmodule ProtoRune.Bsky do
         seen_at -> Map.put(params, :seen_at, seen_at)
       end
 
-    Notification.list_notifications(session, params)
+    Notification.list_notifications(session, params, http: Keyword.get(opts, :http, []))
   end
 
   @doc """
@@ -655,11 +678,15 @@ defmodule ProtoRune.Bsky do
 
   # A missing profile record means the account has no profile yet, so the
   # update starts from an empty record.
-  defp current_profile(session) do
-    case Repo.get_record(session,
-           repo: Session.did(session),
-           collection: "app.bsky.actor.profile",
-           rkey: "self"
+  defp current_profile(session, http) do
+    case Repo.get_record(
+           session,
+           %{
+             repo: Session.did(session),
+             collection: "app.bsky.actor.profile",
+             rkey: "self"
+           },
+           http: http
          ) do
       {:ok, %{value: value}} -> {:ok, value}
       {:error, %Error{reason: reason}} when reason in [:not_found, :record_not_found] -> {:ok, %{}}
@@ -667,10 +694,10 @@ defmodule ProtoRune.Bsky do
     end
   end
 
-  defp maybe_upload_avatar(_session, nil), do: {:ok, nil}
+  defp maybe_upload_avatar(_session, nil, _http), do: {:ok, nil}
 
-  defp maybe_upload_avatar(session, {data, content_type}) do
-    with {:ok, %{blob: blob}} <- Repo.upload_blob(session, data, content_type) do
+  defp maybe_upload_avatar(session, {data, content_type}, http) do
+    with {:ok, %{blob: blob}} <- Repo.upload_blob(session, data, content_type, http: http) do
       {:ok, blob}
     end
   end
@@ -684,7 +711,7 @@ defmodule ProtoRune.Bsky do
         {:ok, record}
 
       uri ->
-        case build_reply(session, uri) do
+        case build_reply(session, uri, Keyword.get(opts, :http, [])) do
           {:ok, reply} -> {:ok, Map.put(record, :reply, reply)}
           {:error, _} = error -> error
         end
@@ -692,10 +719,10 @@ defmodule ProtoRune.Bsky do
   end
 
   # Fetches the parent post, then builds strong refs from the pure reply_refs/3.
-  defp build_reply(session, uri) do
+  defp build_reply(session, uri, http) do
     with {:ok, {repo, collection, rkey}} <- parse_at_uri(uri),
          {:ok, %{cid: cid, value: value}} <-
-           Repo.get_record(session, repo: repo, collection: collection, rkey: rkey) do
+           Repo.get_record(session, %{repo: repo, collection: collection, rkey: rkey}, http: http) do
       {:ok, reply_refs(uri, cid, value)}
     end
   end

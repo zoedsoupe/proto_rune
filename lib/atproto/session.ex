@@ -80,8 +80,8 @@ defmodule ProtoRune.Atproto.Session do
   end
 
   @impl true
-  def refresh(%__MODULE__{} = session, _opts) do
-    with {:ok, data} <- Atproto.Server.refresh_session(session),
+  def refresh(%__MODULE__{} = session, opts) do
+    with {:ok, data} <- Atproto.Server.refresh_session(session, opts),
          {:ok, fresh} <- parse(data) do
       {:ok, %{fresh | service_url: fresh.service_url || session.service_url}}
     end

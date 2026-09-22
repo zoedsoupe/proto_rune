@@ -127,6 +127,7 @@ defmodule ProtoRune.Atproto.OAuth.SessionManager do
       client: Keyword.fetch!(opts, :client),
       store: Keyword.fetch!(opts, :store),
       key: Keyword.fetch!(opts, :key),
+      http: Keyword.get(opts, :http, []),
       refresh_fraction: Keyword.get(opts, :refresh_fraction, @default_refresh_fraction)
     }
 
@@ -175,7 +176,7 @@ defmodule ProtoRune.Atproto.OAuth.SessionManager do
   def format_status(key), do: key
 
   defp do_refresh(state) do
-    with {:ok, fresh} <- OAuth.refresh(state.client, state.session),
+    with {:ok, fresh} <- OAuth.refresh(state.client, state.session, http: state.http),
          :ok <- persist(state, fresh) do
       {:ok, schedule_refresh(%{state | session: fresh})}
     end
@@ -185,7 +186,7 @@ defmodule ProtoRune.Atproto.OAuth.SessionManager do
     metadata = %{did: state.session.did}
 
     :telemetry.span([:proto_rune, :oauth, :revoke], metadata, fn ->
-      case OAuth.revoke(state.session, client_id: state.client.client_id) do
+      case OAuth.revoke(state.session, client_id: state.client.client_id, http: state.http) do
         {:ok, :revoked} ->
           {:ok, metadata}
 
