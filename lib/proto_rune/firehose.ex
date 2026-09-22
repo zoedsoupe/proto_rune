@@ -72,14 +72,11 @@ defmodule ProtoRune.Firehose do
       end
   """
 
-  use GenServer
-
   import Peri
 
   alias ProtoRune.Firehose.Event
   alias ProtoRune.Firehose.Frame
-
-  require Logger
+  alias ProtoRune.StreamClient
 
   @default_relay "wss://bsky.network"
   @subscribe_path "/xrpc/com.atproto.sync.subscribeRepos"
@@ -109,7 +106,7 @@ defmodule ProtoRune.Firehose do
     data = options_t!(opts)
 
     case validate_handler(data[:handler]) do
-      :ok -> GenServer.start_link(__MODULE__, data, start_opts(data))
+      :ok -> StreamClient.start_link(config(data), start_opts(data))
       {:error, reason} -> {:error, reason}
     end
   end
@@ -119,7 +116,34 @@ defmodule ProtoRune.Firehose do
   event has been delivered yet.
   """
   @spec cursor(GenServer.server()) :: non_neg_integer | nil
-  def cursor(server), do: GenServer.call(server, :cursor)
+  def cursor(server), do: StreamClient.cursor(server)
+
+  defp config(data) do
+    relay = String.trim_trailing(data[:relay], "/") <> @subscribe_path
+
+    %{
+      handler: data[:handler],
+      cursor: data[:cursor],
+      auto_reconnect: data[:auto_reconnect],
+      backoff_initial: data[:backoff_initial],
+      backoff_max: data[:backoff_max],
+      transport: data[:transport],
+      transport_opts: data[:transport_opts],
+      tag: :firehose,
+      frame: :binary,
+      label: "firehose at #{data[:relay]}",
+      stop_reason: :firehose_disconnected,
+      url_fun: fn cursor ->
+        if cursor, do: "#{relay}?cursor=#{cursor}", else: relay
+      end,
+      decode_fun: fn frame ->
+        case Frame.decode(frame) do
+          {:ok, %Event{} = event} -> {:ok, event, event.seq}
+          {:error, reason} -> {:error, reason}
+        end
+      end
+    }
+  end
 
   defp start_opts(data) do
     case Map.get(data, :name) do
@@ -132,111 +156,4 @@ defmodule ProtoRune.Firehose do
   defp validate_handler(handler) when is_function(handler, 1), do: :ok
   defp validate_handler({module, function}) when is_atom(module) and is_atom(function), do: :ok
   defp validate_handler(_other), do: {:error, :invalid_handler}
-
-  @impl true
-  def init(data) do
-    state =
-      data
-      |> Map.put_new(:cursor, nil)
-      |> Map.put(:conn, nil)
-      |> Map.put(:backoff, data[:backoff_initial])
-
-    {:ok, state, {:continue, :connect}}
-  end
-
-  @impl true
-  def handle_continue(:connect, state) do
-    case state.transport.connect(stream_url(state), state.transport_opts) do
-      {:ok, conn} ->
-        Logger.info("[#{__MODULE__}] ==> Connected to firehose at #{state.relay}")
-        {:noreply, %{state | conn: conn, backoff: state.backoff_initial}}
-
-      {:error, reason} ->
-        reconnect({:connect_failed, reason}, state)
-    end
-  end
-
-  @impl true
-  def handle_call(:cursor, _from, state), do: {:reply, state.cursor, state}
-
-  @impl true
-  def handle_info(:reconnect, state) do
-    {:noreply, state, {:continue, :connect}}
-  end
-
-  def handle_info(_message, %{conn: nil} = state) do
-    {:noreply, state}
-  end
-
-  def handle_info(message, state) do
-    case state.transport.stream(state.conn, message) do
-      :unknown ->
-        {:noreply, state}
-
-      {:ok, conn, frames} ->
-        state
-        |> Map.put(:conn, conn)
-        |> process_frames(frames)
-
-      {:error, conn, reason} ->
-        reconnect(reason, %{state | conn: conn})
-    end
-  end
-
-  @impl true
-  def terminate(_reason, %{conn: nil}), do: :ok
-  def terminate(_reason, %{conn: conn, transport: transport}), do: transport.close(conn)
-
-  defp process_frames(state, frames) do
-    frames
-    |> Enum.reduce_while({:ok, state}, fn
-      {:binary, data}, {:ok, state} ->
-        {:cont, {:ok, process_frame(state, data)}}
-
-      # text frames belong to jetstream, the CBOR firehose speaks binary
-      {:text, _data}, {:ok, state} ->
-        {:cont, {:ok, state}}
-
-      :closed, {:ok, state} ->
-        {:halt, {:disconnect, :closed, state}}
-    end)
-    |> case do
-      {:ok, state} -> {:noreply, state}
-      {:disconnect, reason, state} -> reconnect(reason, state)
-    end
-  end
-
-  defp process_frame(state, data) do
-    case Frame.decode(data) do
-      {:ok, %Event{} = event} ->
-        deliver(state.handler, event)
-        %{state | cursor: event.seq || state.cursor}
-
-      {:error, reason} ->
-        Logger.warning("[#{__MODULE__}] ==> Dropped undecodable firehose frame: #{inspect(reason)}")
-        state
-    end
-  end
-
-  defp reconnect(reason, state) do
-    if state.auto_reconnect do
-      Logger.warning(
-        "[#{__MODULE__}] ==> Firehose connection lost (#{inspect(reason)}), reconnecting in #{state.backoff}ms"
-      )
-
-      Process.send_after(self(), :reconnect, state.backoff)
-      {:noreply, %{state | conn: nil, backoff: min(state.backoff * 2, state.backoff_max)}}
-    else
-      {:stop, {:firehose_disconnected, reason}, state}
-    end
-  end
-
-  defp stream_url(state) do
-    url = String.trim_trailing(state.relay, "/") <> @subscribe_path
-    if state.cursor, do: "#{url}?cursor=#{state.cursor}", else: url
-  end
-
-  defp deliver(handler, event) when is_pid(handler), do: send(handler, {:firehose, event})
-  defp deliver(handler, event) when is_function(handler, 1), do: handler.(event)
-  defp deliver({module, function}, event), do: apply(module, function, [event])
 end

@@ -54,13 +54,10 @@ defmodule ProtoRune.Jetstream do
     * `:name` - registers the process under the given name.
   """
 
-  use GenServer
-
   import Peri
 
   alias ProtoRune.Jetstream.Event
-
-  require Logger
+  alias ProtoRune.StreamClient
 
   @default_relay "wss://jetstream2.us-east.bsky.network"
   @subscribe_path "/subscribe"
@@ -92,7 +89,7 @@ defmodule ProtoRune.Jetstream do
     data = options_t!(opts)
 
     case validate_handler(data[:handler]) do
-      :ok -> GenServer.start_link(__MODULE__, data, start_opts(data))
+      :ok -> StreamClient.start_link(config(data), start_opts(data))
       {:error, reason} -> {:error, reason}
     end
   end
@@ -102,7 +99,39 @@ defmodule ProtoRune.Jetstream do
   event has been delivered yet.
   """
   @spec cursor(GenServer.server()) :: non_neg_integer | nil
-  def cursor(server), do: GenServer.call(server, :cursor)
+  def cursor(server), do: StreamClient.cursor(server)
+
+  defp config(data) do
+    relay = String.trim_trailing(data[:relay], "/") <> @subscribe_path
+
+    filters =
+      Enum.map(data[:wanted_collections], &{"wantedCollections", &1}) ++
+        Enum.map(data[:wanted_dids], &{"wantedDids", &1})
+
+    %{
+      handler: data[:handler],
+      cursor: data[:cursor],
+      auto_reconnect: data[:auto_reconnect],
+      backoff_initial: data[:backoff_initial],
+      backoff_max: data[:backoff_max],
+      transport: data[:transport],
+      transport_opts: data[:transport_opts],
+      tag: :jetstream,
+      frame: :text,
+      label: "jetstream at #{data[:relay]}",
+      stop_reason: :jetstream_disconnected,
+      url_fun: fn cursor ->
+        params = if cursor, do: filters ++ [{"cursor", Integer.to_string(cursor)}], else: filters
+        if params == [], do: relay, else: relay <> "?" <> URI.encode_query(params)
+      end,
+      decode_fun: fn frame ->
+        with {:ok, message} <- JSON.decode(frame),
+             {:ok, %Event{} = event} <- Event.from_message(message) do
+          {:ok, event, event.time_us}
+        end
+      end
+    }
+  end
 
   defp start_opts(data) do
     case Map.get(data, :name) do
@@ -115,117 +144,4 @@ defmodule ProtoRune.Jetstream do
   defp validate_handler(handler) when is_function(handler, 1), do: :ok
   defp validate_handler({module, function}) when is_atom(module) and is_atom(function), do: :ok
   defp validate_handler(_other), do: {:error, :invalid_handler}
-
-  @impl true
-  def init(data) do
-    state =
-      data
-      |> Map.put_new(:cursor, nil)
-      |> Map.put(:conn, nil)
-      |> Map.put(:backoff, data[:backoff_initial])
-
-    {:ok, state, {:continue, :connect}}
-  end
-
-  @impl true
-  def handle_continue(:connect, state) do
-    case state.transport.connect(stream_url(state), state.transport_opts) do
-      {:ok, conn} ->
-        Logger.info("[#{__MODULE__}] ==> Connected to jetstream at #{state.relay}")
-        {:noreply, %{state | conn: conn, backoff: state.backoff_initial}}
-
-      {:error, reason} ->
-        reconnect({:connect_failed, reason}, state)
-    end
-  end
-
-  @impl true
-  def handle_call(:cursor, _from, state), do: {:reply, state.cursor, state}
-
-  @impl true
-  def handle_info(:reconnect, state) do
-    {:noreply, state, {:continue, :connect}}
-  end
-
-  def handle_info(_message, %{conn: nil} = state) do
-    {:noreply, state}
-  end
-
-  def handle_info(message, state) do
-    case state.transport.stream(state.conn, message) do
-      :unknown ->
-        {:noreply, state}
-
-      {:ok, conn, frames} ->
-        state
-        |> Map.put(:conn, conn)
-        |> process_frames(frames)
-
-      {:error, conn, reason} ->
-        reconnect(reason, %{state | conn: conn})
-    end
-  end
-
-  @impl true
-  def terminate(_reason, %{conn: nil}), do: :ok
-  def terminate(_reason, %{conn: conn, transport: transport}), do: transport.close(conn)
-
-  defp process_frames(state, frames) do
-    frames
-    |> Enum.reduce_while({:ok, state}, fn
-      {:text, data}, {:ok, state} ->
-        {:cont, {:ok, process_frame(state, data)}}
-
-      # binary frames belong to the CBOR firehose, jetstream speaks JSON text
-      {:binary, _data}, {:ok, state} ->
-        {:cont, {:ok, state}}
-
-      :closed, {:ok, state} ->
-        {:halt, {:disconnect, :closed, state}}
-    end)
-    |> case do
-      {:ok, state} -> {:noreply, state}
-      {:disconnect, reason, state} -> reconnect(reason, state)
-    end
-  end
-
-  defp process_frame(state, data) do
-    with {:ok, message} <- JSON.decode(data),
-         {:ok, %Event{} = event} <- Event.from_message(message) do
-      deliver(state.handler, event)
-      %{state | cursor: event.time_us || state.cursor}
-    else
-      {:error, reason} ->
-        Logger.warning("[#{__MODULE__}] ==> Dropped undecodable jetstream message: #{inspect(reason)}")
-        state
-    end
-  end
-
-  defp reconnect(reason, state) do
-    if state.auto_reconnect do
-      Logger.warning(
-        "[#{__MODULE__}] ==> Jetstream connection lost (#{inspect(reason)}), reconnecting in #{state.backoff}ms"
-      )
-
-      Process.send_after(self(), :reconnect, state.backoff)
-      {:noreply, %{state | conn: nil, backoff: min(state.backoff * 2, state.backoff_max)}}
-    else
-      {:stop, {:jetstream_disconnected, reason}, state}
-    end
-  end
-
-  defp stream_url(state) do
-    params =
-      Enum.map(state.wanted_collections, &{"wantedCollections", &1}) ++
-        Enum.map(state.wanted_dids, &{"wantedDids", &1})
-
-    params = if state.cursor, do: params ++ [{"cursor", Integer.to_string(state.cursor)}], else: params
-
-    url = String.trim_trailing(state.relay, "/") <> @subscribe_path
-    if params == [], do: url, else: url <> "?" <> URI.encode_query(params)
-  end
-
-  defp deliver(handler, event) when is_pid(handler), do: send(handler, {:jetstream, event})
-  defp deliver(handler, event) when is_function(handler, 1), do: handler.(event)
-  defp deliver({module, function}, event), do: apply(module, function, [event])
 end
