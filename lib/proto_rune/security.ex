@@ -33,6 +33,7 @@ defmodule ProtoRune.Security do
   as the last argument.
   """
 
+  alias ProtoRune.Atproto.OAuth.Session, as: OAuthSession
   alias ProtoRune.Atproto.Session
   alias ProtoRune.Security.Crypto
   alias ProtoRune.Security.TokenStore
@@ -61,6 +62,9 @@ defmodule ProtoRune.Security do
   @doc """
   Encrypts `session` and stores it under its DID in `store`.
 
+  Works with any session implementing the `ProtoRune.Session` behaviour
+  (app-password and OAuth sessions alike).
+
   Returns `:ok` on success. `store` defaults to
   `{ProtoRune.Security.TokenStore.Dets, []}`.
 
@@ -69,8 +73,10 @@ defmodule ProtoRune.Security do
       :ok = ProtoRune.Security.save_session(session, key)
       :ok = ProtoRune.Security.save_session(session, key, {MyApp.TokenStore, []})
   """
-  @spec save_session(Session.t(), Crypto.key(), TokenStore.backend()) :: :ok | {:error, term()}
-  def save_session(%Session{did: did} = session, key, store \\ @default_store) do
+  @spec save_session(ProtoRune.Session.t(), Crypto.key(), TokenStore.backend()) :: :ok | {:error, term()}
+  def save_session(session, key, store \\ @default_store) do
+    did = ProtoRune.Session.did(session)
+
     with {:ok, blob} <- Crypto.encrypt(:erlang.term_to_binary(session), key) do
       put(store, did, blob)
     end
@@ -82,19 +88,20 @@ defmodule ProtoRune.Security do
   Returns `{:error, :not_found}` when no session is stored for `did`,
   `{:error, :decrypt_failed}` when the key is wrong or the stored blob
   was tampered with, and `{:error, :invalid_session}` when the decrypted
-  payload is not a `ProtoRune.Atproto.Session`.
+  payload is not a known session struct.
 
   ## Examples
 
       {:ok, session} = ProtoRune.Security.load_session("did:plc:alice", key)
   """
   @spec load_session(TokenStore.id(), Crypto.key(), TokenStore.backend()) ::
-          {:ok, Session.t()} | {:error, term()}
+          {:ok, ProtoRune.Session.t()} | {:error, term()}
   def load_session(did, key, store \\ @default_store) do
     with {:ok, blob} <- fetch(store, did),
          {:ok, plaintext} <- Crypto.decrypt(blob, key) do
       case :erlang.binary_to_term(plaintext) do
         %Session{} = session -> {:ok, session}
+        %OAuthSession{} = session -> {:ok, session}
         _other -> {:error, :invalid_session}
       end
     end

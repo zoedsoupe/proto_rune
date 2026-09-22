@@ -14,12 +14,15 @@ defmodule ProtoRune.Atproto.Session do
 
   @behaviour ProtoRune.Session
 
+  alias ProtoRune.Atproto
+
   @type t :: %__MODULE__{
           access_jwt: String.t(),
           refresh_jwt: String.t(),
           handle: String.t(),
           did: String.t(),
           service_url: String.t() | nil,
+          expires_at: integer() | nil,
           active: boolean() | nil,
           email: String.t() | nil,
           email_auth_factor: boolean() | nil,
@@ -33,6 +36,7 @@ defmodule ProtoRune.Atproto.Session do
     handle: {:required, :string},
     did: {:required, :string},
     service_url: :string,
+    expires_at: :integer,
     active: :boolean,
     email: :string,
     email_auth_factor: :boolean,
@@ -77,7 +81,7 @@ defmodule ProtoRune.Atproto.Session do
 
   @impl true
   def refresh(%__MODULE__{} = session, _opts) do
-    with {:ok, data} <- ProtoRune.Atproto.Server.refresh_session(session),
+    with {:ok, data} <- Atproto.Server.refresh_session(session),
          {:ok, fresh} <- parse(data) do
       {:ok, %{fresh | service_url: fresh.service_url || session.service_url}}
     end
@@ -102,9 +106,28 @@ defmodule ProtoRune.Atproto.Session do
     # Extract service_url from did_doc if present
     service_url = extract_service_url(data)
 
-    session_data = Map.put(data, :service_url, service_url)
+    session_data =
+      data
+      |> Map.put(:service_url, service_url)
+      |> Map.put_new(:expires_at, jwt_expiry(data[:access_jwt]))
+
     {:ok, struct(__MODULE__, session_data)}
   end
+
+  # The access JWT's `exp` claim, as a unix timestamp. The token is not
+  # verified here (it came from the PDS that issued it); a malformed token
+  # simply yields no expiry.
+  defp jwt_expiry(jwt) when is_binary(jwt) do
+    with [_, payload, _] <- String.split(jwt, "."),
+         {:ok, decoded} <- Base.url_decode64(payload, padding: false),
+         {:ok, %{"exp" => exp}} <- JSON.decode(decoded) do
+      exp
+    else
+      _other -> nil
+    end
+  end
+
+  defp jwt_expiry(_jwt), do: nil
 
   @doc """
   Normalizes a service URL into an XRPC base URL.

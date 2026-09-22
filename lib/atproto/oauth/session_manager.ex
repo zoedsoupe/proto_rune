@@ -77,7 +77,6 @@ defmodule ProtoRune.Atproto.OAuth.SessionManager do
 
   alias ProtoRune.Atproto.OAuth
   alias ProtoRune.Atproto.OAuth.Session
-  alias ProtoRune.Security.Crypto
 
   require Logger
 
@@ -200,10 +199,8 @@ defmodule ProtoRune.Atproto.OAuth.SessionManager do
     :ok
   end
 
-  defp persist(%{store: {backend, opts}, key: key}, %Session{did: did} = session) do
-    with {:ok, blob} <- Crypto.encrypt(:erlang.term_to_binary(session), key) do
-      backend.put(did, blob, opts)
-    end
+  defp persist(%{store: store, key: key}, session) do
+    ProtoRune.Security.save_session(session, key, store)
   end
 
   defp delete({backend, opts}, did), do: backend.delete(did, opts)

@@ -135,7 +135,16 @@ Per RFC 7009 the server answers success even for unknown tokens, so `{:ok, :revo
 
 ### SessionManager
 
-For long-running apps, `ProtoRune.Atproto.OAuth.SessionManager` keeps a session fresh: it refreshes before expiry, persists each rotated session through a `ProtoRune.Security.TokenStore` backend (encrypted at rest, the DPoP key is private key material) and stops on refresh failure so your supervisor decides what to do.
+For app-password sessions, `ProtoRune.SessionManager` keeps any session type fresh through the `ProtoRune.Session` behaviour, refreshing at 75% of the token lifetime (parsed from the access JWT) and optionally persisting each rotation encrypted:
+
+```elixir
+{ProtoRune.SessionManager,
+ session: session,
+ store: {ProtoRune.Security.TokenStore.Dets, path: "/var/myapp/tokens.dets"},
+ key: key}
+```
+
+OAuth sessions use it too, with `refresh_opts: [client: client]`. For OAuth-specific needs (revocation on logout, `invalid_grant` handling), `ProtoRune.Atproto.OAuth.SessionManager` keeps a session fresh: it refreshes before expiry, persists each rotated session through a `ProtoRune.Security.TokenStore` backend (encrypted at rest, the DPoP key is private key material) and stops on refresh failure so your supervisor decides what to do.
 
 The SDK starts no processes on its own, add it to your supervision tree:
 
