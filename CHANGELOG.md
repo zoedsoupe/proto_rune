@@ -1,5 +1,69 @@
 # Changelog
 
+## [0.6.0](https://github.com/zoedsoupe/proto_rune/compare/v0.5.3...v0.6.0) (2026-09-22)
+
+
+### Features
+
+* **bsky:** feed generator SDK (skeleton/describe builders, feed publishing) ([db46484](https://github.com/zoedsoupe/proto_rune/commit/db46484e9b4a2b13ff6a49cd33a1a619292ecca8))
+* **bsky:** media embeds for posts (images, external, quote, recordWithMedia) ([7c283b3](https://github.com/zoedsoupe/proto_rune/commit/7c283b38f0b8f8635054af1f9d45b95084c3d794))
+* **cbor:** add canonical DAG-CBOR encoding ([aebc218](https://github.com/zoedsoupe/proto_rune/commit/aebc218787c16a3c5cb7062a1905f1c348f991dc))
+* **chat:** Chat.Convo module with full convo coverage ([592d8fc](https://github.com/zoedsoupe/proto_rune/commit/592d8fcbae9e451abf693f02ae680db448c8ae56))
+* **http:** per-request adapter and http options ([0e12288](https://github.com/zoedsoupe/proto_rune/commit/0e1228848de95511ee5ad64939f2e7a5f0b9610e))
+* **identity:** implement verify_signature/3 ([2ba2922](https://github.com/zoedsoupe/proto_rune/commit/2ba2922879be6493c278225917577a3f600026cd))
+* **repo:** applyWrites and string-only collection NSIDs ([34e3c06](https://github.com/zoedsoupe/proto_rune/commit/34e3c06dafef825018824de97f9e4e40d17a8402))
+* **session:** generic SessionManager, JWT expiry on sessions ([81da7dc](https://github.com/zoedsoupe/proto_rune/commit/81da7dc0ea45fdec66079ad099e55709135f1b7f))
+* **sync:** add MST inclusion proofs for partial trees and firehose ops ([eea7d2d](https://github.com/zoedsoupe/proto_rune/commit/eea7d2dd1e093094a76e4843605076988115898d))
+* **sync:** verify repo checkouts against commit signature and block CIDs ([e4ab00c](https://github.com/zoedsoupe/proto_rune/commit/e4ab00cd96e1cef4e72d105ca5c9249ac6576f3b))
+* **xrpc:** unified request runtime and cursor pagination ([d80d49a](https://github.com/zoedsoupe/proto_rune/commit/d80d49a95bcf3cf7c9a8bf2f3c28a2821e85eec3))
+
+
+### Bug Fixes
+
+* **bot:** per-notification timestamp filter, dead message path removed ([65a912c](https://github.com/zoedsoupe/proto_rune/commit/65a912c06dda22b37020f0c9e19abc5e226c4e6d))
+* **bot:** require credential callbacks, align payload docs ([3db6b17](https://github.com/zoedsoupe/proto_rune/commit/3db6b17295a0cc3fcfa1a16bbeb01aa3f061ff0f))
+* credo ([33f0496](https://github.com/zoedsoupe/proto_rune/commit/33f0496993e05e26509000b9e16a83c8483e3dcb))
+* format ([c35abdf](https://github.com/zoedsoupe/proto_rune/commit/c35abdfd6e6f1658c8dd79c34f433878be4319ce))
+* **identity:** accept string keys in DID doc signing key lookup ([fb79a4e](https://github.com/zoedsoupe/proto_rune/commit/fb79a4e074a7e26da9f9535574108cffe33ca8f3))
+* **session:** polymorphic refresh and behaviour-routed repo writes ([d216cc1](https://github.com/zoedsoupe/proto_rune/commit/d216cc10d157410c7534eb33764524b720f2313f))
+* **xrpc:** public Error struct with atom reasons and retry_after ([ce5b960](https://github.com/zoedsoupe/proto_rune/commit/ce5b960727d55c4933bf8cd1105b1234933a65b2))
+* **xrpc:** stop interning server-controlled response keys ([e6a2963](https://github.com/zoedsoupe/proto_rune/commit/e6a2963474875c92dca43910531a8899c4d6a8d8))
+
+
+### Documentation
+
+* fold getting started guide into readme, trim session recipe ([ea10dd8](https://github.com/zoedsoupe/proto_rune/commit/ea10dd8e81df65f0af5e3264cf5a0b3d8924daf4))
+* rewrite readme around building atproto apps ([5be1225](https://github.com/zoedsoupe/proto_rune/commit/5be12258a971b0845a69e15c23afbe4c356020f7))
+* sync guides with unified session and error API ([ba3700e](https://github.com/zoedsoupe/proto_rune/commit/ba3700e7c8133e8c0c225185580ca38d8a083263))
+* sync roadmap with 0.5.x reality, changelog for embeds/verification/feedgen ([5244e96](https://github.com/zoedsoupe/proto_rune/commit/5244e96afdbd63566f7ffee829b4e22be4a2175c))
+
+
+### Miscellaneous Chores
+
+* apply mix format ([7d47c12](https://github.com/zoedsoupe/proto_rune/commit/7d47c12a068f68d5ef9b19f78f9a488c52b79269))
+* release please mark ([4db2d2c](https://github.com/zoedsoupe/proto_rune/commit/4db2d2cb809b98bc2f16acd9fecb239ea8f04e0d))
+* remove unused ecto dep, ignore crash dumps ([43db241](https://github.com/zoedsoupe/proto_rune/commit/43db24178b2ade9e846cf37d0907e53f2d96e880))
+* simplify docs ([6ea51b0](https://github.com/zoedsoupe/proto_rune/commit/6ea51b0a290a853ca5dc5ff06df01c1642cc8b0a))
+
+
+### Code Refactoring
+
+* **atproto:** generalize parse_at_uri/1 ([db6c7ee](https://github.com/zoedsoupe/proto_rune/commit/db6c7ee01343f2b2f6d0be2775870c57cb56c34a))
+* **bsky:** consolidate record deletes, drop langs default ([1eca6d5](https://github.com/zoedsoupe/proto_rune/commit/1eca6d5acbe4f48dbe46bdc40eeb34fcf6bf62fa))
+* **bsky:** expose generated endpoint modules, normalize helper returns ([a0a75ad](https://github.com/zoedsoupe/proto_rune/commit/a0a75ad2df5f78973b34676ba93c3f057da85ac1))
+* **config:** merge XRPC.Config into ProtoRune.Config ([495d9d9](https://github.com/zoedsoupe/proto_rune/commit/495d9d9097bf2e43269500aa14b0922c57d6c734))
+* **http:** share case-insensitive response header lookup ([aefaff5](https://github.com/zoedsoupe/proto_rune/commit/aefaff5d4e082dd8b130024c1dae90ff6019c2f2))
+* **identity:** drop single-implementation behaviour ([50cd91f](https://github.com/zoedsoupe/proto_rune/commit/50cd91fa1788d352caa080ff60b90ba12aa54dd9))
+* **streams:** shared WebSocket client for firehose and jetstream ([97ad5b2](https://github.com/zoedsoupe/proto_rune/commit/97ad5b2b8a25e369253ff0c7ddbdc40939618062))
+* **xrpc:** thin DSL over the shared runtime ([791f29e](https://github.com/zoedsoupe/proto_rune/commit/791f29e43d6e07680576adda27ef4ee72360cfee))
+
+
+### Tests
+
+* fix assert_receive timeout ([270ed93](https://github.com/zoedsoupe/proto_rune/commit/270ed938b2d835ca7b8bc1b63f9a96273a90e326))
+* **repo:** exercise collection resolution through create_record ([85dbcbf](https://github.com/zoedsoupe/proto_rune/commit/85dbcbfb98f7f60224d7b02cb690327c348b629c))
+* stub http through request options instead of app env ([fdfeb16](https://github.com/zoedsoupe/proto_rune/commit/fdfeb1655b85da5e8dce3e0bfecfd0f288cfa182))
+
 ## [Unreleased]
 
 
