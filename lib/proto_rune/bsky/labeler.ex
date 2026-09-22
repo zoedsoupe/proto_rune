@@ -12,7 +12,7 @@ defmodule ProtoRune.Bsky.Labeler do
 
   https://docs.bsky.app/docs/api/app-bsky-labeler-get-services
   """
-  defquery "app.bsky.labeler.getServices", for: :todo do
+  defquery "app.bsky.labeler.getServices" do
     param :dids, {:required, {:list, :string}}
     param :detailed, :boolean
   end

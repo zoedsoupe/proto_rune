@@ -1,5 +1,12 @@
 defmodule ProtoRune.Atproto.Server do
-  @moduledoc false
+  @moduledoc """
+  `com.atproto.server.*` endpoints: sessions, accounts, app passwords and
+  invite codes.
+
+  Generated XRPC functions; call them as `Server.endpoint(session, %{param: value})`
+  for authenticated endpoints or `Server.endpoint(%{param: value})` for
+  public ones. For logging in, prefer `ProtoRune.login/3`.
+  """
 
   import ProtoRune.XRPC.DSL
 
@@ -32,7 +39,7 @@ defmodule ProtoRune.Atproto.Server do
 
   https://docs.bsky.app/docs/api/com-atproto-server-create-account
   """
-  defprocedure "com.atproto.server.createAccount", for: :account do
+  defprocedure "com.atproto.server.createAccount" do
     param :handle, {:required, :string}
     param :email, :string
     param :did, :string
@@ -80,7 +87,7 @@ defmodule ProtoRune.Atproto.Server do
 
   https://docs.bsky.app/docs/api/com-atproto-server-create-session
   """
-  defprocedure "com.atproto.server.createSession", for: :todo do
+  defprocedure "com.atproto.server.createSession" do
     param :identifier, {:required, :string}
     param :password, {:required, :string}
     param :auth_factor_code, :string
@@ -118,7 +125,7 @@ defmodule ProtoRune.Atproto.Server do
 
   https://docs.bsky.app/docs/api/com-atproto-server-describe-server
   """
-  defquery "com.atproto.server.describeServer", for: :todo
+  defquery("com.atproto.server.describeServer")
 
   @doc """
   Get all invite codes for the current account. Requires auth.
@@ -133,7 +140,7 @@ defmodule ProtoRune.Atproto.Server do
 
   https://docs.bsky.app/docs/api/com-atproto-server-get-service-auth
   """
-  defquery "com.atproto.server.getServiceAuth", for: :todo do
+  defquery "com.atproto.server.getServiceAuth" do
     param :aud, {:required, :string}
     param :exp, :integer
     param :lxm, :string
@@ -186,7 +193,7 @@ defmodule ProtoRune.Atproto.Server do
 
   https://docs.bsky.app/docs/api/com-atproto-server-request-password-reset
   """
-  defprocedure "com.atproto.server.requestPasswordReset", for: :todo do
+  defprocedure "com.atproto.server.requestPasswordReset" do
     param :email, {:required, :string}
   end
 
@@ -195,7 +202,7 @@ defmodule ProtoRune.Atproto.Server do
 
   https://docs.bsky.app/docs/api/com-atproto-server-reserve-signing-key
   """
-  defprocedure "com.atproto.server.reserveSigningKey", for: :todo do
+  defprocedure "com.atproto.server.reserveSigningKey" do
     param :did, {:required, :string}
   end
 
@@ -204,7 +211,7 @@ defmodule ProtoRune.Atproto.Server do
 
   https://docs.bsky.app/docs/api/com-atproto-server-reset-password
   """
-  defprocedure "com.atproto.server.resetPassword", for: :todo do
+  defprocedure "com.atproto.server.resetPassword" do
     param :token, {:required, :string}
     param :password, {:required, :string}
   end
@@ -223,7 +230,7 @@ defmodule ProtoRune.Atproto.Server do
 
   https://docs.bsky.app/docs/api/com-atproto-server-update-email
   """
-  defprocedure "com.atproto.server.updateEmail", for: :todo do
+  defprocedure "com.atproto.server.updateEmail" do
     param :email, {:required, :string}
     param :email_auth_factor, :string
     param :token, :string

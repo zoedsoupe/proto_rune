@@ -26,8 +26,6 @@ defmodule ProtoRune.Bsky.Graph do
 
   https://docs.bsky.app/docs/api/app-bsky-graph-get-blocks
   """
-  defquery "app.bsky.graph.getBlocks", authenticated: true
-
   defquery "app.bsky.graph.getBlocks", authenticated: true do
     param :limit, :integer
     param :cursor, :string
@@ -71,8 +69,6 @@ defmodule ProtoRune.Bsky.Graph do
 
   https://docs.bsky.app/docs/api/app-bsky-graph-get-list-blocks
   """
-  defquery "app.bsky.graph.getListBlocks", authenticated: true
-
   defquery "app.bsky.graph.getListBlocks", authenticated: true do
     param :limit, :integer
     param :cursor, :string
@@ -83,8 +79,6 @@ defmodule ProtoRune.Bsky.Graph do
 
   https://docs.bsky.app/docs/api/app-bsky-graph-get-list-mutes
   """
-  defquery "app.bsky.graph.getListMutes", authenticated: true
-
   defquery "app.bsky.graph.getListMutes", authenticated: true do
     param :limit, :integer
     param :cursor, :string
@@ -117,8 +111,6 @@ defmodule ProtoRune.Bsky.Graph do
 
   https://docs.bsky.app/docs/api/app-bsky-graph-get-mutes
   """
-  defquery "app.bsky.graph.getMutes", authenticated: true
-
   defquery "app.bsky.graph.getMutes", authenticated: true do
     param :limit, :integer
     param :cursor, :string
@@ -129,7 +121,7 @@ defmodule ProtoRune.Bsky.Graph do
 
   https://docs.bsky.app/docs/api/app-bsky-graph-get-relationships
   """
-  defquery "app.bsky.graph.getRelationShips", for: :todo do
+  defquery "app.bsky.graph.getRelationShips" do
     param :actor, {:required, :string}
     param :others, {:list, :string}
   end
@@ -139,7 +131,7 @@ defmodule ProtoRune.Bsky.Graph do
 
   https://docs.bsky.app/docs/api/app-bsky-graph-get-starter-pack
   """
-  defquery "app.bsky.graph.getStarterPack", for: :todo do
+  defquery "app.bsky.graph.getStarterPack" do
     param :starter_pack, {:required, :string}
   end
 
@@ -148,7 +140,7 @@ defmodule ProtoRune.Bsky.Graph do
 
   https://docs.bsky.app/docs/api/app-bsky-graph-get-starter-packs
   """
-  defquery "app.bsky.graph.getStarterPacks", for: :todo do
+  defquery "app.bsky.graph.getStarterPacks" do
     param :uris, {:required, {:list, :string}}
   end
 

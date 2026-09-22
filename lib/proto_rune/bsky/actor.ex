@@ -22,11 +22,7 @@ defmodule ProtoRune.Bsky.Actor do
 
   https://docs.bsky.app/docs/api/app-bsky-actor-get-profile
   """
-  defquery "app.bsky.actor.getProfile", for: :profile do
-    param :actor, {:required, :string}
-  end
-
-  defquery "app.bsky.actor.getProfile", authenticated: true do
+  defquery "app.bsky.actor.getProfile", authenticated: :optional do
     param :actor, {:required, :string}
   end
 
@@ -35,11 +31,7 @@ defmodule ProtoRune.Bsky.Actor do
 
   https://docs.bsky.app/docs/api/app-bsky-actor-get-profiles
   """
-  defquery "app.bsky.actor.getProfiles", for: :profile do
-    param :actors, {:required, {:list, :string}}
-  end
-
-  defquery "app.bsky.actor.getProfiles", authenticated: true do
+  defquery "app.bsky.actor.getProfiles", authenticated: :optional do
     param :actors, {:required, {:list, :string}}
   end
 
@@ -48,8 +40,6 @@ defmodule ProtoRune.Bsky.Actor do
 
   https://docs.bsky.app/docs/api/app-bsky-actor-get-suggestions
   """
-  defquery "app.bsky.actor.getSuggestions", authenticated: true
-
   defquery "app.bsky.actor.getSuggestions", authenticated: true do
     param :limit, :integer
     param :cursor, :string
@@ -70,9 +60,7 @@ defmodule ProtoRune.Bsky.Actor do
 
   https://docs.bsky.app/docs/api/app-bsky-actor-search-actors-typeahead
   """
-  defquery "app.bsky.actor.searchActorsTypeahead", for: :search_actors
-
-  defquery "app.bsky.actor.searchActorsTypeahead", for: :search_actors do
+  defquery "app.bsky.actor.searchActorsTypeahead" do
     param :q, :string
     param :limit, :integer
   end
@@ -82,15 +70,7 @@ defmodule ProtoRune.Bsky.Actor do
 
   https://docs.bsky.app/docs/api/app-bsky-actor-search-actors
   """
-  defquery "app.bsky.actor.searchActors", for: :search_actors
-
-  defquery "app.bsky.actor.searchActors", for: :search_actors do
-    param :q, :string
-    param :limit, :integer
-    param :cursor, :string
-  end
-
-  defquery "app.bsky.actor.searchActors", authenticated: true do
+  defquery "app.bsky.actor.searchActors", authenticated: :optional do
     param :q, :string
     param :limit, :integer
     param :cursor, :string

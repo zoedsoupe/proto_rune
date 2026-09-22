@@ -21,8 +21,6 @@ defmodule ProtoRune.Bsky.Notification do
 
   https://docs.bsky.app/docs/api/app-bsky-notification-list-notifications
   """
-  defquery "app.bsky.notification.listNotifications", authenticated: true
-
   defquery "app.bsky.notification.listNotifications", authenticated: true do
     param :limit, :integer
     param :priority, :boolean

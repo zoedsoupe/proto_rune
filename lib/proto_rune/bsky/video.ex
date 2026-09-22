@@ -12,7 +12,7 @@ defmodule ProtoRune.Bsky.Video do
 
   https://docs.bsky.app/docs/api/app-bsky-video-get-job-status
   """
-  defquery "app.bsky.video.getJobStatus", for: :todo do
+  defquery "app.bsky.video.getJobStatus" do
     param :job_id, {:required, :string}
   end
 

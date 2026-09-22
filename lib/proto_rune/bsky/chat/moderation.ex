@@ -10,14 +10,14 @@ defmodule ProtoRune.Bsky.Chat.Moderation do
   @doc """
   https://docs.bsky.app/docs/api/chat-bsky-moderation-get-actor-metadata
   """
-  defquery "chat.bsky.moderation.getActorMetadata", for: :todo do
+  defquery "chat.bsky.moderation.getActorMetadata" do
     param :actor, {:required, :string}
   end
 
   @doc """
   https://docs.bsky.app/docs/api/chat-bsky-moderation-get-message-context
   """
-  defquery "chat.bsky.moderation.getMessageContext", for: :todo do
+  defquery "chat.bsky.moderation.getMessageContext" do
     param :convo_id, {:required, :string}
     param :message_id, {:required, :string}
     param :before, :integer

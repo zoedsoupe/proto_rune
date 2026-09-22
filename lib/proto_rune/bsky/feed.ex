@@ -15,7 +15,7 @@ defmodule ProtoRune.Bsky.Feed do
 
   https://docs.bsky.app/docs/api/app-bsky-feed-describe-feed-generator
   """
-  defquery "app.bsky.feed.describeFeedGenerator", for: :feed
+  defquery("app.bsky.feed.describeFeedGenerator")
 
   @doc """
   Get a list of feeds (feed generator records) created by the actor (in the actor's repo).
@@ -44,7 +44,7 @@ defmodule ProtoRune.Bsky.Feed do
 
   https://docs.bsky.app/docs/api/app-bsky-feed-get-author-feed
   """
-  defquery "app.bsky.feed.getAuthorFeed", for: :feed do
+  defquery "app.bsky.feed.getAuthorFeed" do
     param :actor, {:required, :string}
     param :limit, :integer
     param :cursor, :string
@@ -58,7 +58,7 @@ defmodule ProtoRune.Bsky.Feed do
 
   https://docs.bsky.app/docs/api/app-bsky-feed-get-feed-generator
   """
-  defquery "app.bsky.feed.getFeedGenerator", for: :feed do
+  defquery "app.bsky.feed.getFeedGenerator" do
     param :feed, {:required, :string}
   end
 
@@ -67,7 +67,7 @@ defmodule ProtoRune.Bsky.Feed do
 
   https://docs.bsky.app/docs/api/app-bsky-feed-get-feed-generators
   """
-  defquery "app.bsky.feed.getFeedGenerators", for: :feed do
+  defquery "app.bsky.feed.getFeedGenerators" do
     param :feed, {:required, {:list, :string}}
   end
 
@@ -76,7 +76,7 @@ defmodule ProtoRune.Bsky.Feed do
 
   https://docs.bsky.app/docs/api/app-bsky-feed-get-feed-skeleton
   """
-  defquery "app.bsky.feed.getFeedSkeleton", for: :feed do
+  defquery "app.bsky.feed.getFeedSkeleton" do
     param :feed, {:required, :string}
     param :limit, :integer
     param :cursor, :string
@@ -87,7 +87,7 @@ defmodule ProtoRune.Bsky.Feed do
 
   https://docs.bsky.app/docs/api/app-bsky-feed-get-feed
   """
-  defquery "app.bsky.feed.getFeed", for: :feed do
+  defquery "app.bsky.feed.getFeed" do
     param :feed, {:required, :string}
     param :limit, :integer
     param :cursor, :string
@@ -98,7 +98,7 @@ defmodule ProtoRune.Bsky.Feed do
 
   https://docs.bsky.app/docs/api/app-bsky-feed-get-likes
   """
-  defquery "app.bsky.feed.getLikes", for: :like do
+  defquery "app.bsky.feed.getLikes" do
     param :uri, {:required, :string}
     param :cid, :string
     param :limit, :integer
@@ -110,7 +110,7 @@ defmodule ProtoRune.Bsky.Feed do
 
   https://docs.bsky.app/docs/api/app-bsky-feed-get-list-feed
   """
-  defquery "app.bsky.feed.getListFeed", for: :feed do
+  defquery "app.bsky.feed.getListFeed" do
     param :list, {:required, :string}
     param :limit, :integer
     param :cursor, :string
@@ -121,13 +121,7 @@ defmodule ProtoRune.Bsky.Feed do
 
   https://docs.bsky.app/docs/api/app-bsky-feed-get-post-thread
   """
-  defquery "app.bsky.feed.getPostThread", for: :thread do
-    param :uri, {:required, :string}
-    param :depth, :integer
-    param :parent_height, :integer
-  end
-
-  defquery "app.bsky.feed.getPostThread", authenticated: true do
+  defquery "app.bsky.feed.getPostThread", authenticated: :optional do
     param :uri, {:required, :string}
     param :depth, :integer
     param :parent_height, :integer
@@ -147,7 +141,7 @@ defmodule ProtoRune.Bsky.Feed do
 
   https://docs.bsky.app/docs/api/app-bsky-feed-get-quotes
   """
-  defquery "app.bsky.feed.getQuotes", for: :quote do
+  defquery "app.bsky.feed.getQuotes" do
     param :uri, {:required, :string}
     param :cid, :string
     param :limit, :integer
@@ -159,7 +153,7 @@ defmodule ProtoRune.Bsky.Feed do
 
   https://docs.bsky.app/docs/api/app-bsky-feed-get-reposted-by
   """
-  defquery "app.bsky.feed.getRepostedBy", for: :repost do
+  defquery "app.bsky.feed.getRepostedBy" do
     param :uri, {:required, :string}
     param :cid, :string
     param :limit, :integer
@@ -171,8 +165,6 @@ defmodule ProtoRune.Bsky.Feed do
 
   https://docs.bsky.app/docs/api/app-bsky-feed-get-suggested-feeds
   """
-  defquery "app.bsky.feed.getSuggestedFeeds", authenticated: true
-
   defquery "app.bsky.feed.getSuggestedFeeds", authenticated: true do
     param :limit, :integer
     param :cursor, :string
@@ -183,8 +175,6 @@ defmodule ProtoRune.Bsky.Feed do
 
   https://docs.bsky.app/docs/api/app-bsky-feed-get-timeline
   """
-  defquery "app.bsky.feed.getTimeline", authenticated: true
-
   defquery "app.bsky.feed.getTimeline", authenticated: true do
     param :algorithm, :string
     param :limit, :integer
@@ -196,22 +186,7 @@ defmodule ProtoRune.Bsky.Feed do
 
   https://docs.bsky.app/docs/api/app-bsky-feed-search-posts
   """
-  defquery "app.bsky.feed.searchPosts", for: :search do
-    param :q, {:required, :string}
-    param :sort, {:enum, [:top, :latest]}
-    param :since, :date
-    param :until, :date
-    param :mentions, {:list, :string}
-    param :author, :string
-    param :lang, :string
-    param :domain, :string
-    param :url, :string
-    param :tag, {:list, :string}
-    param :limit, :integer
-    param :cursor, :string
-  end
-
-  defquery "app.bsky.feed.searchPosts", authenticated: true do
+  defquery "app.bsky.feed.searchPosts", authenticated: :optional do
     param :q, {:required, :string}
     param :sort, {:enum, [:top, :latest]}
     param :since, :date

@@ -1,5 +1,9 @@
 defmodule ProtoRune.Atproto.Admin do
-  @moduledoc false
+  @moduledoc """
+  `com.atproto.admin.*` endpoints. All of them require admin credentials.
+
+  Generated XRPC functions; call them as `Admin.endpoint(session, %{param: value})`.
+  """
 
   import ProtoRune.XRPC.DSL
 
@@ -65,8 +69,6 @@ defmodule ProtoRune.Atproto.Admin do
 
   https://docs.bsky.app/docs/api/com-atproto-admin-get-invite-codes
   """
-  defquery "com.atproto.admin.getInviteCodes", authenticated: true
-
   defquery "com.atproto.admin.getInviteCodes", authenticated: true do
     param :sort, {:enum, [:recent, :usage]}
     param :limit, :integer
@@ -78,8 +80,6 @@ defmodule ProtoRune.Atproto.Admin do
 
   https://docs.bsky.app/docs/api/com-atproto-admin-get-subject-status
   """
-  defquery "com.atproto.admin.getSubjectStatus", authenticated: true
-
   defquery "com.atproto.admin.getSubjectStatus", authenticated: true do
     param :did, :string
     param :uri, :string
@@ -87,13 +87,11 @@ defmodule ProtoRune.Atproto.Admin do
   end
 
   @doc """
-  Get list of accounts that matches your search query.
+  Get list of accounts that matches your search query. Requires admin auth.
 
   https://docs.bsky.app/docs/api/com-atproto-admin-search-accounts
   """
-  defquery "com.atproto.admin.searchAccounts", for: :todo
-
-  defquery "com.atproto.admin.searchAccounts", for: :todo do
+  defquery "com.atproto.admin.searchAccounts", authenticated: true do
     param :email, :string
     param :uri, :string
     param :blob, :string
