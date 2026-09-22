@@ -48,7 +48,7 @@ defmodule ProtoRune.Bsky do
 
   ## Options
 
-  - `:langs` - List of language codes (default: `["en"]`)
+  - `:langs` - List of language codes (omitted when not given)
   - `:reply_to` - AT-URI of post to reply to
   - `:created_at` - Timestamp (default: now)
   - `:embed` - An embed map built with `ProtoRune.Bsky.Embed`
@@ -107,24 +107,26 @@ defmodule ProtoRune.Bsky do
 
   defp build_post(session, base, opts) do
     record =
-      Map.merge(
-        %{
-          "$type": "app.bsky.feed.post",
-          langs: Keyword.get(opts, :langs, ["en"]),
-          created_at: opts |> Keyword.get(:created_at, DateTime.utc_now()) |> DateTime.to_iso8601()
-        },
-        base
-      )
+      %{"$type": "app.bsky.feed.post", created_at: format_created_at(opts)}
+      |> maybe_put(:langs, Keyword.get(opts, :langs))
+      |> Map.merge(base)
 
     with {:ok, record} <- maybe_put_reply(session, record, opts),
          {:ok, record} <- maybe_put_embed(session, record, opts) do
       Repo.create_record(session, %{
         repo: Session.did(session),
-        collection: :post,
+        collection: "app.bsky.feed.post",
         record: record
       })
     end
   end
+
+  defp format_created_at(opts) do
+    opts |> Keyword.get(:created_at, DateTime.utc_now()) |> DateTime.to_iso8601()
+  end
+
+  defp maybe_put(map, _key, nil), do: map
+  defp maybe_put(map, key, value), do: Map.put(map, key, value)
 
   defp maybe_put_embed(session, record, opts) do
     with {:ok, media} <- maybe_images_embed(session, Keyword.get(opts, :images)) do
@@ -180,7 +182,7 @@ defmodule ProtoRune.Bsky do
 
     Repo.create_record(session, %{
       repo: Session.did(session),
-      collection: :like,
+      collection: "app.bsky.feed.like",
       record: record
     })
   end
@@ -194,13 +196,7 @@ defmodule ProtoRune.Bsky do
   """
   @spec unlike(session(), String.t()) :: {:ok, map()} | {:error, term()}
   def unlike(session, like_uri) when is_binary(like_uri) do
-    with {:ok, {repo, collection, rkey}} <- parse_at_uri(like_uri) do
-      Repo.delete_record(session, %{
-        repo: repo,
-        collection: collection,
-        rkey: rkey
-      })
-    end
+    delete_record(session, like_uri)
   end
 
   @doc """
@@ -220,7 +216,7 @@ defmodule ProtoRune.Bsky do
 
     Repo.create_record(session, %{
       repo: Session.did(session),
-      collection: :repost,
+      collection: "app.bsky.feed.repost",
       record: record
     })
   end
@@ -259,13 +255,7 @@ defmodule ProtoRune.Bsky do
   """
   @spec unfollow(session(), String.t()) :: {:ok, map()} | {:error, term()}
   def unfollow(session, follow_uri) when is_binary(follow_uri) do
-    with {:ok, {repo, collection, rkey}} <- parse_at_uri(follow_uri) do
-      Repo.delete_record(session, %{
-        repo: repo,
-        collection: collection,
-        rkey: rkey
-      })
-    end
+    delete_record(session, follow_uri)
   end
 
   @doc """
@@ -492,13 +482,7 @@ defmodule ProtoRune.Bsky do
   """
   @spec unblock(session(), String.t()) :: {:ok, map()} | {:error, term()}
   def unblock(session, block_uri) when is_binary(block_uri) do
-    with {:ok, {repo, collection, rkey}} <- parse_at_uri(block_uri) do
-      Repo.delete_record(session, %{
-        repo: repo,
-        collection: collection,
-        rkey: rkey
-      })
-    end
+    delete_record(session, block_uri)
   end
 
   @doc """
@@ -526,6 +510,27 @@ defmodule ProtoRune.Bsky do
   end
 
   @doc """
+  Deletes any record owned by the session's account by its AT-URI.
+
+  The typed `unlike/2`, `unfollow/2`, `unblock/2`, `delete_post/2` and
+  `unrepost/2` helpers all delegate here.
+
+  ## Examples
+
+      {:ok, _} = Bsky.delete_record(session, "at://did:plc:xyz/app.bsky.feed.post/3k...")
+  """
+  @spec delete_record(session(), String.t()) :: {:ok, map()} | {:error, term()}
+  def delete_record(session, uri) when is_binary(uri) do
+    with {:ok, {repo, collection, rkey}} <- parse_at_uri(uri) do
+      Repo.delete_record(session, %{
+        repo: repo,
+        collection: collection,
+        rkey: rkey
+      })
+    end
+  end
+
+  @doc """
   Deletes a post by its AT-URI.
 
   ## Examples
@@ -534,13 +539,7 @@ defmodule ProtoRune.Bsky do
   """
   @spec delete_post(session(), String.t()) :: {:ok, map()} | {:error, term()}
   def delete_post(session, post_uri) when is_binary(post_uri) do
-    with {:ok, {repo, collection, rkey}} <- parse_at_uri(post_uri) do
-      Repo.delete_record(session, %{
-        repo: repo,
-        collection: collection,
-        rkey: rkey
-      })
-    end
+    delete_record(session, post_uri)
   end
 
   @doc """
@@ -552,13 +551,7 @@ defmodule ProtoRune.Bsky do
   """
   @spec unrepost(session(), String.t()) :: {:ok, map()} | {:error, term()}
   def unrepost(session, repost_uri) when is_binary(repost_uri) do
-    with {:ok, {repo, collection, rkey}} <- parse_at_uri(repost_uri) do
-      Repo.delete_record(session, %{
-        repo: repo,
-        collection: collection,
-        rkey: rkey
-      })
-    end
+    delete_record(session, repost_uri)
   end
 
   @doc """

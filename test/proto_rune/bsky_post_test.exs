@@ -1,7 +1,6 @@
 defmodule ProtoRune.BskyPostTest do
   use ExUnit.Case, async: false
 
-  alias ProtoRune.Atproto.Repo
   alias ProtoRune.Bsky
   alias ProtoRune.RichText
 
@@ -62,7 +61,7 @@ defmodule ProtoRune.BskyPostTest do
       record = body[:record]
       assert record[:"$type"] == "app.bsky.feed.post"
       assert record[:text] == "Hello Bluesky!"
-      assert record[:langs] == ["en"]
+      refute Map.has_key?(record, :langs)
       assert is_binary(record[:createdAt])
       assert {:ok, _dt, _offset} = DateTime.from_iso8601(record[:createdAt])
     end
@@ -86,7 +85,7 @@ defmodule ProtoRune.BskyPostTest do
       record = body[:record]
       assert record[:"$type"] == "app.bsky.feed.post"
       assert record[:text] == "Olá, this project"
-      assert record[:langs] == ["en"]
+      refute Map.has_key?(record, :langs)
       assert is_binary(record[:createdAt])
       assert {:ok, _dt, _offset} = DateTime.from_iso8601(record[:createdAt])
 
@@ -138,26 +137,12 @@ defmodule ProtoRune.BskyPostTest do
     end
   end
 
-  describe "Repo.create_record/3 collection resolution" do
-    test "atom collections encode as app.bsky.feed.<name>" do
-      assert {:ok, _} =
-               Repo.create_record(@session, %{
-                 repo: "did:plc:test",
-                 collection: :threadgate,
-                 record: %{}
-               })
+  describe "post/3 with the :langs option" do
+    test "sends the given language codes" do
+      assert {:ok, _} = Bsky.post(@session, "alô mundo", langs: ["pt"])
 
       assert_received {:request, :post, _url, opts}
-      assert opts[:json][:collection] == "app.bsky.feed.threadgate"
-    end
-
-    test "unsupported atom collections return an error tuple instead of crashing" do
-      assert {:error, {:unsupported_collection, :nope}} =
-               Repo.create_record(@session, %{
-                 repo: "did:plc:test",
-                 collection: :nope,
-                 record: %{}
-               })
+      assert opts[:json][:record][:langs] == ["pt"]
     end
   end
 end

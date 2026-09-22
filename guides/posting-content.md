@@ -9,7 +9,7 @@
 
 Options:
 
-- `:langs`: language codes (default `["en"]`)
+- `:langs`: language codes (omitted when not given)
 - `:reply_to`: AT-URI of the post to reply to
 - `:created_at`: custom timestamp (default: now)
 
