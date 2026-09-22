@@ -31,9 +31,17 @@ defmodule ProtoRune.Atproto.Identity.SigningKey do
   key, with the point decompressed for `:crypto.verify/5`.
   """
   @spec from_did_doc(map()) :: {:ok, binary(), :secp256r1 | :secp256k1} | {:error, atom()}
-  def from_did_doc(%{verification_method: methods}) when is_list(methods) do
+  def from_did_doc(doc) when is_map(doc) do
+    case get_key(doc, :verification_method) do
+      methods when is_list(methods) -> extract_method(methods)
+      _other -> {:error, :missing_signing_key}
+    end
+  end
+
+  defp extract_method(methods) do
     with %{} = method <- Enum.find(methods, &atproto_method?/1) || :missing,
-         {:ok, bytes} <- decode_multibase(method[:public_key_multibase]),
+         multibase when is_binary(multibase) <- get_key(method, :public_key_multibase) || :missing,
+         {:ok, bytes} <- decode_multibase(multibase),
          {:ok, key, curve} <- split_codec(bytes) do
       decompress(key, curve)
     else
@@ -42,7 +50,10 @@ defmodule ProtoRune.Atproto.Identity.SigningKey do
     end
   end
 
-  def from_did_doc(_doc), do: {:error, :missing_signing_key}
+  # Snakelized server documents may carry atom or string keys depending on
+  # whether the atom already existed at conversion time (ProtoRune.Case
+  # interns with String.to_existing_atom/1), so accept both.
+  defp get_key(map, key) when is_map(map), do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
 
   @doc """
   Verifies a raw 64-byte `r || s` ECDSA signature over `message`.
@@ -55,6 +66,7 @@ defmodule ProtoRune.Atproto.Identity.SigningKey do
   def verify(_point, _curve, _message, _sig), do: false
 
   defp atproto_method?(%{id: id}) when is_binary(id), do: String.ends_with?(id, "#atproto")
+  defp atproto_method?(%{"id" => id}) when is_binary(id), do: String.ends_with?(id, "#atproto")
   defp atproto_method?(_), do: false
 
   defp decode_multibase("z" <> encoded) do
