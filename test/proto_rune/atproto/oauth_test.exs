@@ -354,7 +354,7 @@ defmodule ProtoRune.Atproto.OAuthTest do
       assert {:error, :missing_refresh_token} = OAuth.revoke(session, client_id: client.client_id, http: http)
     end
 
-    test "requires a client_id", %{client: client, http: http} do
+    test "requires a client_id", %{client: client} do
       assert {:error, :missing_client_id} = OAuth.revoke(session(client))
     end
   end

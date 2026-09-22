@@ -38,7 +38,9 @@ defmodule ProtoRune.Atproto.RepoTest do
                    repo: "did:plc:test",
                    collection: "com.example.thing",
                    record: record
-                 }, http: http)
+                 },
+                 http: http
+               )
 
       assert_received {:request, :post, url, opts}
       assert url =~ "com.atproto.repo.createRecord"
@@ -66,7 +68,9 @@ defmodule ProtoRune.Atproto.RepoTest do
                    repo: "did:plc:test",
                    collection: "app.bsky.feed.post",
                    record: record
-                 }, http: http)
+                 },
+                 http: http
+               )
 
       assert_received {:request, :post, _url, opts}
       assert Keyword.fetch!(opts, :json)[:collection] == "app.bsky.feed.post"
@@ -82,7 +86,9 @@ defmodule ProtoRune.Atproto.RepoTest do
                    repo: "did:plc:test",
                    collection: :post,
                    record: %{}
-                 }, http: http)
+                 },
+                 http: http
+               )
 
       refute_received {:request, _, _, _}
     end
@@ -97,7 +103,9 @@ defmodule ProtoRune.Atproto.RepoTest do
                    repo: "did:plc:test",
                    collection: "app.bsky.feed.post",
                    record: %{"$type": "app.bsky.feed.post"}
-                 }, http: http)
+                 },
+                 http: http
+               )
 
       refute_received {:request, _, _, _}
     end
@@ -166,7 +174,9 @@ defmodule ProtoRune.Atproto.RepoTest do
                    validate: false,
                    swap_commit: "bafyrei123",
                    record: record
-                 }, http: http)
+                 },
+                 http: http
+               )
 
       assert_received {:request, :post, _url, opts}
       body = Keyword.fetch!(opts, :json)
@@ -190,7 +200,9 @@ defmodule ProtoRune.Atproto.RepoTest do
                    collection: "com.example.thing",
                    rkey: "self",
                    record: record
-                 }, http: http)
+                 },
+                 http: http
+               )
 
       assert_received {:request, :post, url, opts}
       assert url =~ "com.atproto.repo.putRecord"
@@ -213,7 +225,9 @@ defmodule ProtoRune.Atproto.RepoTest do
                    collection: :post,
                    rkey: "abc",
                    record: %{}
-                 }, http: http)
+                 },
+                 http: http
+               )
 
       refute_received {:request, _, _, _}
     end
@@ -229,7 +243,9 @@ defmodule ProtoRune.Atproto.RepoTest do
                    collection: "app.bsky.feed.post",
                    rkey: "abc",
                    record: %{"$type": "app.bsky.feed.post"}
-                 }, http: http)
+                 },
+                 http: http
+               )
 
       refute_received {:request, _, _, _}
     end
@@ -286,7 +302,9 @@ defmodule ProtoRune.Atproto.RepoTest do
                    record: record,
                    swap_record: "bafy123",
                    swap_commit: "bafyrei123"
-                 }, http: http)
+                 },
+                 http: http
+               )
 
       assert_received {:request, :post, _url, opts}
       body = Keyword.fetch!(opts, :json)
