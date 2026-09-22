@@ -14,6 +14,7 @@ defmodule ProtoRune.Atproto.OAuth.Session do
 
   @behaviour ProtoRune.Session
 
+  alias ProtoRune.Atproto
   alias ProtoRune.Atproto.OAuth.DPoP
 
   @type t :: %__MODULE__{
@@ -80,8 +81,8 @@ defmodule ProtoRune.Atproto.OAuth.Session do
   @impl true
   def refresh(%__MODULE__{} = session, opts) do
     case Keyword.fetch(opts, :client) do
-      {:ok, %ProtoRune.Atproto.OAuth.Client{} = client} ->
-        ProtoRune.Atproto.OAuth.refresh(client, session)
+      {:ok, %Atproto.OAuth.Client{} = client} ->
+        Atproto.OAuth.refresh(client, session)
 
       _ ->
         {:error, :missing_oauth_client}

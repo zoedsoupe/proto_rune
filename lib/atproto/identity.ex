@@ -9,8 +9,6 @@ defmodule ProtoRune.Atproto.Identity do
   - Verifying signatures
   """
 
-  @behaviour ProtoRune.Atproto.Identity.Behaviour
-
   alias ProtoRune.Atproto.Identity.Cache
   alias ProtoRune.Atproto.Identity.DIDResolver
   alias ProtoRune.Atproto.Identity.HandleResolver
@@ -54,7 +52,6 @@ defmodule ProtoRune.Atproto.Identity do
   - Segments can contain hyphens (not at start/end)
   - Last segment cannot start with a number
   """
-  @impl true
   def valid_handle?(term) when is_handle(term) do
     term
     |> String.split(".")
@@ -83,7 +80,6 @@ defmodule ProtoRune.Atproto.Identity do
   - Contain a valid method-specific identifier
   - Use only allowed characters (a-z, A-Z, 0-9, ., _, :, %, -)
   """
-  @impl true
   def valid_did?(term) when is_did(term) do
     case String.split(term, ":", parts: 3) do
       ["did", method, identifier] ->
@@ -135,7 +131,6 @@ defmodule ProtoRune.Atproto.Identity do
       String.match?(segment, ~r/^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]$/)
   end
 
-  @impl true
   def resolve_handle(handle) when is_handle(handle) do
     if valid_handle?(handle) do
       with {:error, _} <- Cache.get_did(handle),
@@ -189,7 +184,6 @@ defmodule ProtoRune.Atproto.Identity do
 
   def resolve_handle(_, _), do: {:error, :invalid_format}
 
-  @impl true
   def resolve_did(did) when is_did(did) do
     if valid_did?(did) do
       with {:error, _} <- Cache.get_did_doc(did),
@@ -204,7 +198,6 @@ defmodule ProtoRune.Atproto.Identity do
 
   def resolve_did(_), do: {:error, :invalid_format}
 
-  @impl true
   def validate_identity(handle) when is_handle(handle) do
     with {:ok, did} <- resolve_handle(handle),
          {:ok, doc} <- resolve_did(did),
@@ -215,7 +208,6 @@ defmodule ProtoRune.Atproto.Identity do
 
   def validate_identity(_), do: {:error, :invalid_format}
 
-  @impl true
   def verify_signature(did, message, signature) when is_binary(did) and is_binary(message) and is_binary(signature) do
     with {:ok, doc} <- resolve_did(did),
          {:ok, point, curve} <- SigningKey.from_did_doc(doc) do
@@ -229,12 +221,10 @@ defmodule ProtoRune.Atproto.Identity do
 
   def verify_signature(_, _, _), do: {:error, :invalid_format}
 
-  @impl true
   def refresh_handle(handle) when is_binary(handle) do
     Cache.invalidate_handle(handle)
   end
 
-  @impl true
   def refresh_did(did) when is_binary(did) do
     Cache.invalidate_did(did)
   end
