@@ -71,7 +71,7 @@ defmodule ProtoRune.Atproto.RepoTest do
       assert body[:record] == %{:"$type" => "com.example.thing", :anything => "goes"}
     end
 
-    test "atom collection encodes to the app.bsky.feed NSID and validates against the built-in schema" do
+    test "known bsky NSID validates against the built-in schema and passes through" do
       stub_json(self(), %{"uri" => "at://did:plc:test/app.bsky.feed.post/abc", "cid" => "bafy123"})
 
       record = %{
@@ -83,7 +83,7 @@ defmodule ProtoRune.Atproto.RepoTest do
       assert {:ok, _} =
                Repo.create_record(@session, %{
                  repo: "did:plc:test",
-                 collection: :post,
+                 collection: "app.bsky.feed.post",
                  record: record
                })
 
@@ -91,26 +91,13 @@ defmodule ProtoRune.Atproto.RepoTest do
       assert Keyword.fetch!(opts, :json)[:collection] == "app.bsky.feed.post"
     end
 
-    test "atom collection with an invalid record returns an error and makes no request" do
+    test "atom collection is rejected by the params schema and makes no request" do
       stub_json(self(), %{})
 
       assert {:error, _} =
                Repo.create_record(@session, %{
                  repo: "did:plc:test",
                  collection: :post,
-                 record: %{"$type": "app.bsky.feed.post"}
-               })
-
-      refute_received {:request, _, _, _}
-    end
-
-    test "unknown atom collection returns unsupported_collection and makes no request" do
-      stub_json(self(), %{})
-
-      assert {:error, {:unsupported_collection, :psot}} =
-               Repo.create_record(@session, %{
-                 repo: "did:plc:test",
-                 collection: :psot,
                  record: %{}
                })
 
@@ -169,7 +156,7 @@ defmodule ProtoRune.Atproto.RepoTest do
       assert {:ok, _} =
                Repo.create_record(
                  @session,
-                 %{repo: "did:plc:test", collection: :post, record: %{text: "no dollar type needed"}},
+                 %{repo: "did:plc:test", collection: "app.bsky.feed.post", record: %{text: "no dollar type needed"}},
                  schema: schema
                )
 
@@ -184,7 +171,7 @@ defmodule ProtoRune.Atproto.RepoTest do
       assert {:ok, _} =
                Repo.create_record(@session, %{
                  repo: "did:plc:test",
-                 collection: :post,
+                 collection: "app.bsky.feed.post",
                  rkey: "abc",
                  validate: false,
                  swap_commit: "bafyrei123",
@@ -223,27 +210,13 @@ defmodule ProtoRune.Atproto.RepoTest do
       assert body[:record] == %{:"$type" => "com.example.thing", :anything => "goes"}
     end
 
-    test "atom collection with an invalid record returns an error and makes no request" do
+    test "atom collection is rejected by the params schema and makes no request" do
       stub_json(self(), %{})
 
       assert {:error, _} =
                Repo.put_record(@session, %{
                  repo: "did:plc:test",
                  collection: :post,
-                 rkey: "abc",
-                 record: %{"$type": "app.bsky.feed.post"}
-               })
-
-      refute_received {:request, _, _, _}
-    end
-
-    test "unknown atom collection returns unsupported_collection and makes no request" do
-      stub_json(self(), %{})
-
-      assert {:error, {:unsupported_collection, :psot}} =
-               Repo.put_record(@session, %{
-                 repo: "did:plc:test",
-                 collection: :psot,
                  rkey: "abc",
                  record: %{}
                })
@@ -308,7 +281,7 @@ defmodule ProtoRune.Atproto.RepoTest do
       assert {:ok, _} =
                Repo.put_record(@session, %{
                  repo: "did:plc:test",
-                 collection: :post,
+                 collection: "app.bsky.feed.post",
                  rkey: "abc",
                  record: record,
                  swap_record: "bafy123",

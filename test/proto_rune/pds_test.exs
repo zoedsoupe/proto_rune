@@ -79,7 +79,7 @@ defmodule ProtoRune.PDSTest do
     assert {:ok, %{uri: "at://" <> _}} =
              Repo.create_record(session(url), %{
                repo: @did,
-               collection: :post,
+               collection: "app.bsky.feed.post",
                record: %{"$type": "app.bsky.feed.post", text: "hello from bypass"}
              })
   end

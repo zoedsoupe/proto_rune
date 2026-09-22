@@ -90,9 +90,8 @@ Typos and malformed records are then only caught by the PDS, if it validates at 
 
 ## Built-in Bluesky collections
 
-The known collections keep their built-in validation:
-
-- Atom collections (`:post`, `:like`, `:repost`, `:generator`, `:threadgate`, `:postgate`) map to `"app.bsky.feed.<name>"`; posts, likes and reposts validate against the built-in schemas. Unknown atoms fail with `{:error, {:unsupported_collection, collection}}`, which catches typos like `:psot`.
-- The string forms (`"app.bsky.feed.post"` etc.) validate against the same built-in schemas.
+The known collections keep their built-in validation: the NSID strings
+`"app.bsky.feed.post"`, `"app.bsky.feed.like"` and `"app.bsky.feed.repost"`
+validate against the built-in schemas.
 
 Passing `schema:` overrides the built-in validation when both apply.
