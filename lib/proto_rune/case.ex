@@ -3,13 +3,19 @@ defmodule ProtoRune.Case do
   Yeah, in house string casing
   """
 
-  def snakelize(<<>>), do: <<>>
+  def snakelize(binary), do: snakelize(binary, true)
 
-  def snakelize(<<hd::utf8, rest::binary>>) do
+  # `first` tracks the head of the string so a leading uppercase letter is
+  # downcased without a spurious leading underscore ("RecordNotFound"
+  # becomes "record_not_found", not "_record_not_found").
+  defp snakelize(<<>>, _first), do: <<>>
+
+  defp snakelize(<<hd::utf8, rest::binary>>, first) do
     if hd in ?A..?Z do
-      <<?_>> <> <<hd + 32>> <> snakelize(rest)
+      prefix = if first, do: <<>>, else: <<?_>>
+      prefix <> <<hd + 32>> <> snakelize(rest, false)
     else
-      <<hd>> <> snakelize(rest)
+      <<hd::utf8>> <> snakelize(rest, false)
     end
   end
 
@@ -42,7 +48,17 @@ defmodule ProtoRune.Case do
   defp apply_case_enum(elem, _), do: elem
 
   defp apply_case_enum_element({k, v}, case) do
-    case_key = k |> to_string() |> case.() |> String.to_atom()
+    case_key = k |> to_string() |> case.() |> intern()
     {case_key, apply_case_enum(v, case)}
+  end
+
+  # Server responses carry arbitrary keys; interning them blindly would let
+  # a hostile server exhaust the atom table. Known keys (those already
+  # referenced in the codebase or in Peri schemas) become atoms as before,
+  # anything else stays a string.
+  defp intern(key) do
+    String.to_existing_atom(key)
+  rescue
+    ArgumentError -> key
   end
 end

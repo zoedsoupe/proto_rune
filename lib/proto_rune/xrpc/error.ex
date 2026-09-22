@@ -21,49 +21,9 @@ defmodule ProtoRune.XRPC.Error do
       end
   """
 
-  @type reason ::
-          :account_not_found
-          | :account_takedown
-          | :actor_not_found
-          | :auth_factor_token_required
-          | :bad_expiration
-          | :bad_query_string
-          | :blob_not_found
-          | :block_not_found
-          | :blocked_actor
-          | :blocked_by_actor
-          | :cannot_delete_self
-          | :consumer_too_slow
-          | :duplicate_create
-          | :duplicate_template_name
-          | :expired_token
-          | :future_cursor
-          | :handle_not_available
-          | :head_not_found
-          | :incompatible_did_doc
-          | :invalid_email
-          | :invalid_handle
-          | :invalid_invite_code
-          | :invalid_password
-          | :invalid_swap
-          | :invalid_token
-          | :member_already_exists
-          | :member_not_found
-          | :not_found
-          | :rate_limited
-          | :record_not_found
-          | :repo_deactivated
-          | :repo_not_found
-          | :repo_suspended
-          | :repo_takendown
-          | :set_not_found
-          | :subject_has_action
-          | :token_required
-          | :unknown_feed
-          | :unknown_list
-          | :unresolvable_did
-          | :unsupported_domain
-          | atom()
+  # Atoms for error names known to the lexicons, strings for anything
+  # else the server sends.
+  @type reason :: atom() | String.t()
 
   @type t :: %__MODULE__{
           message: String.t() | nil,
@@ -86,11 +46,14 @@ defmodule ProtoRune.XRPC.Error do
     }
   end
 
+  # Error names are server-controlled; interning blindly would leak atoms.
+  # Known lexicon names resolve to atoms, anything else stays a string.
   defp reason(%{"error" => name}, _status) do
     name
     |> ProtoRune.Case.snakelize()
-    |> String.replace_prefix("_", "")
-    |> String.to_atom()
+    |> String.to_existing_atom()
+  rescue
+    ArgumentError -> ProtoRune.Case.snakelize(name)
   end
 
   defp reason(_body, 401), do: :unauthorized
@@ -107,22 +70,6 @@ defmodule ProtoRune.XRPC.Error do
   defp message(%{"message" => message}), do: message
   defp message(_body), do: nil
 
-  defp retry_after(429, headers), do: get_header(headers, "retry-after")
+  defp retry_after(429, headers), do: ProtoRune.HTTPClient.get_header(headers, "retry-after")
   defp retry_after(_status, _headers), do: nil
-
-  # Adapters deliver headers either as a list of tuples or as a map of
-  # downcased names to value lists.
-  defp get_header(headers, name) when is_list(headers) do
-    Enum.find_value(headers, fn {key, value} ->
-      if String.downcase(to_string(key)) == name, do: value
-    end)
-  end
-
-  defp get_header(headers, name) when is_map(headers) do
-    Enum.find_value(headers, fn {key, value} ->
-      if String.downcase(to_string(key)) == name, do: value |> List.wrap() |> List.first()
-    end)
-  end
-
-  defp get_header(_headers, _name), do: nil
 end
