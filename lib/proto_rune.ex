@@ -28,8 +28,6 @@ defmodule ProtoRune do
   alias ProtoRune.Atproto.Server
   alias ProtoRune.Atproto.Session, as: AtprotoSession
   alias ProtoRune.Session
-  alias ProtoRune.XRPC.Client
-  alias ProtoRune.XRPC.Procedure
 
   require Identity
 
@@ -72,18 +70,14 @@ defmodule ProtoRune do
       |> Keyword.get(:service, "https://bsky.social")
       |> AtprotoSession.normalize_service_url()
 
-    # Built with the Procedure struct directly instead of the
-    # Server.create_session/1 helper so the createSession call itself
-    # honors the :service opt; the generated function has no per-call
-    # base_url knob.
-    proc =
-      Procedure.new("com.atproto.server.createSession",
-        from: %{identifier: {:required, :string}, password: {:required, :string}},
-        base_url: base_url
-      )
-
-    with {:ok, proc} <- Procedure.put_body(proc, %{identifier: identifier, password: password}),
-         {:ok, data} <- Client.execute(proc),
+    with {:ok, data} <-
+           ProtoRune.XRPC.procedure(
+             "com.atproto.server.createSession",
+             nil,
+             %{identifier: identifier, password: password},
+             %{identifier: {:required, :string}, password: {:required, :string}},
+             base_url: base_url
+           ),
          {:ok, session} <- AtprotoSession.parse(data) do
       {:ok, %{session | service_url: session.service_url || base_url}}
     end
@@ -165,6 +159,23 @@ defmodule ProtoRune do
   def post(session, text, opts \\ []) when is_binary(text) do
     ProtoRune.Bsky.post(session, text, opts)
   end
+
+  @doc """
+  Lazily paginates a cursor-based endpoint into a stream of items.
+
+  See `ProtoRune.XRPC.paginate/3`.
+
+  ## Examples
+
+      fetch = fn params -> ProtoRune.Bsky.Feed.get_author_feed(session, params) end
+
+      fetch
+      |> ProtoRune.paginate(%{actor: "alice.bsky.social"}, :feed)
+      |> Stream.take(100)
+      |> Enum.to_list()
+  """
+  @spec paginate((map() -> {:ok, map()} | error()), map(), atom()) :: Enumerable.t()
+  defdelegate paginate(fetch_fun, params \\ %{}, items_key), to: ProtoRune.XRPC
 
   @doc """
   Guard to check if a value is a valid DID format.
