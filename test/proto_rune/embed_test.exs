@@ -64,9 +64,39 @@ defmodule ProtoRune.Bsky.EmbedTest do
                }
     end
 
+    test "video/2 builds a video embed without optional fields" do
+      assert Embed.video(@blob) ==
+               %{:"$type" => "app.bsky.embed.video", video: @blob}
+    end
+
+    test "video/2 keeps only the given optional fields" do
+      embed =
+        Embed.video(@blob,
+          alt: "a cat",
+          aspect_ratio: %{width: 1920, height: 1080},
+          captions: [%{lang: "en", file: @blob}]
+        )
+
+      assert embed == %{
+               :"$type" => "app.bsky.embed.video",
+               video: @blob,
+               alt: "a cat",
+               aspect_ratio: %{width: 1920, height: 1080},
+               captions: [%{lang: "en", file: @blob}]
+             }
+    end
+
     test "record_with_media/2 nests a record and a media embed" do
       quote = Embed.record("at://did:plc:x/app.bsky.feed.post/1", "cid1")
       media = Embed.images([%{alt: "a cat", image: @blob}])
+
+      assert Embed.record_with_media(quote, media) ==
+               %{:"$type" => "app.bsky.embed.recordWithMedia", record: quote, media: media}
+    end
+
+    test "record_with_media/2 accepts a video media embed" do
+      quote = Embed.record("at://did:plc:x/app.bsky.feed.post/1", "cid1")
+      media = Embed.video(@blob, alt: "a cat")
 
       assert Embed.record_with_media(quote, media) ==
                %{:"$type" => "app.bsky.embed.recordWithMedia", record: quote, media: media}

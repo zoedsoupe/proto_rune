@@ -15,6 +15,11 @@ defmodule ProtoRune.Bsky do
       # Post
       {:ok, post} = Bsky.post(session, "Hello!")
 
+      # Post with a video
+      {:ok, post} = Bsky.post(session, "cat video",
+        video: {File.read!("cat.mp4"), "video/mp4", "a cat on a piano"}
+      )
+
       # Like
       {:ok, like} = Bsky.like(session, post_uri, post_cid)
 
@@ -56,6 +61,12 @@ defmodule ProtoRune.Bsky do
     images are uploaded as blobs and attached as an
     `app.bsky.embed.images` embed. When `:embed` is a quote
     (`Embed.record/2`), the result is a `recordWithMedia` embed.
+  - `:video` - A `{data, content_type, alt}` tuple with the raw mp4 bytes
+    (content type `"video/mp4"`). The video is uploaded as a blob and
+    attached as an `app.bsky.embed.video` embed. Like `:images`, it
+    combines with a quote `:embed` into a `recordWithMedia` embed.
+    `:images` and `:video` are mutually exclusive. For the dedicated
+    upload flow with processing status, see `ProtoRune.Bsky.Video`.
   - `:http` - Options forwarded to `ProtoRune.HTTPClient.request/3`.
 
   ## Examples
@@ -71,6 +82,11 @@ defmodule ProtoRune.Bsky do
       # Post with images
       {:ok, post} = Bsky.post(session, "cat tax",
         images: [{File.read!("cat.png"), "image/png", "a cat"}]
+      )
+
+      # Post with a video
+      {:ok, post} = Bsky.post(session, "cat video",
+        video: {File.read!("cat.mp4"), "video/mp4", "a cat on a piano"}
       )
 
       # Quote post
@@ -138,7 +154,7 @@ defmodule ProtoRune.Bsky do
   defp maybe_put_embed(session, record, opts) do
     http = Keyword.get(opts, :http, [])
 
-    with {:ok, media} <- maybe_images_embed(session, Keyword.get(opts, :images), http) do
+    with {:ok, media} <- maybe_media_embed(session, opts, http) do
       case {Keyword.get(opts, :embed), media} do
         {nil, nil} ->
           {:ok, record}
@@ -158,7 +174,21 @@ defmodule ProtoRune.Bsky do
     end
   end
 
-  defp maybe_images_embed(_session, nil, _http), do: {:ok, nil}
+  # `:images` and `:video` are mutually exclusive media embeds; either
+  # one may later combine with a quote embed via recordWithMedia. The
+  # conflict is checked before any upload, so a doomed call sends
+  # nothing to the PDS.
+  defp maybe_media_embed(session, opts, http) do
+    images = Keyword.get(opts, :images)
+    video = Keyword.get(opts, :video)
+
+    cond do
+      images && video -> {:error, :conflicting_embeds}
+      images -> maybe_images_embed(session, images, http)
+      video -> maybe_video_embed(session, video, http)
+      true -> {:ok, nil}
+    end
+  end
 
   defp maybe_images_embed(session, images, http) when is_list(images) do
     images
@@ -171,6 +201,12 @@ defmodule ProtoRune.Bsky do
     |> case do
       {:ok, uploaded} -> {:ok, Embed.images(Enum.reverse(uploaded))}
       {:error, _} = error -> error
+    end
+  end
+
+  defp maybe_video_embed(session, {data, content_type, alt}, http) when is_binary(data) and is_binary(content_type) do
+    with {:ok, %{blob: blob}} <- Repo.upload_blob(session, data, content_type, http: http) do
+      {:ok, Embed.video(blob, alt: alt)}
     end
   end
 

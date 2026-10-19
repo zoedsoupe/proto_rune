@@ -2,6 +2,7 @@ defmodule ProtoRune.BskyPostTest do
   use ProtoRune.TestCase, async: true
 
   alias ProtoRune.Bsky
+  alias ProtoRune.Bsky.Embed
   alias ProtoRune.RichText
 
   @session %ProtoRune.Atproto.Session{
@@ -127,6 +128,97 @@ defmodule ProtoRune.BskyPostTest do
 
       assert_received {:request, :post, _url, opts}
       assert opts[:json][:record][:langs] == ["pt"]
+    end
+  end
+
+  describe "post/3 with the :video option" do
+    test "uploads the video as a blob and attaches a video embed" do
+      test_pid = self()
+
+      http =
+        fake_http(fn method, url, opts ->
+          send(test_pid, {:request, method, url, opts})
+
+          body =
+            if url =~ "uploadBlob" do
+              %{
+                "blob" => %{
+                  "$type" => "blob",
+                  "ref" => %{"$link" => "bafkvideo"},
+                  "mimeType" => "video/mp4",
+                  "size" => 4
+                }
+              }
+            else
+              %{"uri" => "at://did:plc:test/app.bsky.feed.post/abc", "cid" => "cid1"}
+            end
+
+          {:ok, %{status: 200, headers: %{}, body: body}}
+        end)
+
+      assert {:ok, _} = Bsky.post(@session, "cat video", video: {"mp4", "video/mp4", "a cat"}, http: http)
+
+      assert_received {:request, :post, upload_url, upload_opts}
+      assert upload_url =~ "com.atproto.repo.uploadBlob"
+      assert upload_opts[:body] == "mp4"
+
+      assert_received {:request, :post, _url, opts}
+      embed = opts[:json][:record][:embed]
+      assert embed[:"$type"] == "app.bsky.embed.video"
+      assert embed[:alt] == "a cat"
+      # the captured body is the camelized wire form
+      assert embed[:video][:mimeType] == "video/mp4"
+    end
+
+    test "wraps a quote and :video into recordWithMedia" do
+      test_pid = self()
+
+      http =
+        fake_http(fn method, url, opts ->
+          send(test_pid, {:request, method, url, opts})
+
+          body =
+            if url =~ "uploadBlob" do
+              %{
+                "blob" => %{
+                  "$type" => "blob",
+                  "ref" => %{"$link" => "bafkvideo"},
+                  "mimeType" => "video/mp4",
+                  "size" => 4
+                }
+              }
+            else
+              %{"uri" => "at://did:plc:test/app.bsky.feed.post/abc", "cid" => "cid1"}
+            end
+
+          {:ok, %{status: 200, headers: %{}, body: body}}
+        end)
+
+      quote = Embed.record("at://did:plc:x/app.bsky.feed.post/1", "cid1")
+
+      assert {:ok, _} =
+               Bsky.post(@session, "this!", embed: quote, video: {"mp4", "video/mp4", "a cat"}, http: http)
+
+      assert_received {:request, :post, upload_url, _opts}
+      assert upload_url =~ "uploadBlob"
+
+      assert_received {:request, :post, _url, opts}
+      embed = opts[:json][:record][:embed]
+      assert embed[:"$type"] == "app.bsky.embed.recordWithMedia"
+      assert embed[:record] == quote
+      assert embed[:media][:"$type"] == "app.bsky.embed.video"
+    end
+
+    test "refuses :images combined with :video", %{http: http} do
+      assert {:error, :conflicting_embeds} =
+               Bsky.post(@session, "nope",
+                 images: [{"png", "image/png", "x"}],
+                 video: {"mp4", "video/mp4", "v"},
+                 http: http
+               )
+
+      # the conflict is caught before any upload
+      refute_received {:request, :post, _url, _opts}
     end
   end
 end
