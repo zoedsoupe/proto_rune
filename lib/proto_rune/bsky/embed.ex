@@ -6,10 +6,11 @@ defmodule ProtoRune.Bsky.Embed do
   keys, camelized on the wire by the XRPC layer. Pass the result to
   `ProtoRune.Bsky.post/3` via the `:embed` option.
 
-  Images and external-card thumbs are blob references as returned by
-  `ProtoRune.Atproto.Repo.upload_blob/3` — the upload is the caller's
-  (imperative) step. `ProtoRune.Bsky.post/3` also accepts raw image data
-  via `:images` and uploads for you.
+  Images, videos and external-card thumbs are blob references as
+  returned by `ProtoRune.Atproto.Repo.upload_blob/3` - the upload is
+  the caller's (imperative) step. `ProtoRune.Bsky.post/3` also accepts
+  raw image data via `:images` and raw video data via `:video` and
+  uploads for you.
 
   ## Examples
 
@@ -51,6 +52,29 @@ defmodule ProtoRune.Bsky.Embed do
   end
 
   @doc """
+  Builds an `app.bsky.embed.video` embed.
+
+  `video` is a blob reference for the mp4 file, as returned by
+  `ProtoRune.Atproto.Repo.upload_blob/3`. `ProtoRune.Bsky.post/3` also
+  accepts raw video data via the `:video` option and uploads it for you.
+
+  ## Options
+
+    * `:alt` - alt text description of the video (string)
+    * `:aspect_ratio` - `%{width: w, height: h}`
+    * `:captions` - list of caption entries, each a map with `:lang`
+      (a language code) and `:file` (a `text/vtt` blob reference).
+      At most 20 per video.
+  """
+  @spec video(blob(), keyword()) :: embed()
+  def video(video, opts \\ []) when is_map(video) do
+    %{:"$type" => "app.bsky.embed.video", video: video}
+    |> put_opt(:alt, Keyword.get(opts, :alt))
+    |> put_opt(:aspect_ratio, Keyword.get(opts, :aspect_ratio))
+    |> put_opt(:captions, Keyword.get(opts, :captions))
+  end
+
+  @doc """
   Builds an `app.bsky.embed.external` embed (a link card).
 
   `thumb` is an optional blob reference for the card image.
@@ -74,11 +98,14 @@ defmodule ProtoRune.Bsky.Embed do
 
   @doc """
   Builds an `app.bsky.embed.recordWithMedia` embed: a quote post combined
-  with an `images/1` or `external/4` media embed.
+  with an `images/1`, `video/2` or `external/4` media embed.
   """
   @spec record_with_media(embed(), embed()) :: embed()
   def record_with_media(%{:"$type" => "app.bsky.embed.record"} = record, %{:"$type" => media_type} = media)
-      when media_type in ["app.bsky.embed.images", "app.bsky.embed.external"] do
+      when media_type in ["app.bsky.embed.images", "app.bsky.embed.video", "app.bsky.embed.external"] do
     %{:"$type" => "app.bsky.embed.recordWithMedia", record: record, media: media}
   end
+
+  defp put_opt(map, _key, nil), do: map
+  defp put_opt(map, key, value), do: Map.put(map, key, value)
 end
