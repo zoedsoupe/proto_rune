@@ -59,7 +59,7 @@ defmodule ProtoRune.MixProject do
         "GitHub" => @source_url,
         "Docs" => "https://hexdocs.pm/proto_rune"
       },
-      files: ~w[lib mix.exs README.md LICENSE]
+      files: ~w[lib priv/lexicons mix.exs README.md LICENSE]
     }
   end
 
