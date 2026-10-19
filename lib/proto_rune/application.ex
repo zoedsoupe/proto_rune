@@ -32,9 +32,13 @@ defmodule ProtoRune.Application do
 
   use Application
 
+  # Aliased so the pool-name call below does not shadow the `Finch` library
+  # module named in the child spec on the next line.
+  alias ProtoRune.HTTPClient.Adapters.Finch, as: FinchAdapter
+
   @impl true
   def start(_type, _args) do
-    pool = ProtoRune.HTTPClient.Adapters.Finch.pool_name()
+    pool = FinchAdapter.pool_name()
     opts = Application.get_env(:proto_rune, pool, [])
     children = [{Finch, Keyword.put_new(opts, :name, pool)}]
 

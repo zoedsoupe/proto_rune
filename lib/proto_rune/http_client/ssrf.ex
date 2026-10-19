@@ -126,17 +126,21 @@ defmodule ProtoRune.HTTPClient.SSRF do
 
     # A literal IP has no DNS answer to check, so classify it directly.
     case :inet.parse_address(String.to_charlist(name)) do
-      {:ok, address} ->
-        if public?(address), do: :ok, else: {:error, :forbidden_address}
+      {:ok, address} -> classify(address)
+      {:error, _} -> resolve_and_classify(host)
+    end
+  end
 
-      {:error, _} ->
-        case :inet_res.lookup(String.to_charlist(host), :in, :a) do
-          [] ->
-            {:error, :nxdomain}
+  defp classify(address) do
+    if public?(address), do: :ok, else: {:error, :forbidden_address}
+  end
 
-          addresses ->
-            if Enum.all?(addresses, &public?/1), do: :ok, else: {:error, :forbidden_address}
-        end
+  # A name that resolves to nothing is unreachable; a name that resolves to
+  # anything non-public was chosen to reach something else.
+  defp resolve_and_classify(host) do
+    case :inet_res.lookup(String.to_charlist(host), :in, :a) do
+      [] -> {:error, :nxdomain}
+      addresses -> if Enum.all?(addresses, &public?/1), do: :ok, else: {:error, :forbidden_address}
     end
   end
 

@@ -138,42 +138,34 @@ defmodule ProtoRune.Firehose.Transport.Mint do
   defp handle_frames(conn, [], acc), do: {:ok, conn, acc}
 
   defp handle_frames(conn, [frame | rest], acc) do
-    case frame do
-      {:ping, data} ->
-        case send_frame(conn, {:pong, data}) do
-          {:ok, conn} -> handle_frames(conn, rest, acc)
-          {:error, conn, reason} -> {:error, conn, reason}
-        end
-
-      :ping ->
-        case send_frame(conn, :pong) do
-          {:ok, conn} -> handle_frames(conn, rest, acc)
-          {:error, conn, reason} -> {:error, conn, reason}
-        end
-
-      {:pong, _data} ->
-        handle_frames(conn, rest, acc)
-
-      :pong ->
-        handle_frames(conn, rest, acc)
-
-      {:binary, data} ->
-        handle_frames(conn, rest, [{:binary, data} | acc])
-
-      {:text, data} ->
-        handle_frames(conn, rest, [{:text, data} | acc])
-
-      :close ->
-        ack_close(conn)
-        {:ok, conn, [:closed | acc]}
-
-      {:close, _code, _reason} ->
-        ack_close(conn)
-        {:ok, conn, [:closed | acc]}
-
-      {:error, reason} ->
-        {:error, conn, reason}
+    case handle_frame(conn, frame) do
+      {:deliver, conn, frame} -> handle_frames(conn, rest, [frame | acc])
+      {:skip, conn} -> handle_frames(conn, rest, acc)
+      {:closed, conn} -> {:ok, conn, [:closed | acc]}
+      {:error, conn, reason} -> {:error, conn, reason}
     end
+  end
+
+  defp handle_frame(conn, {:ping, data}), do: reply_to_ping(conn, {:pong, data})
+  defp handle_frame(conn, :ping), do: reply_to_ping(conn, :pong)
+  defp handle_frame(conn, {:pong, _data}), do: {:skip, conn}
+  defp handle_frame(conn, :pong), do: {:skip, conn}
+  defp handle_frame(conn, {:binary, data}), do: {:deliver, conn, {:binary, data}}
+  defp handle_frame(conn, {:text, data}), do: {:deliver, conn, {:text, data}}
+  defp handle_frame(conn, :close), do: close_frame(conn)
+  defp handle_frame(conn, {:close, _code, _reason}), do: close_frame(conn)
+  defp handle_frame(conn, {:error, reason}), do: {:error, conn, reason}
+
+  defp reply_to_ping(conn, pong) do
+    case send_frame(conn, pong) do
+      {:ok, conn} -> {:skip, conn}
+      {:error, conn, reason} -> {:error, conn, reason}
+    end
+  end
+
+  defp close_frame(conn) do
+    ack_close(conn)
+    {:closed, conn}
   end
 
   defp send_frame(conn, frame) do

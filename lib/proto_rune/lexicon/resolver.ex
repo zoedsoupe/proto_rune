@@ -58,7 +58,7 @@ defmodule ProtoRune.Lexicon.Resolver do
   cycle-tracking set.
   """
   @spec resolve(definition(), document(), entries()) :: definition()
-  def resolve(node, document, entries), do: do_resolve(node, document, MapSet.new(), entries)
+  def resolve(node, document, entries), do: do_resolve(node, document, %{}, entries)
 
   @doc """
   Pins a union member or record definition to the `$type` it carries on the
@@ -82,7 +82,7 @@ defmodule ProtoRune.Lexicon.Resolver do
   defp do_resolve(%{"type" => "ref", "ref" => ref}, document, seen, entries) when is_binary(ref) do
     case lookup(ref, document, seen, entries) do
       {nil, _document} -> %{"type" => "unknown"}
-      {target, target_document} -> do_resolve(target, target_document, MapSet.put(seen, ref), entries)
+      {target, target_document} -> do_resolve(target, target_document, Map.put(seen, ref, true), entries)
     end
   end
 
@@ -103,7 +103,7 @@ defmodule ProtoRune.Lexicon.Resolver do
             []
 
           {target, target_document} ->
-            member = do_resolve(target, target_document, MapSet.put(seen, ref), entries)
+            member = do_resolve(target, target_document, Map.put(seen, ref, true), entries)
             [{ref, annotate_type(member, expand_ref(ref, target_document))}]
         end
       end)
@@ -144,8 +144,11 @@ defmodule ProtoRune.Lexicon.Resolver do
   # A ref already being followed is left alone, so two lexicons referring to
   # each other terminate instead of resolving forever: stopping costs one
   # unchecked subtree rather than a hung load.
+  #
+  # `seen` is a plain map rather than a MapSet: it crosses every do_resolve
+  # clause, and MapSet's opaque type is what dialyzer refuses to follow there.
   defp lookup(ref, document, seen, entries) do
-    if MapSet.member?(seen, ref) do
+    if Map.has_key?(seen, ref) do
       {nil, document}
     else
       foreign(ref, document, entries)

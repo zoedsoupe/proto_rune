@@ -23,7 +23,11 @@ defmodule ProtoRune.MixProject do
     ]
   end
 
-  defp elixirc_paths(:test), do: ["lib", "test/support", "test/fixtures"]
+  # test/support holds the test-only helper modules. test/fixtures holds data
+  # (CAR and frame bytes) plus the repo.car regeneration script, which is a
+  # script, not a module: compiling it rewrote the committed fixture on every
+  # test build.
+  defp elixirc_paths(:test), do: ["lib", "test/support"]
   defp elixirc_paths(_), do: ["lib"]
 
   # Run "mix help compile.app" to learn about applications.
