@@ -44,7 +44,7 @@ defmodule ProtoRune.Firehose do
       milliseconds (default: `1_000` / `30_000`). The delay doubles after
       each failed attempt and resets once connected.
     * `:transport` - the `ProtoRune.Firehose.Transport` implementation to
-      use (default: `ProtoRune.Firehose.Transport.Gun`).
+      use (default: `ProtoRune.Firehose.Transport.Mint`).
     * `:transport_opts` - options passed to the transport, e.g.
       `[timeout: 10_000]`.
     * `:name` - registers the process under the given name.
@@ -92,7 +92,7 @@ defmodule ProtoRune.Firehose do
     auto_reconnect: {:boolean, {:default, true}},
     backoff_initial: {:integer, {:default, 1_000}},
     backoff_max: {:integer, {:default, 30_000}},
-    transport: {:atom, {:default, ProtoRune.Firehose.Transport.Gun}},
+    transport: {:atom, {:default, ProtoRune.Firehose.Transport.Mint}},
     transport_opts: {:any, {:default, []}}
   })
 

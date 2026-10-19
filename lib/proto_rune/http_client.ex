@@ -27,7 +27,9 @@ defmodule ProtoRune.HTTPClient do
       HTTPClient.request(:get, url, rate_limit: false)
 
   The `:adapter` option overrides the configured adapter for a single
-  request:
+  request. The default adapter is `ProtoRune.HTTPClient.Adapters.Finch`,
+  which issues requests through the `ProtoRune.Finch` pool supervised by
+  `ProtoRune.Application`:
 
       HTTPClient.request(:get, url, adapter: MyApp.HTTPStub)
 
@@ -41,14 +43,14 @@ defmodule ProtoRune.HTTPClient do
   """
 
   alias ProtoRune.Config
-  alias ProtoRune.HTTPClient.Adapters
+  alias ProtoRune.HTTPClient.Adapters.Finch
   alias ProtoRune.HTTPClient.Backoff
   alias ProtoRune.HTTPClient.RateLimiter
 
   @default_retry [max_attempts: 3, base_delay: 500, max_delay: 10_000]
   @default_requests_per_minute nil
 
-  defp impl(nil), do: Adapters.Req
+  defp impl(nil), do: Finch
   defp impl(adapter), do: adapter
 
   def request(method, url, opts \\ []) do
@@ -125,8 +127,8 @@ defmodule ProtoRune.HTTPClient do
   Reads a header value from a response headers collection,
   case-insensitively.
 
-  Adapters deliver headers either as a list of `{name, value}` tuples or
-  as a map of downcased names to value lists (Req); both shapes are
+  Adapters deliver headers either as a list of `{name, value}` tuples
+  (Finch) or as a map of downcased names to value lists; both shapes are
   accepted. Returns `nil` when the header is absent.
   """
   @spec get_header(term(), String.t()) :: String.t() | nil

@@ -7,7 +7,7 @@ defmodule ProtoRune.Atproto.Identity.DIDResolver do
   - did:web - Resolves through .well-known DID documents
   """
 
-  alias ProtoRune.HTTPClient
+  alias ProtoRune.HTTPClient.SSRF
 
   require Logger
 
@@ -66,7 +66,10 @@ defmodule ProtoRune.Atproto.Identity.DIDResolver do
 
     url = "#{@plc_directory_url}/#{did}"
 
-    case HTTPClient.request(:get, url, [timeout: timeout] ++ http_opts(opts)) do
+    # The PLC directory base is a constant but the DID in the path is
+    # stranger-chosen, so the fetch goes through the guarded GET like the
+    # well-known fetches do.
+    case SSRF.get(url, [timeout: timeout] ++ http_opts(opts)) do
       {:ok, %{status: 200, body: body}} ->
         decode_did_document(body, did)
 
@@ -127,7 +130,9 @@ defmodule ProtoRune.Atproto.Identity.DIDResolver do
   defp fetch_well_known_document(domain, timeout, http_opts) do
     url = "https://#{domain}/.well-known/did.json"
 
-    case HTTPClient.request(:get, url, [timeout: timeout] ++ http_opts) do
+    # The domain comes from the DID string, so the fetch is guarded and
+    # redirects are followed explicitly (see ProtoRune.HTTPClient.SSRF).
+    case SSRF.get(url, [timeout: timeout] ++ http_opts) do
       {:ok, %{status: 200} = response} -> {:ok, response}
       {:ok, %{status: 404}} -> {:error, :not_found}
       {:ok, %{status: status}} -> {:error, {:http_error, status}}

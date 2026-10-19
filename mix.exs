@@ -29,7 +29,8 @@ defmodule ProtoRune.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
-      extra_applications: [:logger]
+      extra_applications: [:logger],
+      mod: {ProtoRune.Application, []}
     ]
   end
 
@@ -37,8 +38,8 @@ defmodule ProtoRune.MixProject do
   defp deps do
     [
       {:peri, "~> 0.11"},
-      {:req, "~> 0.7"},
-      {:gun, "~> 2.6"},
+      {:finch, "~> 0.24"},
+      {:mint_web_socket, "~> 1.0"},
       {:telemetry, "~> 1.4"},
       {:styler, "~> 1.12", only: [:dev, :test], runtime: false},
       {:bypass, "~> 2.1", only: :test},

@@ -48,7 +48,7 @@ defmodule ProtoRune.Jetstream do
       milliseconds (default: `1_000` / `30_000`). The delay doubles after
       each failed attempt and resets once connected.
     * `:transport` - the `ProtoRune.Firehose.Transport` implementation to
-      use (default: `ProtoRune.Firehose.Transport.Gun`). Jetstream speaks
+      use (default: `ProtoRune.Firehose.Transport.Mint`). Jetstream speaks
       the same WebSocket transport as the firehose, only with text frames.
     * `:transport_opts` - options passed to the transport.
     * `:name` - registers the process under the given name.
@@ -75,7 +75,7 @@ defmodule ProtoRune.Jetstream do
     auto_reconnect: {:boolean, {:default, true}},
     backoff_initial: {:integer, {:default, 1_000}},
     backoff_max: {:integer, {:default, 30_000}},
-    transport: {:atom, {:default, ProtoRune.Firehose.Transport.Gun}},
+    transport: {:atom, {:default, ProtoRune.Firehose.Transport.Mint}},
     transport_opts: {:any, {:default, []}}
   })
 
