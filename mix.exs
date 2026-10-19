@@ -43,7 +43,6 @@ defmodule ProtoRune.MixProject do
       {:mint_web_socket, "~> 1.0"},
       {:telemetry, "~> 1.4"},
       {:styler, "~> 1.12", only: [:dev, :test], runtime: false},
-      {:bypass, "~> 2.1", only: :test},
       {:ex_doc, ">= 0.0.0", only: [:dev, :test], runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
