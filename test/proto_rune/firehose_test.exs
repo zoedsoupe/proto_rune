@@ -66,6 +66,21 @@ defmodule ProtoRune.FirehoseTest do
     assert {:error, :invalid_handler} = start_firehose(handler: "not a handler")
   end
 
+  test "runs as a child spec under a supervisor" do
+    pid =
+      start_supervised!(
+        {Firehose,
+         handler: self(),
+         transport: FakeTransport,
+         transport_opts: [test_pid: self()],
+         backoff_initial: 10,
+         backoff_max: 50}
+      )
+
+    assert_receive {:firehose_connected, _url}
+    assert Process.alive?(pid)
+  end
+
   test "connects to the subscribeRepos endpoint of the relay" do
     {:ok, _pid} = start_firehose(relay: "wss://relay.example.com")
 

@@ -15,12 +15,9 @@ defmodule ProtoRune.Config do
 
       config :proto_rune,
         base_url: "https://pds.example.com/xrpc",
-        http_client: MyApp.HTTPStub,
         rate_limit: [requests_per_minute: 3_000],
         retry: [max_attempts: 3]
   """
-
-  import Kernel, except: [get_in: 1]
 
   @default_base_url "https://bsky.social/xrpc"
 
@@ -29,15 +26,6 @@ defmodule ProtoRune.Config do
   """
   def get(key) do
     Application.get_env(:proto_rune, key)
-  end
-
-  @doc """
-  Gets a configuration value by key and path.
-  """
-  def get_in([key | path]) when is_list(path) do
-    :proto_rune
-    |> Application.get_env(key)
-    |> get_in(path)
   end
 
   @doc """

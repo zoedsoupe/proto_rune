@@ -23,13 +23,15 @@ defmodule ProtoRune.MixProject do
     ]
   end
 
-  defp elixirc_paths(:test), do: ["lib", "test/support", "test/fixtures"]
+  # Fixtures stay out of elixirc_paths: compiling the repo.car script rewrote the committed fixture.
+  defp elixirc_paths(:test), do: ["lib", "test/support"]
   defp elixirc_paths(_), do: ["lib"]
 
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
-      extra_applications: [:logger]
+      extra_applications: [:logger],
+      mod: {ProtoRune.Application, []}
     ]
   end
 
@@ -37,11 +39,10 @@ defmodule ProtoRune.MixProject do
   defp deps do
     [
       {:peri, "~> 0.11"},
-      {:req, "~> 0.7"},
-      {:gun, "~> 2.6"},
+      {:finch, "~> 0.24"},
+      {:mint_web_socket, "~> 1.0"},
       {:telemetry, "~> 1.4"},
       {:styler, "~> 1.12", only: [:dev, :test], runtime: false},
-      {:bypass, "~> 2.1", only: :test},
       {:ex_doc, ">= 0.0.0", only: [:dev, :test], runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
@@ -57,7 +58,7 @@ defmodule ProtoRune.MixProject do
         "GitHub" => @source_url,
         "Docs" => "https://hexdocs.pm/proto_rune"
       },
-      files: ~w[lib mix.exs README.md LICENSE]
+      files: ~w[lib priv/lexicons mix.exs README.md LICENSE]
     }
   end
 

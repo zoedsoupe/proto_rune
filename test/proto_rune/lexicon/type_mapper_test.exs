@@ -31,11 +31,19 @@ defmodule ProtoRune.Lexicon.TypeMapperTest do
     test "maps blob type to :map" do
       assert {:ok, :map} = TypeMapper.map_type(%{"type" => "blob"})
     end
+
+    test "maps token type to string" do
+      assert {:ok, :string} = TypeMapper.map_type(%{"type" => "token"})
+    end
+
+    test "maps cid-link type to :map" do
+      assert {:ok, :map} = TypeMapper.map_type(%{"type" => "cid-link"})
+    end
   end
 
   describe "map_type/1 - string with formats" do
-    test "maps datetime format" do
-      assert {:ok, :datetime} = TypeMapper.map_type(%{"type" => "string", "format" => "datetime"})
+    test "maps datetime format to string (peri :datetime only accepts structs)" do
+      assert {:ok, :string} = TypeMapper.map_type(%{"type" => "string", "format" => "datetime"})
     end
 
     test "maps uri format" do
@@ -154,19 +162,21 @@ defmodule ProtoRune.Lexicon.TypeMapperTest do
                TypeMapper.map_type(%{"type" => "array", "items" => %{"type" => "integer"}})
     end
 
-    test "maps array of refs" do
-      assert {:ok, {:list, {:ref, "com.atproto.repo.strongRef"}}} =
-               TypeMapper.map_type(%{
-                 "type" => "array",
-                 "items" => %{"type" => "ref", "ref" => "com.atproto.repo.strongRef"}
-               })
-    end
-
     test "maps nested arrays" do
       assert {:ok, {:list, {:list, :string}}} =
                TypeMapper.map_type(%{
                  "type" => "array",
                  "items" => %{"type" => "array", "items" => %{"type" => "string"}}
+               })
+    end
+
+    test "keeps declared array length bounds" do
+      assert {:ok, {:list, :string, [{:min, 1}, {:max, 3}]}} =
+               TypeMapper.map_type(%{
+                 "type" => "array",
+                 "items" => %{"type" => "string"},
+                 "minLength" => 1,
+                 "maxLength" => 3
                })
     end
   end
@@ -219,38 +229,71 @@ defmodule ProtoRune.Lexicon.TypeMapperTest do
       assert is_map(schema[:user])
       assert schema[:user][:name] == :string
     end
+
+    test "maps object with no declared properties to an empty schema" do
+      assert {:ok, %{}} = TypeMapper.map_type(%{"type" => "object"})
+    end
+
+    test "maps params type like an object" do
+      assert {:ok, schema} =
+               TypeMapper.map_type(%{
+                 "type" => "params",
+                 "required" => ["repo"],
+                 "properties" => %{"repo" => %{"type" => "string"}}
+               })
+
+      assert schema[:repo] == {:required, :string}
+    end
   end
 
-  describe "map_type/1 - ref" do
-    test "maps reference type" do
-      assert {:ok, {:ref, "com.atproto.repo.strongRef"}} =
+  describe "map_type/1 - refs arrive resolved" do
+    test "refuses an unresolved ref node" do
+      assert {:error, {:unresolved_ref, "com.atproto.repo.strongRef"}} =
                TypeMapper.map_type(%{"type" => "ref", "ref" => "com.atproto.repo.strongRef"})
     end
 
-    test "maps reference to another lexicon" do
-      assert {:ok, {:ref, "app.bsky.richtext.facet"}} =
-               TypeMapper.map_type(%{"type" => "ref", "ref" => "app.bsky.richtext.facet"})
+    test "refuses a refs-only union node" do
+      assert {:error, {:unresolved_union, ["app.bsky.embed.images"]}} =
+               TypeMapper.map_type(%{"type" => "union", "refs" => ["app.bsky.embed.images"]})
+    end
+
+    test "unwraps a ref to a record definition" do
+      record_def = %{
+        "type" => "record",
+        "record" => %{
+          "type" => "object",
+          "properties" => %{"text" => %{"type" => "string"}}
+        }
+      }
+
+      assert {:ok, %{text: :string}} = TypeMapper.map_type(record_def)
     end
   end
 
   describe "map_type/1 - union" do
-    test "maps union of references" do
-      assert {:ok, {:oneof, refs}} =
+    test "maps resolved variants to a oneof" do
+      assert {:ok, {:oneof, variants}} =
                TypeMapper.map_type(%{
                  "type" => "union",
-                 "refs" => [
-                   "app.bsky.embed.images",
-                   "app.bsky.embed.video",
-                   "app.bsky.embed.external"
-                 ]
+                 "variants" => %{
+                   "app.bsky.embed.images" => %{
+                     "type" => "object",
+                     "properties" => %{"alt" => %{"type" => "string"}}
+                   },
+                   "app.bsky.embed.video" => %{
+                     "type" => "object",
+                     "properties" => %{"video" => %{"type" => "unknown"}}
+                   }
+                 }
                })
 
-      assert length(refs) == 3
-      assert Enum.all?(refs, &match?({:ref, _}, &1))
+      assert length(variants) == 2
+      assert Enum.all?(variants, &is_map/1)
+      assert Enum.any?(variants, &(&1[:alt] == :string))
     end
 
-    test "maps empty union" do
-      assert {:ok, {:oneof, []}} = TypeMapper.map_type(%{"type" => "union", "refs" => []})
+    test "maps a fully degraded union to :any" do
+      assert {:ok, :any} = TypeMapper.map_type(%{"type" => "union", "variants" => %{}})
     end
   end
 
@@ -265,8 +308,7 @@ defmodule ProtoRune.Lexicon.TypeMapperTest do
     end
 
     test "returns error for missing type field" do
-      assert {:error, :invalid_type_definition} =
-               TypeMapper.map_type(%{"foo" => "bar"})
+      assert {:error, :invalid_type_definition} = TypeMapper.map_type(%{"foo" => "bar"})
     end
   end
 
@@ -303,77 +345,8 @@ defmodule ProtoRune.Lexicon.TypeMapperTest do
     end
   end
 
-  describe "extract_default/1" do
-    test "extracts default value when present" do
-      assert {:ok, "default_value"} =
-               TypeMapper.extract_default(%{"default" => "default_value"})
-    end
-
-    test "returns :no_default when default is not present" do
-      assert :no_default = TypeMapper.extract_default(%{"type" => "string"})
-    end
-  end
-
-  describe "nullable?/1" do
-    test "returns true when nullable is true" do
-      assert TypeMapper.nullable?(%{"nullable" => true})
-    end
-
-    test "returns false when nullable is false" do
-      refute TypeMapper.nullable?(%{"nullable" => false})
-    end
-
-    test "returns false when nullable is not present" do
-      refute TypeMapper.nullable?(%{"type" => "string"})
-    end
-  end
-
-  describe "map_record/1" do
-    test "maps a record definition" do
-      assert {:ok, result} =
-               TypeMapper.map_record(%{
-                 "record" => %{
-                   "type" => "object",
-                   "properties" => %{
-                     "text" => %{"type" => "string"},
-                     "createdAt" => %{"type" => "string", "format" => "datetime"}
-                   },
-                   "required" => ["text", "createdAt"]
-                 },
-                 "key" => "tid",
-                 "description" => "A post record"
-               })
-
-      assert result.type == :record
-      assert is_map(result.schema)
-      assert result.description == "A post record"
-      assert result.schema[:text] == {:required, :string}
-      assert result.schema[:createdAt] == {:required, :datetime}
-    end
-
-    test "maps a record without key" do
-      assert {:ok, result} =
-               TypeMapper.map_record(%{
-                 "record" => %{
-                   "type" => "object",
-                   "properties" => %{
-                     "value" => %{"type" => "integer"}
-                   }
-                 },
-                 "description" => "A simple record"
-               })
-
-      assert result.type == :record
-      assert is_map(result.schema)
-    end
-
-    test "returns error for invalid record definition" do
-      assert {:error, :invalid_record_definition} = TypeMapper.map_record(%{"foo" => "bar"})
-    end
-  end
-
   describe "integration - complex post lexicon" do
-    test "maps a complete post record" do
+    test "maps a complete resolved post record" do
       post_def = %{
         "type" => "object",
         "required" => ["text", "createdAt"],
@@ -385,19 +358,30 @@ defmodule ProtoRune.Lexicon.TypeMapperTest do
           },
           "facets" => %{
             "type" => "array",
-            "items" => %{"type" => "ref", "ref" => "app.bsky.richtext.facet"}
+            "items" => %{
+              "type" => "object",
+              "properties" => %{
+                "uri" => %{"type" => "string"},
+                "$type" => %{"type" => "string", "const" => "app.bsky.richtext.facet#link"}
+              }
+            }
           },
           "reply" => %{
-            "type" => "ref",
-            "ref" => "#replyRef"
+            "type" => "object",
+            "properties" => %{"root" => %{"type" => "unknown"}}
           },
           "embed" => %{
             "type" => "union",
-            "refs" => [
-              "app.bsky.embed.images",
-              "app.bsky.embed.video",
-              "app.bsky.embed.external"
-            ]
+            "variants" => %{
+              "app.bsky.embed.images" => %{
+                "type" => "object",
+                "required" => ["$type"],
+                "properties" => %{
+                  "alt" => %{"type" => "string"},
+                  "$type" => %{"type" => "string", "const" => "app.bsky.embed.images"}
+                }
+              }
+            }
           },
           "langs" => %{
             "type" => "array",
@@ -415,14 +399,15 @@ defmodule ProtoRune.Lexicon.TypeMapperTest do
 
       # Check required fields
       assert schema[:text] == {:required, {:string, {:max, 3000}}}
-      assert schema[:createdAt] == {:required, :datetime}
+      assert schema[:createdAt] == {:required, :string}
 
       # Check optional fields
-      assert schema[:facets] == {:list, {:ref, "app.bsky.richtext.facet"}}
-      assert schema[:reply] == {:ref, "#replyRef"}
-      assert {:oneof, refs} = schema[:embed]
-      assert length(refs) == 3
-      assert schema[:langs] == {:list, :string}
+      assert {:list, facet_schema} = schema[:facets]
+      assert facet_schema[:"$type"] == {:literal, "app.bsky.richtext.facet#link"}
+      assert schema[:reply] == %{root: :any}
+      assert {:oneof, [embed]} = schema[:embed]
+      assert embed[:"$type"] == {:required, {:literal, "app.bsky.embed.images"}}
+      assert schema[:langs] == {:list, :string, [max: 3]}
     end
   end
 end

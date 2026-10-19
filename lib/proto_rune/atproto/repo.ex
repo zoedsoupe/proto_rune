@@ -1,0 +1,271 @@
+defmodule ProtoRune.Atproto.Repo do
+  @moduledoc """
+  Low-level `com.atproto.repo` operations.
+
+  Create, read, update, delete, and list records in a repository.
+  Write operations require an authenticated `ProtoRune.Atproto.Session`;
+  read operations (`get_record`, `list_records`) accept an optional session.
+
+  For common Bluesky actions (posting, liking, reposting) prefer the
+  high-level `ProtoRune` API, which wraps these calls with the right
+  collections and record schemas.
+  """
+
+  import ProtoRune.XRPC.DSL
+
+  alias ProtoRune.Session
+  alias ProtoRune.XRPC
+  alias ProtoRune.XRPC.Procedure
+
+  @strong_ref_t %{uri: {:required, :string}, cid: {:required, :string}}
+
+  @like_t %{
+    "$type": {:required, :string},
+    subject: {:required, @strong_ref_t},
+    created_at: :string
+  }
+
+  @repost_t %{
+    "$type": {:required, :string},
+    subject: {:required, @strong_ref_t},
+    created_at: :string
+  }
+
+  @byte_slice_t %{
+    byte_start: {:required, {:integer, {:gte, 0}}},
+    byte_end: {:required, {:integer, {:gte, 0}}}
+  }
+  @link_t %{"$type": {:required, :string}, uri: {:required, :string}}
+  @tag_t %{"$type": {:required, :string}, tag: {:required, {:string, {:max, 640}}}}
+  @mention_t %{"$type": {:required, :string}, did: {:required, :string}}
+  @facet_t %{
+    index: {:required, @byte_slice_t},
+    features: {:required, {:list, {:oneof, [@link_t, @tag_t, @mention_t]}}}
+  }
+  @self_label_t %{val: {:required, {:string, {:max, 128}}}}
+  @post_t %{
+    "$type": {:required, :string},
+    text: {:required, {:string, {:max, 300}}},
+    reply: %{root: {:required, @strong_ref_t}, parent: {:required, @strong_ref_t}},
+    langs: {:list, :string},
+    facets: {:list, @facet_t},
+    tags: {:list, {:string, {:max, 640}}},
+    embed: :any,
+    labels: {:list, %{values: {:list, @self_label_t}}},
+    created_at: :string
+  }
+
+  # Built-in record schemas keyed by full NSID, applied when the collection
+  # names a known Bluesky record type.
+  @builtin_schemas %{
+    "app.bsky.feed.post" => @post_t,
+    "app.bsky.feed.like" => @like_t,
+    "app.bsky.feed.repost" => @repost_t
+  }
+
+  @create_record_t %{
+    repo: {:required, :string},
+    collection: {:required, :string},
+    rkey: {:string, {:max, 15}},
+    validate: :boolean,
+    swap_commit: :string,
+    record: {:required, :any}
+  }
+
+  @put_record_t %{
+    repo: {:required, :string},
+    collection: {:required, :string},
+    rkey: {:required, :string},
+    validate: :boolean,
+    record: {:required, :any},
+    swap_record: :string,
+    swap_commit: :string
+  }
+
+  @doc """
+  Create a single new repository record. Requires auth, implemented by PDS.
+
+  The `:collection` param is the record's NSID as a string. The known
+  Bluesky NSIDs (`"app.bsky.feed.post"`, `"app.bsky.feed.like"`,
+  `"app.bsky.feed.repost"`) are validated against the built-in schemas;
+  records for any other collection are sent unvalidated, so
+  custom-lexicon collections work out of the box.
+
+  ## Options
+
+    * `:schema` - a Peri schema used to validate the record before sending,
+      for any collection. Overrides the built-in validation when both apply.
+      `ProtoRune.Lexicon.schema_for!/1` returns one for any lexicon the
+      runtime loader holds. Note a lexicon-derived schema validates the
+      record's lexicon property names as atoms, spelled as the lexicon
+      spells them (`:"createdAt"`, not `:created_at`).
+    * `:http` - options forwarded to `ProtoRune.HTTPClient.request/3`.
+
+  https://docs.bsky.app/docs/api/com-atproto-repo-create-record
+  """
+  @spec create_record(Session.t(), map() | keyword(), keyword()) :: {:ok, map()} | {:error, term()}
+  def create_record(session, params, opts \\ []) do
+    execute_write("com.atproto.repo.createRecord", @create_record_t, session, params, opts)
+  end
+
+  @doc """
+  Get a single record from a repository. Does not require auth.
+
+  https://docs.bsky.app/docs/api/com-atproto-repo-get-record
+  """
+  defquery "com.atproto.repo.getRecord", authenticated: :optional do
+    param :repo, {:required, :string}
+    param :collection, {:required, :string}
+    param :rkey, {:required, :string}
+    param :cid, :string
+  end
+
+  @doc """
+  Write a repository record, creating or updating it as needed. Requires auth, implemented by PDS.
+
+  The `:collection` param follows the same rules as `create_record/3`: the
+  NSID passes through as-is; records for unknown collections are sent
+  unvalidated unless the `:schema` option is given.
+
+  ## Options
+
+    * `:schema` - a Peri schema used to validate the record before sending,
+      for any collection. Overrides the built-in validation when both apply.
+
+  https://docs.bsky.app/docs/api/com-atproto-repo-put-record
+  """
+  @spec put_record(Session.t(), map() | keyword(), keyword()) :: {:ok, map()} | {:error, term()}
+  def put_record(session, params, opts \\ []) do
+    execute_write("com.atproto.repo.putRecord", @put_record_t, session, params, opts)
+  end
+
+  @doc """
+  Delete a repository record, or ensure it doesn't exist. Requires auth, implemented by PDS.
+
+  https://docs.bsky.app/docs/api/com-atproto-repo-delete-record
+  """
+  defprocedure "com.atproto.repo.deleteRecord", authenticated: true do
+    param :repo, {:required, :string}
+    param :collection, {:required, :string}
+    param :rkey, {:required, :string}
+    param :swap_record, :string
+    param :swap_commit, :string
+  end
+
+  @apply_write_t %{
+    "$type": {:required, :string},
+    collection: {:required, :string},
+    rkey: :string,
+    value: :any
+  }
+
+  @doc """
+  Apply a batch of creates, updates and deletes as a single transaction.
+  Requires auth, implemented by PDS.
+
+  Each write is a map with a `"$type"` of
+  `"com.atproto.repo.applyWrites#create"`, `#update` or `#delete"`, a
+  `:collection` NSID, and an `:rkey` plus `:value` where the operation
+  needs them:
+
+      {:ok, _} =
+        Repo.apply_writes(session, Session.did(session), [
+          %{
+            "$type": "com.atproto.repo.applyWrites#create",
+            collection: "app.bsky.feed.post",
+            value: %{"$type": "app.bsky.feed.post", text: "batched", created_at: now}
+          },
+          %{
+            "$type": "com.atproto.repo.applyWrites#delete",
+            collection: "app.bsky.feed.like",
+            rkey: "3kxyz"
+          }
+        ])
+
+  Individual records are not validated client-side; the PDS validates the
+  batch atomically.
+
+  https://docs.bsky.app/docs/api/com-atproto-repo-apply-writes
+  """
+  defprocedure "com.atproto.repo.applyWrites", authenticated: true do
+    param :repo, {:required, :string}
+    param :validate, :boolean
+    param :writes, {:required, {:list, @apply_write_t}}
+    param :swap_commit, :string
+  end
+
+  @doc """
+  List a range of records in a repository, matching a specific collection. Does not require auth.
+
+  https://docs.bsky.app/docs/api/com-atproto-repo-list-records
+  """
+  defquery "com.atproto.repo.listRecords", authenticated: :optional do
+    param :repo, {:required, :string}
+    param :collection, {:required, :string}
+    param :limit, {:integer, {:range, {1, 100}}}
+    param :cursor, :string
+    param :reverse, :boolean
+  end
+
+  defp execute_write(method, schema, session, params, opts) do
+    with {:ok, proc} <- validated_procedure(method, schema, session, params),
+         {:ok, collection, record} <- resolve_collection_and_record(proc.body, opts),
+         {:ok, headers, session} <-
+           Session.authorization_headers(session, "POST", Path.join(proc.base_url, method)) do
+      %{proc | body: %{proc.body | collection: collection, record: record}}
+      |> then(&%{&1 | headers: Map.merge(&1.headers, headers)})
+      |> XRPC.Client.execute(session: session, http: Keyword.get(opts, :http, []))
+    end
+  end
+
+  defp validated_procedure(method, schema, session, params) do
+    base_url = XRPC.base_url(session)
+
+    method
+    |> Procedure.new(from: schema, base_url: base_url)
+    |> Procedure.put_body(Map.new(params))
+  end
+
+  # String collections pass through as-is. Known Bluesky NSIDs keep the
+  # built-in validation; a caller-supplied schema always wins.
+  defp resolve_collection_and_record(%{collection: collection, record: record}, opts) do
+    case Keyword.get(opts, :schema) || Map.get(@builtin_schemas, collection) do
+      nil ->
+        {:ok, collection, record}
+
+      schema ->
+        with {:ok, record} <- Peri.validate(schema, record) do
+          {:ok, collection, record}
+        end
+    end
+  end
+
+  @doc """
+  Upload a blob of binary data to be stored with the account, for later
+  reference in repository records (for example, a profile avatar).
+  Requires auth, implemented by PDS.
+
+  Returns `{:ok, %{blob: blob}}` where `blob` is a blob reference map
+  suitable for embedding in a record.
+
+  https://docs.bsky.app/docs/api/com-atproto-repo-upload-blob
+
+  ## Examples
+
+      {:ok, %{blob: blob}} = Repo.upload_blob(session, image_data, "image/png")
+  """
+  @spec upload_blob(Session.t(), binary(), String.t(), keyword()) :: {:ok, map()} | {:error, term()}
+  def upload_blob(session, data, content_type, opts \\ []) when is_binary(data) and is_binary(content_type) do
+    base_url = XRPC.base_url(session)
+    url = Path.join(base_url, "com.atproto.repo.uploadBlob")
+
+    with {:ok, headers, session} <- Session.authorization_headers(session, "POST", url) do
+      "com.atproto.repo.uploadBlob"
+      |> Procedure.new(base_url: base_url)
+      |> Procedure.put_raw_body(data)
+      |> Procedure.put_header("content-type", content_type)
+      |> then(&%{&1 | headers: Map.merge(&1.headers, headers)})
+      |> XRPC.Client.execute(session: session, http: Keyword.get(opts, :http, []))
+    end
+  end
+end

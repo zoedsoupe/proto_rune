@@ -48,7 +48,7 @@ defmodule ProtoRune.Jetstream do
       milliseconds (default: `1_000` / `30_000`). The delay doubles after
       each failed attempt and resets once connected.
     * `:transport` - the `ProtoRune.Firehose.Transport` implementation to
-      use (default: `ProtoRune.Firehose.Transport.Gun`). Jetstream speaks
+      use (default: `ProtoRune.Firehose.Transport.Mint`). Jetstream speaks
       the same WebSocket transport as the firehose, only with text frames.
     * `:transport_opts` - options passed to the transport.
     * `:name` - registers the process under the given name.
@@ -75,9 +75,24 @@ defmodule ProtoRune.Jetstream do
     auto_reconnect: {:boolean, {:default, true}},
     backoff_initial: {:integer, {:default, 1_000}},
     backoff_max: {:integer, {:default, 30_000}},
-    transport: {:atom, {:default, ProtoRune.Firehose.Transport.Gun}},
+    transport: {:atom, {:default, ProtoRune.Firehose.Transport.Mint}},
     transport_opts: {:any, {:default, []}}
   })
+
+  @doc """
+  Returns a child spec to run the consumer under a supervisor.
+
+  Accepts the same options as `start_link/1`, e.g.
+  `{ProtoRune.Jetstream, handler: self()}` in a children list. When the
+  options register a `:name`, it doubles as the child id.
+  """
+  @spec child_spec(keyword | map) :: Supervisor.child_spec()
+  def child_spec(opts) do
+    %{
+      id: child_id(opts),
+      start: {__MODULE__, :start_link, [opts]}
+    }
+  end
 
   @doc """
   Starts a Jetstream consumer process.
@@ -139,6 +154,9 @@ defmodule ProtoRune.Jetstream do
       name -> [name: name]
     end
   end
+
+  defp child_id(opts) when is_list(opts), do: Keyword.get(opts, :name, __MODULE__)
+  defp child_id(opts) when is_map(opts), do: Map.get(opts, :name, __MODULE__)
 
   defp validate_handler(handler) when is_pid(handler), do: :ok
   defp validate_handler(handler) when is_function(handler, 1), do: :ok

@@ -117,7 +117,7 @@ Per RFC 7009 the server answers success even for unknown tokens, so `{:ok, :revo
 
 ### SessionManager
 
-For app-password sessions, `ProtoRune.SessionManager` keeps any session type fresh through the `ProtoRune.Session` behaviour, refreshing at 75% of the token lifetime (parsed from the access JWT) and optionally persisting each rotation encrypted:
+`ProtoRune.SessionManager` keeps any session type fresh through the `ProtoRune.Session` behaviour, refreshing at 75% of the token lifetime (parsed from the access JWT) and optionally persisting each rotation encrypted:
 
 ```elixir
 {ProtoRune.SessionManager,
@@ -126,7 +126,15 @@ For app-password sessions, `ProtoRune.SessionManager` keeps any session type fre
  key: key}
 ```
 
-OAuth sessions use it too, with `refresh_opts: [client: client]`. For OAuth-specific needs (revocation on logout, `invalid_grant` handling), `ProtoRune.Atproto.OAuth.SessionManager` keeps a session fresh: it refreshes before expiry, persists each rotated session through a `ProtoRune.Security.TokenStore` backend (encrypted at rest, the DPoP key is private key material) and stops on refresh failure so your supervisor decides what to do.
+OAuth sessions use the same manager, with the OAuth client in `refresh_opts`:
+
+```elixir
+{ProtoRune.SessionManager,
+ session: session,
+ refresh_opts: [client: client],
+ store: {ProtoRune.Security.TokenStore.Dets, path: "/var/myapp/tokens.dets"},
+ key: key}
+```
 
 The SDK starts no processes on its own, add it to your supervision tree:
 
@@ -142,9 +150,9 @@ System.put_env("PROTO_RUNE_TOKEN_KEY", ProtoRune.Security.encode_key(key))
 
 children = [
   {Registry, keys: :unique, name: MyApp.OAuthRegistry},
-  {ProtoRune.Atproto.OAuth.SessionManager,
+  {ProtoRune.SessionManager,
    session: session,
-   client: client,
+   refresh_opts: [client: client],
    store: {ProtoRune.Security.TokenStore.Dets, path: "/var/myapp/tokens.dets"},
    key: key,
    registry: MyApp.OAuthRegistry}
@@ -157,15 +165,17 @@ With `:registry` set, any process can fetch the current session by DID:
 
 ```elixir
 via = {:via, Registry, {MyApp.OAuthRegistry, "did:plc:abc123"}}
-session = ProtoRune.Atproto.OAuth.SessionManager.session(via)
+session = ProtoRune.SessionManager.session(via)
 {:ok, profile} = ProtoRune.Bsky.get_profile(session, "alice.bsky.social")
 ```
 
 `logout/1` revokes the refresh token, deletes the stored session and stops the manager:
 
 ```elixir
-:ok = ProtoRune.Atproto.OAuth.SessionManager.logout(via)
+:ok = ProtoRune.SessionManager.logout(via)
 ```
+
+The manager's refresh and revoke telemetry events are `[:proto_rune, :session, ...]`. `ProtoRune.Atproto.OAuth.SessionManager` still works as a forwarding shim and is deprecated; it is removed in 1.0.
 
 ### Limitations
 

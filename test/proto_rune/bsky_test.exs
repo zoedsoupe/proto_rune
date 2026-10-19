@@ -56,7 +56,7 @@ defmodule ProtoRune.BskyTest do
       http =
         fake_http(fn :get, _url, _opts ->
           {:ok,
-           %Req.Response{
+           %{
              status: 400,
              body: %{"error" => "BadQueryString", "message" => "bad query"}
            }}
@@ -190,7 +190,7 @@ defmodule ProtoRune.BskyTest do
         fake_http(fn
           :get, _url, _opts ->
             {:ok,
-             %Req.Response{
+             %{
                status: 400,
                body: %{"error" => "RecordNotFound", "message" => "could not find record"}
              }}
@@ -212,7 +212,7 @@ defmodule ProtoRune.BskyTest do
       http =
         fake_http(fn :get, _url, _opts ->
           {:ok,
-           %Req.Response{
+           %{
              status: 401,
              body: %{"error" => "ExpiredToken", "message" => "token expired"}
            }}

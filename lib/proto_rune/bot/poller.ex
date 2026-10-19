@@ -19,21 +19,24 @@ defmodule ProtoRune.Bot.Poller do
 
   - `:name` (required) - The name of the GenServer instance.
   - `:interval` (required) - The polling interval in seconds for checking new notifications.
-  - `:process_from` - Start polling from a specific date/time.
+  - `:process_from` - Start processing notifications from this date/time (default: now).
+    Notifications indexed strictly after it are dispatched on the first poll.
   - `:last_seen` - The last seen date of notifications.
-  - `:cursor` - The cursor to fetch subsequent notifications from the API.
   - `:attempt` - Number of polling attempts, used for backoff.
   - `:server_pid` (required) - The server process that handles events from the poller.
   - `:session` (required) - The session information used to authenticate API requests.
 
+  Only the first page of notifications is fetched per cycle. If more than one
+  page of new notifications accumulates between polls, older pages are missed;
+  size `:interval` so the bot is polled more often than notifications arrive.
+
   ## Functions
 
   - `start_link/1`: Starts the `Poller` process with the given options.
-  - `poll_notifications/1`: Fetches the latest notifications from the service and handles them.
-  - `handle_notifications/2`: Dispatches each notification to the appropriate event handler in the bot server.
-  - `handle_rate_limited/2`: Handles the rate-limiting case by applying exponential backoff before the next poll.
-  - `handle_error/2`: Sends error events to the bot server.
-  - `dispatch_notification/2`: Dispatches different types of notifications (e.g., replies, quotes, mentions, likes, reposts, follows) to the bot server.
+
+  Each cycle fetches the latest notifications and dispatches the ones newer
+  than the watermark to the bot server; on rate limits the poller backs off
+  exponentially before the next poll.
 
   ## Example
 
@@ -54,16 +57,16 @@ defmodule ProtoRune.Bot.Poller do
 
   The poller implements an exponential backoff strategy when rate-limited or in case of errors.
   The backoff starts with the defined `interval` and increases exponentially with each failed attempt,
-  up to a maximum of 5 minutes.
+  up to a maximum of 5 minutes. A successful poll resets the attempt count.
 
   ## Internal State
 
   The `State` struct is used to keep track of:
   - `name`: The name of the poller process.
   - `interval`: The polling interval in seconds.
+  - `process_from`: The timestamp the first poll starts processing from.
   - `last_seen`: The last notification timestamp.
-  - `cursor`: API cursor for fetching new notifications.
-  - `attempt`: The number of failed attempts.
+  - `attempt`: The number of consecutive rate-limited attempts.
   - `session`: The current session for API requests.
   - `server_pid`: The PID of the server handling the notifications.
 
@@ -86,6 +89,7 @@ defmodule ProtoRune.Bot.Poller do
   alias ProtoRune.Atproto
   alias ProtoRune.Bot.Poller.State
   alias ProtoRune.Bsky
+  alias ProtoRune.HTTPClient.Backoff
   alias ProtoRune.XRPC
 
   require Logger
@@ -95,7 +99,6 @@ defmodule ProtoRune.Bot.Poller do
           | {:interval, integer}
           | {:process_from, NaiveDateTime.t()}
           | {:last_seen, Date.t()}
-          | {:cursor, String.t()}
           | {:attempt, integer}
           | {:server_pid, pid}
           | {:session, ProtoRune.Session.t()}
@@ -115,14 +118,12 @@ defmodule ProtoRune.Bot.Poller do
 
   @impl true
   def handle_continue(:poll, %State{} = state) do
-    schedule_polling(state)
     {:ok, state} = poll_notifications(state)
     {:noreply, state}
   end
 
   @impl true
   def handle_info(:poll, %State{} = state) do
-    schedule_polling(state)
     {:ok, state} = poll_notifications(state)
     {:noreply, state}
   end
@@ -132,8 +133,8 @@ defmodule ProtoRune.Bot.Poller do
   end
 
   @impl true
-  def format_status({:state, state}) do
-    {:state, Map.take(state, [:name, :interval, :process_from, :last_seen, :cursor, :attempt])}
+  def format_status(%{log: log, state: state}) do
+    %{log: log, state: Map.take(state, [:name, :interval, :process_from, :last_seen, :attempt])}
   end
 
   def format_status(key), do: key
@@ -155,12 +156,14 @@ defmodule ProtoRune.Bot.Poller do
     end
   end
 
-  defp handle_notifications(state, %{notifications: []}), do: {:ok, state}
+  # Each cycle outcome schedules the next poll exactly once; rate limits inside handle_rate_limited/2.
+  defp handle_notifications(%State{} = state, %{notifications: []}) do
+    schedule_polling(state)
+    {:ok, %{state | attempt: 0}}
+  end
 
   defp handle_notifications(%State{} = state, data) do
-    indexed_at = List.first(data[:notifications])[:indexed_at]
-    {:ok, indexed_at} = NaiveDateTime.from_iso8601(indexed_at)
-    last_seen = state.last_seen || indexed_at
+    last_seen = state.last_seen || state.process_from
 
     data[:notifications]
     |> Enum.filter(&after_last_seen?(&1, last_seen))
@@ -170,7 +173,15 @@ defmodule ProtoRune.Bot.Poller do
       end)
     end)
 
-    {:ok, %{state | last_seen: indexed_at, cursor: data[:cursor]}}
+    schedule_polling(state)
+
+    {:ok, %{state | last_seen: newest_indexed_at(data), attempt: 0}}
+  end
+
+  # Notifications arrive newest-first; the first one marks the new watermark.
+  defp newest_indexed_at(data) do
+    {:ok, indexed_at} = NaiveDateTime.from_iso8601(List.first(data[:notifications])[:indexed_at])
+    indexed_at
   end
 
   defp after_last_seen?(notification, last_seen) do
@@ -207,6 +218,7 @@ defmodule ProtoRune.Bot.Poller do
 
   defp handle_error(%State{server_pid: pid} = state, reason) do
     send(pid, {:handle_event, :error, %{reason: reason}})
+    schedule_polling(state)
     {:ok, state}
   end
 
@@ -274,7 +286,7 @@ defmodule ProtoRune.Bot.Poller do
 
   # implement exponential backoff
   defp backoff(%State{interval: interval, attempt: attempt}) do
-    min(@max_backoff, to_timeout(second: interval) ** attempt)
+    Backoff.delay(attempt + 1, base_delay: to_timeout(second: interval), max_delay: @max_backoff)
   end
 
   defp schedule_polling(%State{interval: interval}) do

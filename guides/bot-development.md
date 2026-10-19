@@ -37,20 +37,22 @@ end
 Required:
 
 - `:name`: module name or atom
-- `:strategy`: `:polling` or `:firehose` (see `ProtoRune.Bot.Firehose`)
+- `:strategy`: `:polling`, `:firehose` or `:jetstream` (see below)
 
 Optional:
 
 - `:service`: PDS URL (default `"https://bsky.social"`)
-- `:langs`: supported languages (default `["en"]`)
 - `:identifier` / `:password`: instead of the callbacks
 - `:polling`: polling config (below)
+- `:firehose` / `:jetstream`: stream configs (below)
 
 ## Callbacks
 
 - `get_identifier/0`: login handle or email
 - `get_password/0`: app password
 - `handle_event/2`: returns `{:ok, term}` or `{:error, term}`
+- `handle_event/3`: same as `handle_event/2`, plus the bot's session as the
+  third argument, for handlers that need to call the API
 
 Get credentials from env vars, never hardcode them.
 
@@ -84,22 +86,46 @@ defmodule MyBot do
 end
 ```
 
-The poller authenticates, fetches notifications, dispatches new ones as events, waits, repeats. On rate limiting it backs off exponentially, capped at 5 minutes.
+The poller authenticates, fetches notifications, dispatches new ones as events, waits, repeats. On rate limiting it backs off exponentially, capped at 5 minutes. Only the first page of notifications is fetched per cycle, so keep `:interval` shorter than the time it takes notifications to pile up.
 
-## Responding to events
+## Streams
 
-Call `ProtoRune.Bsky` from your handlers:
+The `:firehose` and `:jetstream` strategies stream repo events as they happen instead of polling:
+
+- `:firehose` (`ProtoRune.Bot.Firehose`) subscribes to the entire network and decodes every CAR block of every commit, with no backpressure: every operation is sent to your handler serially. Use it only with fast handlers.
+- `:jetstream` (`ProtoRune.Bot.Jetstream`) connects to a Jetstream instance, which filters server-side (`wanted_collections` / `wanted_dids`) and ships plain JSON text frames. It is the right default for bots doing real work per event.
 
 ```elixir
-@impl true
-def handle_event(:follow, payload) do
-  session = get_session()
-  {:ok, _} = ProtoRune.Bsky.follow(session, payload.user.did)
-  {:ok, :followed_back}
+defmodule MyBot do
+  use ProtoRune.Bot,
+    name: __MODULE__,
+    strategy: :jetstream,
+    jetstream: %{
+      wanted_collections: ["app.bsky.feed.post"],  # default: all
+      wanted_dids: ["did:plc:..."]                 # default: all
+    }
+
+  # callbacks...
 end
 ```
 
-Note: the framework doesn't expose the session directly to handlers yet. Keep it in `:persistent_term` or extend the framework; this improves in a future version.
+Both dispatch `:commit` events (one per repository operation, with `:repo`, `:rev`, `:seq`, `:time`, `:action`, `:path`, `:cid` and `:record`) plus stream-level events (`:identity`, `:account`).
+
+## Responding to events
+
+Implement `handle_event/3` when your handler needs the session:
+
+```elixir
+@impl true
+def handle_event(:follow, payload, session) do
+  {:ok, _} = ProtoRune.Bsky.follow(session, payload.user.did)
+  {:ok, :followed_back}
+end
+
+def handle_event(event, payload, _session), do: handle_event(event, payload)
+```
+
+The session passed in is the bot's authenticated session, kept fresh by the server. `handle_event/2` keeps working for handlers that never call the API.
 
 ## Supervision
 
@@ -112,7 +138,7 @@ children = [
 Supervisor.start_link(children, strategy: :one_for_one, name: MyApp.Supervisor)
 ```
 
-A crashed bot is restarted automatically.
+The generated `child_spec/1` uses the bot's `:name` as the child id, so each bot module in the example runs as its own supervised child. A crashed bot is restarted automatically.
 
 ## Error handling in handlers
 
