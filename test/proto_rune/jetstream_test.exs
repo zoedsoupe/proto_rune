@@ -85,6 +85,21 @@ defmodule ProtoRune.JetstreamTest do
     assert {:error, :invalid_handler} = start_jetstream(handler: "not a handler")
   end
 
+  test "runs as a child spec under a supervisor" do
+    pid =
+      start_supervised!(
+        {Jetstream,
+         handler: self(),
+         transport: FakeTransport,
+         transport_opts: [test_pid: self()],
+         backoff_initial: 10,
+         backoff_max: 50}
+      )
+
+    assert_receive {:jetstream_connected, _url}
+    assert Process.alive?(pid)
+  end
+
   test "connects to the subscribe endpoint of the relay" do
     {:ok, _pid} = start_jetstream(relay: "wss://jetstream.example.com")
 

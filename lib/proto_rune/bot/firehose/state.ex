@@ -23,7 +23,7 @@ defmodule ProtoRune.Bot.Firehose.State do
     auto_reconnect: {:boolean, {:default, true}},
     backoff_initial: {:integer, {:default, 1_000}},
     backoff_max: {:integer, {:default, 30_000}},
-    transport: {:atom, {:default, ProtoRune.Firehose.Transport.Gun}},
+    transport: {:atom, {:default, ProtoRune.Firehose.Transport.Mint}},
     transport_opts: {:any, {:default, []}},
     server_pid: {:required, :pid}
   })
