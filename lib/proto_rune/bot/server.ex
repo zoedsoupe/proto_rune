@@ -19,8 +19,10 @@ defmodule ProtoRune.Bot.Server do
   - **Polling Strategy**: Supports polling for notifications at regular intervals via the
     `ProtoRune.Bot.Poller`.
   - **Session Management**: Automatically handles session creation, refresh, and expiration.
-  - **Event Handling**: Dispatches events to the bot's `handle_event/2` callback, or
-    `handle_event/3` when defined (passing the bot's session).
+  - **Event Handling**: Dispatches events to the bot's `handle_event/2` callback,
+    `handle_event/3` when defined (passing the bot's session), or the stateful
+    `handle_event/4` when defined (also passing the bot state; its return value is stored
+    as the new state).
 
   ## Options
 
@@ -35,6 +37,9 @@ defmodule ProtoRune.Bot.Server do
   - `:firehose` - Firehose configuration (e.g., relay_uri, cursor and auto_reconnect).
   - `:jetstream` - Jetstream configuration (e.g., wanted_collections and wanted_dids).
   - `:strategy` - The bot's strategy for receiving notifications (`:polling`, `:firehose` or `:jetstream`).
+  - `:persist_interval` - Interval in seconds between persistence ticks, where the bot's
+    `persist_state/1` callback is called with the current bot state (optional; when absent
+    there is no persistence tick).
 
   ## Polling Configuration
 
@@ -136,6 +141,8 @@ defmodule ProtoRune.Bot.Server do
   - `session`: The session data for making authenticated requests.
   - `did`: The bot's DID, from its profile.
   - `poller`: The PID of the polling process (if using the polling strategy).
+  - `bot_state`: The bot's own state, seeded from `init_state/0` and threaded
+    through `handle_event/4` (see `ProtoRune.Bot`).
 
   ## Error Handling
 
@@ -198,6 +205,7 @@ defmodule ProtoRune.Bot.Server do
           | {:firehose, firehose_t | nil}
           | {:jetstream, jetstream_t | nil}
           | {:strategy, :polling | :firehose | :jetstream}
+          | {:persist_interval, integer}
 
   @type kwargs :: nonempty_list(option)
 
@@ -209,7 +217,8 @@ defmodule ProtoRune.Bot.Server do
           optional(:password) => String.t(),
           optional(:polling) => polling_t,
           optional(:firehose) => firehose_t,
-          optional(:jetstream) => jetstream_t
+          optional(:jetstream) => jetstream_t,
+          optional(:persist_interval) => integer
         }
 
   @type options_t :: kwargs | mapargs
@@ -221,6 +230,7 @@ defmodule ProtoRune.Bot.Server do
     identifier: :string,
     password: :string,
     strategy: {{:enum, [:polling, :firehose, :jetstream]}, {:default, :polling}},
+    persist_interval: :integer,
     polling: {:cond, &(&1.strategy == :polling), get_schema(:polling_t), nil},
     firehose: {:cond, &(&1.strategy == :firehose), get_schema(:firehose_t), nil},
     jetstream: {:cond, &(&1.strategy == :jetstream), get_schema(:jetstream_t), nil}
@@ -278,7 +288,8 @@ defmodule ProtoRune.Bot.Server do
             {:noreply,
              state
              |> Map.put(:did, profile[:did])
-             |> Map.put(:session, session), {:continue, :start_listener}}
+             |> Map.put(:session, session)
+             |> Map.put(:bot_state, init_bot_state(bot)), {:continue, :start_listener}}
 
           err ->
             {:stop, err, state}
@@ -303,6 +314,8 @@ defmodule ProtoRune.Bot.Server do
         session: state[:session]
       )
 
+    schedule_persist(state)
+
     {:noreply, Map.put(state, :poller, pid)}
   end
 
@@ -317,6 +330,8 @@ defmodule ProtoRune.Bot.Server do
         cursor: state[:firehose][:cursor],
         auto_reconnect: state[:firehose][:auto_reconnect]
       )
+
+    schedule_persist(state)
 
     {:noreply, Map.put(state, :firehose, pid)}
   end
@@ -335,19 +350,21 @@ defmodule ProtoRune.Bot.Server do
         cursor: state[:jetstream][:cursor]
       )
 
+    schedule_persist(state)
+
     {:noreply, Map.put(state, :jetstream, pid)}
   end
 
   @impl true
   def handle_cast({:handle_event, event, payload}, state) do
-    dispatch_event(state, event, payload)
-    {:noreply, state}
+    bot_state = dispatch_event(state, event, payload)
+    {:noreply, Map.put(state, :bot_state, bot_state)}
   end
 
   @impl true
   def handle_info({:handle_event, event, payload}, state) do
-    dispatch_event(state, event, payload)
-    {:noreply, state}
+    bot_state = dispatch_event(state, event, payload)
+    {:noreply, Map.put(state, :bot_state, bot_state)}
   end
 
   @impl true
@@ -366,6 +383,27 @@ defmodule ProtoRune.Bot.Server do
   end
 
   @impl true
+  def handle_info(:persist, state) do
+    bot = bot_module(state)
+
+    if function_exported?(bot, :persist_state, 1) do
+      case bot.persist_state(state[:bot_state]) do
+        :ok ->
+          :ok
+
+        {:error, reason} ->
+          Logger.warning("[#{__MODULE__}] ==> Failed to persist bot #{state[:name]} state: #{inspect(reason)}")
+
+        _other ->
+          :ok
+      end
+    end
+
+    schedule_persist(state)
+    {:noreply, state}
+  end
+
+  @impl true
   def format_status(%{log: log, state: state}) do
     # no session in the status: it carries tokens
     %{log: log, state: Map.take(state, [:name, :service, :did])}
@@ -380,16 +418,26 @@ defmodule ProtoRune.Bot.Server do
     :telemetry.execute([:proto_rune, :bot, :event, :dispatch], %{count: 1}, metadata)
 
     :telemetry.span([:proto_rune, :bot, :event], metadata, fn ->
-      {dispatch_callback(bot, event, payload, state[:session]), metadata}
+      {dispatch_callback(bot, event, payload, state), metadata}
     end)
   end
 
-  # Modules not using `use ProtoRune.Bot` implement only handle_event/2, so probe for arity 3.
-  defp dispatch_callback(bot, event, payload, session) do
-    if function_exported?(bot, :handle_event, 3) do
-      bot.handle_event(event, payload, session)
-    else
-      bot.handle_event(event, payload)
+  # The optional stateful handler wins over /3 and /2, and its return value is
+  # the bot's new state. Modules not using `use ProtoRune.Bot` implement only
+  # handle_event/2, so probe for arity 3 as well; the other arities leave the
+  # current state untouched.
+  defp dispatch_callback(bot, event, payload, state) do
+    cond do
+      function_exported?(bot, :handle_event, 4) ->
+        bot.handle_event(event, payload, state[:session], state[:bot_state])
+
+      function_exported?(bot, :handle_event, 3) ->
+        bot.handle_event(event, payload, state[:session])
+        state[:bot_state]
+
+      true ->
+        bot.handle_event(event, payload)
+        state[:bot_state]
     end
   end
 
@@ -398,7 +446,19 @@ defmodule ProtoRune.Bot.Server do
   # `use ProtoRune.Bot, name: __MODULE__` setup).
   defp bot_module(state), do: state[:module] || state[:name]
 
+  # The bot's state starts at init_state/0 when the callback is exported, else nil.
+  defp init_bot_state(bot) do
+    if function_exported?(bot, :init_state, 0), do: bot.init_state()
+  end
+
   defp schedule_refresh_session do
     Process.send_after(self(), :refresh_session, to_timeout(minute: 5))
   end
+
+  # Persistence is opt-in: without :persist_interval there is no tick at all.
+  defp schedule_persist(%{persist_interval: interval}) when is_integer(interval) do
+    Process.send_after(self(), :persist, to_timeout(second: interval))
+  end
+
+  defp schedule_persist(_state), do: :ok
 end
