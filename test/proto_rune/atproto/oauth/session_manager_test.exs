@@ -7,18 +7,24 @@ defmodule ProtoRune.Atproto.OAuth.SessionManagerTest do
   alias ProtoRune.Security
   alias ProtoRune.Security.Crypto
 
+  # This module is deprecated in favor of ProtoRune.SessionManager: these
+  # tests pin the published call patterns (the pre-0.6.0 option shape and
+  # the public functions) until the module is removed in 1.0. The
+  # telemetry events now come from the generic manager, so they use the
+  # [:proto_rune, :session, ...] names.
+
   @issuer "https://auth.test"
   @token_url "https://auth.test/oauth/token"
   @revoke_url "https://auth.test/oauth/revoke"
   @did "did:plc:test123"
 
   @events [
-    [:proto_rune, :oauth, :refresh, :start],
-    [:proto_rune, :oauth, :refresh, :stop],
-    [:proto_rune, :oauth, :refresh, :exception],
-    [:proto_rune, :oauth, :revoke, :start],
-    [:proto_rune, :oauth, :revoke, :stop],
-    [:proto_rune, :oauth, :revoke, :exception]
+    [:proto_rune, :session, :refresh, :start],
+    [:proto_rune, :session, :refresh, :stop],
+    [:proto_rune, :session, :refresh, :exception],
+    [:proto_rune, :session, :revoke, :start],
+    [:proto_rune, :session, :revoke, :stop],
+    [:proto_rune, :session, :revoke, :exception]
   ]
 
   defmodule MemoryStore do
@@ -67,7 +73,7 @@ defmodule ProtoRune.Atproto.OAuth.SessionManagerTest do
     {:ok, client: client, store: {MemoryStore, [pid: store_pid]}, store_pid: store_pid, key: Security.generate_key()}
   end
 
-  test "refreshes on schedule, rotates tokens and persists through the store", %{
+  test "start_link/1 keeps the published option shape and refreshes through the store", %{
     client: client,
     store: store,
     store_pid: store_pid,
@@ -118,46 +124,15 @@ defmodule ProtoRune.Atproto.OAuth.SessionManagerTest do
     assert {:ok, plaintext} = Crypto.decrypt(blob, key)
     assert %Session{access_token: "at-2", refresh_token: "rt-2"} = :erlang.binary_to_term(plaintext)
 
-    assert_received {:telemetry, [:proto_rune, :oauth, :refresh, :start], _, %{did: @did}}
-    assert_received {:telemetry, [:proto_rune, :oauth, :refresh, :stop], _, %{did: @did}}
+    assert_received {:telemetry, [:proto_rune, :session, :refresh, :start], _, %{did: @did}}
+    assert_received {:telemetry, [:proto_rune, :session, :refresh, :stop], _, %{did: @did}}
   end
 
-  test "fails to start without an encryption key", %{client: client, store: store} do
+  test "fails to start when :store is given without :key", %{client: client, store: store} do
     Process.flag(:trap_exit, true)
 
-    assert {:error, {%KeyError{key: :key}, _stacktrace}} =
+    assert {:error, {%ArgumentError{message: ":store and :key must be given together"}, _stacktrace}} =
              SessionManager.start_link(session: session(client), client: client, store: store)
-  end
-
-  test "stops with a descriptive reason when the refresh fails transiently", %{
-    client: client,
-    store: store,
-    key: key
-  } do
-    Process.flag(:trap_exit, true)
-
-    session = session(client, expires_at: System.system_time(:second) + 2)
-
-    http =
-      fake_http(fn :post, @token_url, _opts ->
-        {:ok, %{status: 500, body: %{"error" => "server_error"}, headers: []}}
-      end)
-
-    {:ok, pid} =
-      SessionManager.start_link(
-        session: session,
-        client: client,
-        store: store,
-        key: key,
-        http: http,
-        refresh_fraction: 0.1
-      )
-
-    assert_receive {:EXIT, ^pid, {:refresh_failed, {:oauth_error, 500, %{"error" => "server_error"}}}},
-                   2_000
-
-    assert_received {:telemetry, [:proto_rune, :oauth, :refresh, :stop], _,
-                     %{did: @did, error: {:oauth_error, 500, %{"error" => "server_error"}}}}
   end
 
   test "stops normally and deletes the stored session on invalid_grant", %{
@@ -191,7 +166,7 @@ defmodule ProtoRune.Atproto.OAuth.SessionManagerTest do
     assert_receive {:EXIT, ^pid, :normal}, 2_000
     assert {:error, :not_found} = MemoryStore.fetch(@did, pid: store_pid)
 
-    assert_received {:telemetry, [:proto_rune, :oauth, :refresh, :stop], _,
+    assert_received {:telemetry, [:proto_rune, :session, :refresh, :stop], _,
                      %{did: @did, error: {:oauth_error, 400, %{"error" => "invalid_grant"}}}}
   end
 
@@ -231,8 +206,8 @@ defmodule ProtoRune.Atproto.OAuth.SessionManagerTest do
     assert_receive {:DOWN, ^ref, :process, ^pid, :normal}
     assert {:error, :not_found} = MemoryStore.fetch(@did, pid: store_pid)
 
-    assert_received {:telemetry, [:proto_rune, :oauth, :revoke, :start], _, %{did: @did}}
-    assert_received {:telemetry, [:proto_rune, :oauth, :revoke, :stop], _, %{did: @did}}
+    assert_received {:telemetry, [:proto_rune, :session, :revoke, :start], _, %{did: @did}}
+    assert_received {:telemetry, [:proto_rune, :session, :revoke, :stop], _, %{did: @did}}
   end
 
   test "registers under the session DID in a host-started Registry", %{

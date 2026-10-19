@@ -26,6 +26,7 @@ defmodule ProtoRune.Atproto.Identity.DIDResolver do
           | :invalid_format
           | :unsupported_did_method
           | :rate_limited
+          | :did_mismatch
           | {:http_error, pos_integer()}
 
   @type resolution_opts :: [
@@ -67,7 +68,7 @@ defmodule ProtoRune.Atproto.Identity.DIDResolver do
 
     case HTTPClient.request(:get, url, [timeout: timeout] ++ http_opts(opts)) do
       {:ok, %{status: 200, body: body}} ->
-        decode_did_document(body)
+        decode_did_document(body, did)
 
       {:ok, %{status: 404}} ->
         {:error, :not_found}
@@ -97,7 +98,7 @@ defmodule ProtoRune.Atproto.Identity.DIDResolver do
 
     with {:ok, domain} <- extract_domain(did),
          {:ok, response} <- fetch_well_known_document(domain, timeout, http_opts(opts)) do
-      decode_did_document(response.body)
+      decode_did_document(response.body, did)
     else
       {:error, :invalid_domain} ->
         {:error, :invalid_format}
@@ -136,10 +137,20 @@ defmodule ProtoRune.Atproto.Identity.DIDResolver do
 
   defp http_opts(opts), do: Keyword.get(opts, :http, [])
 
-  defp decode_did_document(body) do
+  # The document's own id has to be the DID that was resolved: the PLC
+  # directory answers the document for the DID in the path, but a did:web
+  # host is free to serve anything, and this check is what stops one
+  # account's document from being accepted under another account's DID.
+  defp decode_did_document(body, did) do
     case JSON.decode(body) do
-      {:ok, doc} -> {:ok, ProtoRune.Case.snakelize_enum(doc)}
-      _ -> {:error, :invalid_format}
+      {:ok, %{"id" => ^did} = doc} ->
+        {:ok, ProtoRune.Case.snakelize_enum(doc)}
+
+      {:ok, %{"id" => _other}} ->
+        {:error, :did_mismatch}
+
+      _ ->
+        {:error, :invalid_format}
     end
   end
 end
