@@ -169,8 +169,7 @@ defmodule ProtoRune.HTTPClientTest do
     end
 
     test "does not throttle by default" do
-      # The limiter table is created lazily, only once throttling is active,
-      # so its absence after a plain request proves the default is off.
+      # The limiter table is created lazily, so its absence proves throttling is off.
       table = ProtoRune.HTTPClient.RateLimiter
       if :ets.whereis(table) != :undefined, do: :ets.delete(table)
 

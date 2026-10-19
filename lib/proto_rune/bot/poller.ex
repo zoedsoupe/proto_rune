@@ -156,9 +156,7 @@ defmodule ProtoRune.Bot.Poller do
     end
   end
 
-  # Each cycle outcome schedules the next poll exactly once: success and
-  # errors here, rate limits inside `handle_rate_limited/2` (which owns the
-  # `Retry-After` aware timer for that cycle).
+  # Each cycle outcome schedules the next poll exactly once; rate limits inside handle_rate_limited/2.
   defp handle_notifications(%State{} = state, %{notifications: []}) do
     schedule_polling(state)
     {:ok, %{state | attempt: 0}}

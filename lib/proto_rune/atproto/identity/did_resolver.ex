@@ -66,9 +66,7 @@ defmodule ProtoRune.Atproto.Identity.DIDResolver do
 
     url = "#{@plc_directory_url}/#{did}"
 
-    # The PLC directory base is a constant but the DID in the path is
-    # stranger-chosen, so the fetch goes through the guarded GET like the
-    # well-known fetches do.
+    # The DID in the path is stranger-chosen, so the fetch is guarded.
     case SSRF.get(url, [timeout: timeout] ++ http_opts(opts)) do
       {:ok, %{status: 200, body: body}} ->
         decode_did_document(body, did)
@@ -115,8 +113,6 @@ defmodule ProtoRune.Atproto.Identity.DIDResolver do
     end
   end
 
-  # Private Functions
-
   defp extract_domain("did:web:" <> domain) do
     domain = String.replace(domain, "%3A", ":")
 
@@ -130,8 +126,7 @@ defmodule ProtoRune.Atproto.Identity.DIDResolver do
   defp fetch_well_known_document(domain, timeout, http_opts) do
     url = "https://#{domain}/.well-known/did.json"
 
-    # The domain comes from the DID string, so the fetch is guarded and
-    # redirects are followed explicitly (see ProtoRune.HTTPClient.SSRF).
+    # The domain comes from the DID string, so the fetch is guarded.
     case SSRF.get(url, [timeout: timeout] ++ http_opts) do
       {:ok, %{status: 200} = response} -> {:ok, response}
       {:ok, %{status: 404}} -> {:error, :not_found}
@@ -142,10 +137,7 @@ defmodule ProtoRune.Atproto.Identity.DIDResolver do
 
   defp http_opts(opts), do: Keyword.get(opts, :http, [])
 
-  # The document's own id has to be the DID that was resolved: the PLC
-  # directory answers the document for the DID in the path, but a did:web
-  # host is free to serve anything, and this check is what stops one
-  # account's document from being accepted under another account's DID.
+  # The document's id must equal the resolved DID: a did:web host may serve another account's document.
   defp decode_did_document(body, did) do
     case JSON.decode(body) do
       {:ok, %{"id" => ^did} = doc} ->

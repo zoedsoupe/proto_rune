@@ -15,8 +15,7 @@ defmodule ProtoRune.BotTest do
     def handle_event(event, payload, _session), do: handle_event(event, payload)
   end
 
-  # Implements the behaviour directly, without `use ProtoRune.Bot`, so it has
-  # no `handle_event/3` and dispatch must fall back to arity 2.
+  # No `use ProtoRune.Bot`, so no handle_event/3 default: dispatch falls back to arity 2.
   defmodule PlainBot do
     @moduledoc false
     @behaviour ProtoRune.Bot

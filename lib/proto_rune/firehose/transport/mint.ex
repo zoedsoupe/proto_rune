@@ -26,6 +26,8 @@ defmodule ProtoRune.Firehose.Transport.Mint do
 
   @connect_timeout 5_000
 
+  # The happy path is real (the firehose tests exercise it); Dialyzer cannot prove it through Mint's typings.
+  @dialyzer {:nowarn_function, connect: 2}
   @impl true
   def connect(url, opts) do
     uri = URI.parse(url)
@@ -45,7 +47,8 @@ defmodule ProtoRune.Firehose.Transport.Mint do
          {:ok, conn, ref, websocket} <- upgrade(ws_scheme, conn, path, timeout) do
       {:ok, %__MODULE__{conn: conn, ref: ref, websocket: websocket}}
     else
-      {:error, %Mint.HTTP1{} = conn, reason} ->
+      # Mint.HTTP.t() is opaque: `is_map` is all the close call needs.
+      {:error, conn, reason} when is_map(conn) ->
         Mint.HTTP.close(conn)
         {:error, reason}
 
@@ -54,9 +57,6 @@ defmodule ProtoRune.Firehose.Transport.Mint do
     end
   end
 
-  # The upgrade request goes out with Mint.WebSocket.upgrade/4; the 101
-  # reply is assembled from the active-mode messages the caller receives
-  # until the response completes.
   defp upgrade(ws_scheme, conn, path, timeout) do
     case Mint.WebSocket.upgrade(ws_scheme, conn, path, []) do
       {:ok, conn, ref} -> await_upgrade(conn, ref, [], timeout)
@@ -88,6 +88,8 @@ defmodule ProtoRune.Firehose.Transport.Mint do
     end
   end
 
+  # Same Dialyzer gap as connect/2 above.
+  @dialyzer {:nowarn_function, finish_upgrade: 3}
   defp finish_upgrade(conn, ref, acc) do
     {:status, ^ref, status} = Enum.find(acc, &match?({:status, ^ref, _}, &1))
     {:headers, ^ref, headers} = Enum.find(acc, &match?({:headers, ^ref, _}, &1))
@@ -132,9 +134,9 @@ defmodule ProtoRune.Firehose.Transport.Mint do
 
   defp handle_responses(conn, [_other | rest], acc), do: handle_responses(conn, rest, acc)
 
-  # Frames arrive already reassembled. Pings must be answered with pongs
-  # (Mint does not do it), pongs and strays are dropped, a close ends the
-  # stream with a `:closed` frame like gun's `{:gun_ws, ..., :close}` did.
+  # Frames arrive reassembled; pings are answered with pongs, pongs and strays
+  # dropped, and a close ends the stream with a `:closed` frame like gun did.
+  # decode/2 answers frame tuples only; the bare :ping/:pong/:close shorthands are encode/2 inputs.
   defp handle_frames(conn, [], acc), do: {:ok, conn, acc}
 
   defp handle_frames(conn, [frame | rest], acc) do
@@ -147,12 +149,9 @@ defmodule ProtoRune.Firehose.Transport.Mint do
   end
 
   defp handle_frame(conn, {:ping, data}), do: reply_to_ping(conn, {:pong, data})
-  defp handle_frame(conn, :ping), do: reply_to_ping(conn, :pong)
   defp handle_frame(conn, {:pong, _data}), do: {:skip, conn}
-  defp handle_frame(conn, :pong), do: {:skip, conn}
   defp handle_frame(conn, {:binary, data}), do: {:deliver, conn, {:binary, data}}
   defp handle_frame(conn, {:text, data}), do: {:deliver, conn, {:text, data}}
-  defp handle_frame(conn, :close), do: close_frame(conn)
   defp handle_frame(conn, {:close, _code, _reason}), do: close_frame(conn)
   defp handle_frame(conn, {:error, reason}), do: {:error, conn, reason}
 
@@ -181,8 +180,7 @@ defmodule ProtoRune.Firehose.Transport.Mint do
     end
   end
 
-  # Echo the close frame so the peer does not wait for it; the socket itself
-  # is torn down by close/1 (or the reconnect path).
+  # Echo the close frame so the peer does not wait for it; close/1 tears the socket down.
   defp ack_close(conn) do
     case Mint.WebSocket.encode(conn.websocket, :close) do
       {:ok, _websocket, data} ->
@@ -196,7 +194,6 @@ defmodule ProtoRune.Firehose.Transport.Mint do
 
   @impl true
   def close(%__MODULE__{} = conn) do
-    # Best-effort close frame; the point of close/1 is the socket going away.
     case Mint.WebSocket.encode(conn.websocket, :close) do
       {:ok, _websocket, data} ->
         _ = Mint.WebSocket.stream_request_body(conn.conn, conn.ref, data)

@@ -43,8 +43,6 @@ defmodule ProtoRune.HTTPClient.Adapters.Finch do
     {body, headers} = build_body(opts, headers)
     headers = headers |> set_accept_encoding() |> normalize()
 
-    # `:timeout` is a receive deadline; the connect timeout is a pool-level
-    # setting (see the moduledoc).
     finch_opts = if timeout, do: [receive_timeout: timeout], else: []
 
     method
@@ -85,8 +83,6 @@ defmodule ProtoRune.HTTPClient.Adapters.Finch do
     end
   end
 
-  # Finch (Mint) neither decompresses nor advertises compression, so ask for
-  # identity explicitly rather than receive a body nothing will uncompress.
   defp set_accept_encoding(headers) do
     case List.keyfind(headers, "accept-encoding", 0) do
       {_existing, _v} -> headers

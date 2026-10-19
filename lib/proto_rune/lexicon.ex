@@ -81,7 +81,10 @@ defmodule ProtoRune.Lexicon do
   again.
   """
   @spec unload :: :ok
-  def unload, do: :persistent_term.erase(@cache_key)
+  def unload do
+    _ = :persistent_term.erase(@cache_key)
+    :ok
+  end
 
   @doc """
   Returns the Peri schema for a lexicon, or an error.

@@ -8,7 +8,6 @@ defmodule ProtoRune.HTTPClient.Adapters.FinchTest do
 
   import Plug.Conn
 
-  # aliased as FinchAdapter so the `Finch` package module stays unambiguous
   alias ProtoRune.HTTPClient
   alias ProtoRune.HTTPClient.Adapters.Finch, as: FinchAdapter
 
@@ -93,7 +92,6 @@ defmodule ProtoRune.HTTPClient.Adapters.FinchTest do
     assert String.starts_with?(value, "application/json")
     assert body == ~s|{"a":1}|
 
-    # the response shapes the client helpers already accept
     assert HTTPClient.get_header(headers, "content-type") == value
   end
 
@@ -102,9 +100,8 @@ defmodule ProtoRune.HTTPClient.Adapters.FinchTest do
       resp(conn, 200, "ok")
     end)
 
-    # the option maps to Finch's :receive_timeout; asserting the timeout
-    # path itself against Bypass would fail the expectation when the client
-    # disconnects, so this only pins that the mapping is accepted
+    # Pins that :timeout maps to Finch's :receive_timeout; Bypass cannot
+    # assert the receive path itself without racing the client disconnect.
     assert {:ok, %{status: 200}} =
              FinchAdapter.request(:get, url <> "/xrpc/test", timeout: 5_000)
   end

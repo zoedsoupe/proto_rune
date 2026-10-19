@@ -32,8 +32,7 @@ defmodule ProtoRune.Application do
 
   use Application
 
-  # Aliased so the pool-name call below does not shadow the `Finch` library
-  # module named in the child spec on the next line.
+  # Aliased so the `Finch` library module named in the child spec is not shadowed.
   alias ProtoRune.HTTPClient.Adapters.Finch, as: FinchAdapter
 
   @impl true

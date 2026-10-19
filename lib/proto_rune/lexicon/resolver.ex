@@ -76,9 +76,7 @@ defmodule ProtoRune.Lexicon.Resolver do
 
   def annotate_type(node, _type_id), do: node
 
-  # Refs are pointers, and following them here rather than inside the mapper
-  # is what keeps the JSON-to-Peri translation pure: it takes already-inlined
-  # JSON and reads no entries table.
+  # Refs are followed here rather than in the mapper so translation reads no entries table.
   defp do_resolve(%{"type" => "ref", "ref" => ref}, document, seen, entries) when is_binary(ref) do
     case lookup(ref, document, seen, entries) do
       {nil, _document} -> %{"type" => "unknown"}
@@ -86,13 +84,7 @@ defmodule ProtoRune.Lexicon.Resolver do
     end
   end
 
-  # A union keeps its own shape and gains a resolved definition per member
-  # ref, keyed by the ref as the lexicon wrote it. The mapper needs the ref
-  # spelled that way to pin the member's `$type` literal.
-  #
-  # A ref is followed with itself added to `seen`, so a union whose members
-  # point back at the document holding it terminates instead of resolving
-  # forever.
+  # Variants are keyed by the ref as the lexicon wrote it; the mapper pins `$type` from that spelling.
   defp do_resolve(%{"type" => "union"} = node, document, seen, entries) do
     variants =
       [Map.get(node, "ref") | Map.get(node, "refs", [])]
@@ -113,8 +105,6 @@ defmodule ProtoRune.Lexicon.Resolver do
     |> Map.drop(["refs", "ref"])
   end
 
-  # A record definition wraps its schema in a "record" body; a ref to a
-  # record resolves through the body.
   defp do_resolve(%{"type" => "record", "record" => body} = node, document, seen, entries) do
     Map.put(node, "record", do_resolve(body, document, seen, entries))
   end
@@ -135,18 +125,9 @@ defmodule ProtoRune.Lexicon.Resolver do
   defp do_resolve(%{"items" => items} = node, document, seen, entries) when is_list(items),
     do: Map.put(node, "items", Enum.map(items, &do_resolve(&1, document, seen, entries)))
 
-  # Anything else has nothing inside it to follow.
   defp do_resolve(node, _document, _seen, _entries), do: node
 
-  # Each answer carries the document it came from, because that is the
-  # document a "#def" inside it has to be looked up in.
-  #
-  # A ref already being followed is left alone, so two lexicons referring to
-  # each other terminate instead of resolving forever: stopping costs one
-  # unchecked subtree rather than a hung load.
-  #
-  # `seen` is a plain map rather than a MapSet: it crosses every do_resolve
-  # clause, and MapSet's opaque type is what dialyzer refuses to follow there.
+  # Already-followed refs terminate mutual recursion; `seen` is a plain map (MapSet trips dialyzer).
   defp lookup(ref, document, seen, entries) do
     if Map.has_key?(seen, ref) do
       {nil, document}
@@ -164,8 +145,7 @@ defmodule ProtoRune.Lexicon.Resolver do
     end
   end
 
-  # Read from the entries being resolved rather than from any loaded index,
-  # so resolution is a function of one generation of the documents.
+  # Reads the entries being resolved, not any loaded index: one generation of documents.
   defp def_of(entries, nsid, def_name) do
     case Map.fetch(entries, nsid) do
       {:ok, document} -> {get_in(document, ["defs", def_name]), document}
@@ -173,8 +153,7 @@ defmodule ProtoRune.Lexicon.Resolver do
     end
   end
 
-  # On the wire, a union member's `$type` is its full ref. A member named by
-  # a local "#name" ref carries the id of the document defining it.
+  # On the wire a union member's `$type` is its full ref; a "#name" ref gets the defining document's id.
   defp expand_ref("#" <> _name = ref, document), do: document_id(document) <> ref
   defp expand_ref(ref, _document), do: ref
 

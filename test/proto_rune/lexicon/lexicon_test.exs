@@ -4,8 +4,7 @@ defmodule ProtoRune.LexiconTest do
   alias ProtoRune.Atproto.Repo
   alias ProtoRune.Lexicon
 
-  # The tests below swap the process-independent lexicon cache, so the module
-  # does not run concurrently with itself.
+  # The tests swap the global lexicon cache, so the module cannot run concurrently with itself.
   @cache_key {Lexicon, :cache}
 
   setup do
@@ -18,16 +17,13 @@ defmodule ProtoRune.LexiconTest do
   describe "load/0 over the vendored corpus" do
     @tag :corpus
     test "every lexicon of the vendored corpus loads without error" do
-      # Loading is strict: :ok means every def of every lexicon resolved into
-      # a valid Peri schema. The corpus is the submodule pinned at
-      # @atproto/api 0.17.3; bump the count when the submodule moves.
+      # The corpus is the @atproto/api 0.17.3 submodule; bump the count when it moves.
       assert :ok = Lexicon.load()
 
       cache = :persistent_term.get(@cache_key)
       assert map_size(cache.entries) == 292
       assert map_size(cache.schemas) == 292
 
-      # Every lexicon translates at least one def.
       assert Enum.all?(Map.values(cache.schemas), &(&1 != %{}))
     end
 
@@ -76,7 +72,6 @@ defmodule ProtoRune.LexiconTest do
       assert {:error, _} = Peri.validate(post, Map.put(valid, :text, 42))
       assert {:error, _} = Peri.validate(post, Map.delete(valid, :createdAt))
 
-      # A union member naming none of the declared variants is rejected.
       bad_embed = Map.put(valid, :embed, %{"$type" => "app.bsky.embed.unknown", images: []})
       assert {:error, _} = Peri.validate(post, bad_embed)
     end
@@ -101,7 +96,6 @@ defmodule ProtoRune.LexiconTest do
 
       assert {:ok, reply_ref} = Lexicon.schema_for({"app.bsky.feed.post", "replyRef"})
 
-      # The strongRef the refs name resolves inline, cross-NSID.
       strong_ref = %{uri: {:required, :string}, cid: {:required, :string}}
       assert reply_ref[:root] == {:required, strong_ref}
       assert reply_ref[:parent] == {:required, strong_ref}
@@ -159,7 +153,6 @@ defmodule ProtoRune.LexiconTest do
       cache = :persistent_term.get(@cache_key)
       assert MapSet.new(Map.keys(cache.schemas)) == MapSet.new(["blog.myapp.post", "blog.myapp.tag"])
 
-      # The vendored corpus is gone: a load swaps the whole cache.
       assert {:error, :unknown_lexicon} = Lexicon.schema_for("app.bsky.feed.post")
 
       {:ok, schema} = Lexicon.schema_for("blog.myapp.post")
@@ -386,7 +379,6 @@ defmodule ProtoRune.LexiconTest do
     }
   end
 
-  # Fails the test naming the lexicon and def holding the leftover ref.
   defp assert_no_refs({:ref, name}, nsid, def_name) do
     flunk("leftover unresolved $ref #{inspect(name)} in #{nsid}##{def_name}")
   end

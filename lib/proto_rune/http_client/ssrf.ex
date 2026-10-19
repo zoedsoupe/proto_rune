@@ -17,10 +17,8 @@ defmodule ProtoRune.HTTPClient.SSRF do
       each hop's target is re-checked (Finch follows no redirects on its
       own, so nothing here happens implicitly)
 
-  ## Opt-in
-
-  The address guard is off by default so a localhost PDS keeps working.
-  Turn it on globally:
+  The address guard is off by default so a localhost PDS keeps working. Turn
+  it on globally:
 
       config :proto_rune, refuse_private_addresses: true
 
@@ -57,8 +55,9 @@ defmodule ProtoRune.HTTPClient.SSRF do
   hops. `opts` are the `ProtoRune.HTTPClient.request/3` options plus
   `:refuse_private_addresses` (see the module documentation).
   """
+  # The body is `term()`, matching the adapter contract (Finch answers binaries, stubs decoded maps).
   @spec get(String.t(), keyword()) ::
-          {:ok, %{status: pos_integer(), headers: [{String.t(), String.t()}], body: binary()}}
+          {:ok, %{status: pos_integer(), headers: [{String.t(), String.t()}], body: term()}}
           | {:error, term()}
   def get(url, opts \\ []) when is_binary(url) do
     {refuse, opts} = Keyword.pop(opts, :refuse_private_addresses)
@@ -74,9 +73,7 @@ defmodule ProtoRune.HTTPClient.SSRF do
   defp guard_enabled?(nil), do: Config.get(:refuse_private_addresses) == true
   defp guard_enabled?(override), do: override == true
 
-  # A redirect is a second URL the attacker chose: it may not skip the
-  # address check, downgrade the scheme, or be relative (only absolute
-  # https locations are followed).
+  # A redirect is a second attacker-chosen URL: no skipping the address check, no scheme downgrade.
   defp follow(uri, opts, refuse, hops) do
     case HTTPClient.request(:get, URI.to_string(uri), opts) do
       {:ok, %{status: status} = resp} when status in 300..399 ->
@@ -124,7 +121,6 @@ defmodule ProtoRune.HTTPClient.SSRF do
   defp check_address(host, true) when is_binary(host) do
     name = String.trim(host, "[]")
 
-    # A literal IP has no DNS answer to check, so classify it directly.
     case :inet.parse_address(String.to_charlist(name)) do
       {:ok, address} -> classify(address)
       {:error, _} -> resolve_and_classify(host)
@@ -135,8 +131,7 @@ defmodule ProtoRune.HTTPClient.SSRF do
     if public?(address), do: :ok, else: {:error, :forbidden_address}
   end
 
-  # A name that resolves to nothing is unreachable; a name that resolves to
-  # anything non-public was chosen to reach something else.
+  # Every resolved address must be public: a mixed answer reaches something private.
   defp resolve_and_classify(host) do
     case :inet_res.lookup(String.to_charlist(host), :in, :a) do
       [] -> {:error, :nxdomain}
@@ -144,9 +139,6 @@ defmodule ProtoRune.HTTPClient.SSRF do
     end
   end
 
-  # Anything not routable on the public internet. A DID document is
-  # published on the public web by definition, so a private answer to the
-  # name means the name was chosen to reach something else.
   defp public?({0, _, _, _}), do: false
   defp public?({10, _, _, _}), do: false
   defp public?({100, a, _, _}) when a in 64..127, do: false

@@ -6,7 +6,6 @@ defmodule ProtoRune.Atproto.Identity.DIDResolverTest do
   @did "did:plc:ewvi7nxzyoun6zhxrhs64oiz"
   @other_did "did:plc:impersonated000000000000000"
 
-  # Builds the fake PLC/document response for `did`
   defp did_document_body(did) do
     JSON.encode!(%{
       "@context" => ["https://www.w3.org/ns/did/v1"],

@@ -384,9 +384,7 @@ defmodule ProtoRune.Bot.Server do
     end)
   end
 
-  # Prefer the session-aware `handle_event/3` callback; `handle_event/2` is
-  # the fallback for modules implementing the behaviour without
-  # `use ProtoRune.Bot` (which defines a delegating default for arity 3).
+  # Modules not using `use ProtoRune.Bot` implement only handle_event/2, so probe for arity 3.
   defp dispatch_callback(bot, event, payload, session) do
     if function_exported?(bot, :handle_event, 3) do
       bot.handle_event(event, payload, session)

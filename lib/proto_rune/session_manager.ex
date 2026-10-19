@@ -176,10 +176,6 @@ defmodule ProtoRune.SessionManager do
       {:ok, state} ->
         {:noreply, state}
 
-      # An invalid_grant OAuth error means the grant is permanently dead
-      # (revoked, expired or replayed). The refused session is the store's
-      # own, so delete it and stop without tripping the supervisor's
-      # restart policy.
       {:error, {:oauth_error, _status, %{"error" => "invalid_grant"}}} ->
         _ = delete_stored_session(state)
         {:stop, :normal, state}
@@ -203,11 +199,6 @@ defmodule ProtoRune.SessionManager do
     end
   end
 
-  # The store is the source of truth across restarts: the boot-time
-  # session may carry a refresh token an earlier manager already rotated
-  # away, and refreshing with it answers invalid_grant and destroys a
-  # perfectly good session. The boot-time session wins only when it is
-  # provably newer by expires_at.
   defp restore_session(nil, _key, session), do: session
 
   defp restore_session(store, key, session) do
@@ -238,11 +229,6 @@ defmodule ProtoRune.SessionManager do
     end
   end
 
-  # Revocation dispatches on the session struct here, in the manager
-  # shell: OAuth sessions are revoked at the authorization server (the
-  # issuing client comes from :refresh_opts), app-password sessions are
-  # closed at the PDS with com.atproto.server.deleteSession. The
-  # ProtoRune.Session behaviour stays minimal.
   defp revoke(%OAuthSession{} = session, refresh_opts) do
     client = Keyword.get(refresh_opts, :client)
 
@@ -283,11 +269,8 @@ defmodule ProtoRune.SessionManager do
     :ok
   end
 
-  # The freshly rotated session only exists in memory: a failed persist
-  # must not stop the manager, or the restart replays the store's stale
-  # refresh token (already rotated away) and destroys the session. A
-  # bounded retry rides out a storage hiccup; a persistent failure is
-  # logged and the next refresh persists again.
+  # A failed persist must not stop the manager: the restart would replay the
+  # store's already-rotated refresh token and destroy the session.
   defp persist(%{store: nil}, _session), do: :ok
 
   defp persist(%{store: store, key: key}, session) do

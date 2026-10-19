@@ -66,15 +66,12 @@ defmodule ProtoRune.Lexicon.TypeMapper do
 
   def map_type(%{"type" => "array"} = def), do: map_array_type(def)
 
-  # A ref to a record definition unwraps to the record's object body.
   def map_type(%{"type" => "record", "record" => body}), do: map_type(body)
 
   def map_type(%{"type" => "object"} = type_def), do: map_object_type(type_def)
   def map_type(%{"type" => "params"} = type_def), do: map_object_type(type_def)
 
-  # The Resolver consumes every ref before translation. Reaching this clause
-  # means a ref escaped resolution; emitting `{:ref, binary}` would produce a
-  # Peri term that rejects everything, so it fails loudly instead.
+  # Tripwire: the Resolver consumes every ref, so reaching this clause means one escaped.
   def map_type(%{"type" => "ref", "ref" => ref}), do: {:error, {:unresolved_ref, ref}}
 
   def map_type(%{"type" => "union"} = def), do: map_union_type(def)
@@ -94,18 +91,14 @@ defmodule ProtoRune.Lexicon.TypeMapper do
     map_properties(properties, [])
   end
 
-  # Objects and params with no declared properties accept any map shape
-  # (strictly: an empty schema).
+  # An empty Peri schema accepts any map shape.
   def map_object_type(%{"type" => kind}) when kind in ["object", "params"], do: {:ok, %{}}
 
   def map_object_type(_), do: {:error, :invalid_object_definition}
 
   # Private functions
 
-  # Peri's :datetime only accepts %DateTime{} structs, but record data carries
-  # the ISO 8601 string the wire uses (the hand-written Repo schemas validate
-  # `created_at` as a plain string for the same reason), so the format maps to
-  # a plain string.
+  # Peri's :datetime rejects the ISO 8601 strings the wire uses, so the format maps to :string.
   defp map_string_type(%{"format" => "datetime"}), do: {:ok, :string}
   defp map_string_type(%{"format" => "uri"}), do: {:ok, :string}
   defp map_string_type(%{"format" => "did"}), do: {:ok, :string}
@@ -196,9 +189,7 @@ defmodule ProtoRune.Lexicon.TypeMapper do
   defp maybe_bound(acc, {_key, nil}), do: acc
   defp maybe_bound(acc, {key, value}), do: [{key, value} | acc]
 
-  # The Resolver attaches the resolvable members of a union under "variants",
-  # each already carrying the `$type` literal the wire data uses. The members
-  # discriminate the oneof, so any data naming none of them is rejected.
+  # "variants" comes from the Resolver, each member carrying its `$type` wire literal.
   defp map_union_type(%{"variants" => variants}) when is_map(variants) do
     variants
     |> Map.values()
@@ -209,7 +200,6 @@ defmodule ProtoRune.Lexicon.TypeMapper do
       end
     end)
     |> case do
-      # Every member dangling or cyclic: the subtree stays unchecked.
       {:ok, []} -> {:ok, :any}
       {:ok, types} -> {:ok, {:oneof, Enum.reverse(types)}}
       {:error, reason} -> {:error, reason}

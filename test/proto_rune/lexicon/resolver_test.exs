@@ -76,8 +76,6 @@ defmodule ProtoRune.Lexicon.ResolverTest do
     end
 
     test "inlines a cross-lexicon nsid#name ref against the document it came from" do
-      # The pulled-in definition's own local refs resolve against its own
-      # document, not the one the walk started in.
       label_defs = %{
         "id" => "com.atproto.label.defs",
         "defs" => %{
@@ -168,7 +166,6 @@ defmodule ProtoRune.Lexicon.ResolverTest do
 
       {:ok, resolved} = Resolver.resolve_def(doc, "main", entries([doc]))
 
-      # The first level inlines; the edge back into #node is cut.
       first_child = resolved["properties"]["child"]
       assert first_child["properties"]["child"] == %{"type" => "unknown"}
     end
@@ -196,15 +193,12 @@ defmodule ProtoRune.Lexicon.ResolverTest do
 
       {:ok, resolved} = Resolver.resolve_def(a, "main", entries([a, b]))
 
-      # a -> b inlines; b -> a inlines once more and the edge back into
-      # a's main is the one cut.
       round_trip = resolved["properties"]["to_b"]["properties"]["to_a"]
       assert round_trip["properties"]["to_b"] == %{"type" => "unknown"}
     end
 
     test "diamond refs resolve in both branches" do
-      # seen only accumulates down a path: two siblings referencing the same
-      # def both inline it.
+      # `seen` accumulates down a path only: two siblings referencing the same def both inline it.
       shared = %{
         "id" => "com.example.shared",
         "defs" => %{
@@ -279,12 +273,10 @@ defmodule ProtoRune.Lexicon.ResolverTest do
 
       union = resolved["properties"]["content"]
 
-      # A local "#textBlock" ref carries the id of the document defining it.
       text_block = union["variants"]["#textBlock"]
       assert text_block["properties"]["$type"] == %{"type" => "string", "const" => "com.example.post#textBlock"}
       assert "$type" in text_block["required"]
 
-      # A cross-lexicon ref carries the ref itself.
       other = union["variants"]["org.other.block"]
       assert other["properties"]["$type"] == %{"type" => "string", "const" => "org.other.block"}
       assert "$type" in other["required"]
@@ -322,8 +314,6 @@ defmodule ProtoRune.Lexicon.ResolverTest do
 
       {:ok, resolved} = Resolver.resolve_def(doc, "loop", entries([doc]))
 
-      # The member inlines once; the union inside it names #loop again, which
-      # is now a cycle and contributes no variant.
       inner_union =
         resolved["properties"]["content"]["variants"]["#loop"]["properties"]["content"]
 
@@ -331,8 +321,6 @@ defmodule ProtoRune.Lexicon.ResolverTest do
     end
 
     test "an object member pulled in by a ref inside a union keeps its own union's local defs" do
-      # The recordWithMedia pattern: a union member object whose properties
-      # hold another union with local refs.
       doc = %{
         "id" => @doc_id,
         "defs" => %{

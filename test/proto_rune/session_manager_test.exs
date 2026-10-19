@@ -49,7 +49,6 @@ defmodule ProtoRune.SessionManagerTest do
     def delete(id, opts), do: Agent.update(opts[:pid], &Map.delete(&1, id))
   end
 
-  # Fails the first N `put/3` calls, then behaves like a memory store.
   defmodule FlakyStore do
     @moduledoc false
 
@@ -312,8 +311,6 @@ defmodule ProtoRune.SessionManagerTest do
           refresh_fraction: 0.1
         )
 
-      # The rotated tokens are only in memory: stopping the manager here
-      # would make the restart replay the stale stored refresh token
       assert_eventually(fn -> SessionManager.session(pid).refresh_token == "rt-2" end)
       assert Process.alive?(pid)
     end
@@ -449,7 +446,6 @@ defmodule ProtoRune.SessionManagerTest do
       assert fresh.refresh_token == "rt-2"
       assert fresh.dpop_nonce == "nonce-9"
 
-      # The persisted blob is encrypted: the store never sees plaintext
       assert {:ok, blob} = MemoryStore.fetch(@did, pid: store_pid)
       assert {:ok, plaintext} = Crypto.decrypt(blob, key)
       assert %OAuthSession{access_token: "at-2", refresh_token: "rt-2"} = :erlang.binary_to_term(plaintext)
@@ -609,6 +605,4 @@ defmodule ProtoRune.SessionManagerTest do
       end
     end
   end
-
-  # Helpers
 end

@@ -75,8 +75,7 @@ defmodule ProtoRune.Atproto.Identity.HandleResolver do
   end
 
   defp do_resolve_https(url, timeout, retries, http_opts) do
-    # The handle is stranger-chosen; the fetch is guarded and redirects are
-    # followed explicitly (see ProtoRune.HTTPClient.SSRF).
+    # The handle is stranger-chosen; the fetch is guarded.
     case SSRF.get(url, [timeout: timeout] ++ http_opts) do
       {:ok, %{status: 200, body: body, headers: headers}} ->
         with true <- text_response?(headers),

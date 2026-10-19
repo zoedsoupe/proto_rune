@@ -7,11 +7,8 @@ defmodule ProtoRune.Atproto.OAuth.SessionManagerTest do
   alias ProtoRune.Security
   alias ProtoRune.Security.Crypto
 
-  # This module is deprecated in favor of ProtoRune.SessionManager: these
-  # tests pin the published call patterns (the pre-0.6.0 option shape and
-  # the public functions) until the module is removed in 1.0. The
-  # telemetry events now come from the generic manager, so they use the
-  # [:proto_rune, :session, ...] names.
+  # Pins the deprecated module's call patterns until its removal in 1.0;
+  # telemetry now uses the generic [:proto_rune, :session, ...] names.
 
   @issuer "https://auth.test"
   @token_url "https://auth.test/oauth/token"

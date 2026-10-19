@@ -120,8 +120,7 @@ defmodule ProtoRune.Lexicon.Loader do
       {:ok, body} ->
         body
         |> Resolver.resolve(doc, entries)
-        # A record's `$type` on the wire is the NSID of its lexicon and the
-        # Repo write path sends it, so it is pinned like a union member.
+        # A record's `$type` on the wire is its lexicon NSID; the Repo write path sends it.
         |> Resolver.annotate_type(nsid)
         |> translate()
 
@@ -130,9 +129,7 @@ defmodule ProtoRune.Lexicon.Loader do
     end
   end
 
-  # Query, procedure and subscription defs are not data schemas; their
-  # `parameters` object is the part a caller validates against, so that is
-  # what the def's schema is. A procedure may omit parameters entirely.
+  # Query, procedure and subscription defs validate against their `parameters` object.
   defp translate_def(%{"type" => kind, "parameters" => params}, doc, entries, _nsid, _def_name)
        when kind in ["query", "procedure", "subscription"] do
     translate(Resolver.resolve(params, doc, entries))

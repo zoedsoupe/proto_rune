@@ -486,9 +486,7 @@ defmodule ProtoRune.Atproto.OAuth do
   end
 
   defp fetch_json(url, http) do
-    # Well-known metadata URLs are derived from the PDS and issuer strings,
-    # so the fetch is guarded and redirects are followed explicitly (see
-    # ProtoRune.HTTPClient.SSRF).
+    # Well-known metadata URLs derive from the PDS and issuer strings, so the fetch is guarded.
     case SSRF.get(url, [headers: [{"accept", "application/json"}]] ++ http) do
       {:ok, %{status: status, body: body}} when status in 200..299 ->
         decode_json_body(body)

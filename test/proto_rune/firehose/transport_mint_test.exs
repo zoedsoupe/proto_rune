@@ -32,23 +32,19 @@ defmodule ProtoRune.Firehose.Transport.MintTest do
   test "connects, delivers text and binary frames, answers pings, sees close", %{port: port, server: server} do
     assert {:ok, conn} = Mint.connect("ws://127.0.0.1:#{port}/xrpc/subscribe", [])
 
-    # a text frame from the server decodes as a transport frame
     send_frame(server, {:text, ~s|{"x":1}|})
     assert_receive {:tcp, sock, data}, 1_000
     assert {:ok, _conn, [{:text, ~s|{"x":1}|}]} = Mint.stream(conn, {:tcp, sock, data})
 
-    # a binary frame decodes as well
     send_frame(server, {:binary, <<1, 2, 3>>})
     assert_receive {:tcp, sock, data}, 1_000
     assert {:ok, _conn, [{:binary, <<1, 2, 3>>}]} = Mint.stream(conn, {:tcp, sock, data})
 
-    # pings are answered with pongs before the caller sees any frame
     send_frame(server, :ping)
     assert_receive {:tcp, sock, data}, 1_000
     assert {:ok, _conn, []} = Mint.stream(conn, {:tcp, sock, data})
     assert pong_received?(server)
 
-    # a close frame surfaces as :closed
     send_frame(server, {:close, 1000, ""})
     assert_receive {:tcp, sock, data}, 1_000
     assert {:ok, _conn, [:closed]} = Mint.stream(conn, {:tcp, sock, data})
@@ -61,8 +57,6 @@ defmodule ProtoRune.Firehose.Transport.MintTest do
     assert :unknown = Mint.stream(conn, {:some_other_message, :nope})
     Mint.close(conn)
   end
-
-  # -- minimal ws server -----------------------------------------------------
 
   defp ws_server(parent, sock) do
     receive do

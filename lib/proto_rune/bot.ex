@@ -211,9 +211,7 @@ defmodule ProtoRune.Bot do
         Server.start_link(unquote(opts))
       end
 
-      # The child id is the configured bot name, so several bots can live in
-      # the same supervision tree; without a name it falls back to the
-      # module itself.
+      # The child id is the bot name, so several bots share a supervision tree.
       def child_spec(_opts) do
         %{id: unquote(opts)[:name] || __MODULE__, start: {__MODULE__, :start_link, []}}
       end
@@ -222,7 +220,6 @@ defmodule ProtoRune.Bot do
       @impl ProtoRune.Bot
       def handle_event(_, _), do: :ok
 
-      # Default for the session-aware callback: delegate to `handle_event/2`
       @impl ProtoRune.Bot
       def handle_event(event, payload, _session), do: handle_event(event, payload)
 

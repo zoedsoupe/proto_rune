@@ -11,7 +11,6 @@ defmodule ProtoRune.HTTPClient.SSRFTest do
 
   @ok {:ok, %{status: 200, headers: [], body: "x"}}
 
-  # fake adapter router: one response per URL, unexpected URLs fail loudly
   defp router(routes) do
     fake_http(fn :get, url, _opts ->
       case Map.fetch(routes, url) do
@@ -39,7 +38,6 @@ defmodule ProtoRune.HTTPClient.SSRFTest do
             "0.0.0.0",
             "224.0.0.1"
           ] do
-        # the guard must refuse before any request is issued
         http = fake_http(fn _m, _url, _opts -> flunk("request issued for #{host}") end)
 
         assert {:error, :forbidden_address} =
