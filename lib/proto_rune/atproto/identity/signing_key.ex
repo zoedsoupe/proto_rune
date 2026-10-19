@@ -2,17 +2,23 @@ defmodule ProtoRune.Atproto.Identity.SigningKey do
   @moduledoc false
 
   # Extraction and use of the repo signing key advertised in a DID
-  # document's `#atproto` verification method. Keys are multibase
-  # (base58btc, `z` prefix) with a multicodec prefix: 0x8024 for P-256,
-  # 0xe701 for secp256k1. Shared by ProtoRune.Commit (repo commits) and
-  # ProtoRune.Atproto.Identity (verify_signature/3).
+  # document's `#atproto` verification method. Modern Multikey methods
+  # are multibase (base58btc, `z` prefix) with a multicodec prefix:
+  # 0x8024 for P-256, 0xe701 for secp256k1. Legacy methods carry the raw
+  # uncompressed point and name the curve in their `type`. Shared by
+  # ProtoRune.Commit (repo commits) and ProtoRune.Atproto.Identity
+  # (verify_signature/3).
 
   @p256 <<0x80, 0x24>>
   @k256 <<0xE7, 0x01>>
 
-  # Curve parameters for point decompression, needed because DID documents
-  # advertise compressed 33-byte public keys while :crypto.verify/5 wants
-  # an uncompressed point.
+  @legacy_p256 "EcdsaSecp256r1VerificationKey2019"
+  @legacy_k256 "EcdsaSecp256k1VerificationKey2019"
+
+  # Curve parameters for point decompression, needed because modern
+  # Multikey methods advertise compressed 33-byte public keys while
+  # :crypto.verify/5 wants an uncompressed point. Legacy methods arrive
+  # uncompressed and pass through.
   @curves %{
     secp256r1: %{
       p: 0xFFFFFFFF00000001000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFF,
@@ -28,7 +34,12 @@ defmodule ProtoRune.Atproto.Identity.SigningKey do
 
   @doc """
   Returns the `{point, curve}` of the DID document's `#atproto` signing
-  key, with the point decompressed for `:crypto.verify/5`.
+  key, with the point uncompressed for `:crypto.verify/5`.
+
+  Accepts both modern `Multikey` methods (multicodec-prefixed compressed
+  key) and the legacy `EcdsaSecp256r1VerificationKey2019` /
+  `EcdsaSecp256k1VerificationKey2019` methods (raw uncompressed key,
+  curve carried by the `type`).
   """
   @spec from_did_doc(map()) :: {:ok, binary(), :secp256r1 | :secp256k1} | {:error, atom()}
   def from_did_doc(doc) when is_map(doc) do
@@ -42,7 +53,7 @@ defmodule ProtoRune.Atproto.Identity.SigningKey do
     with %{} = method <- Enum.find(methods, &atproto_method?/1) || :missing,
          multibase when is_binary(multibase) <- get_key(method, :public_key_multibase) || :missing,
          {:ok, bytes} <- decode_multibase(multibase),
-         {:ok, key, curve} <- split_codec(bytes) do
+         {:ok, key, curve} <- extract_key(method, bytes) do
       decompress(key, curve)
     else
       :missing -> {:error, :missing_signing_key}
@@ -75,13 +86,29 @@ defmodule ProtoRune.Atproto.Identity.SigningKey do
 
   defp decode_multibase(_other), do: {:error, :unsupported_multibase}
 
+  # Modern Multikey methods carry a multicodec-prefixed compressed point.
+  defp extract_key(%{type: "Multikey"}, bytes), do: split_codec(bytes)
+  defp extract_key(%{"type" => "Multikey"}, bytes), do: split_codec(bytes)
+
+  # Legacy methods carry the uncompressed point itself; the `type` names
+  # the curve.
+  defp extract_key(%{type: type}, bytes) when is_binary(type), do: legacy_key(type, bytes)
+  defp extract_key(%{"type" => type}, bytes) when is_binary(type), do: legacy_key(type, bytes)
+  defp extract_key(_method, _bytes), do: {:error, :unsupported_key_type}
+
+  defp legacy_key(@legacy_p256, bytes), do: {:ok, bytes, :secp256r1}
+  defp legacy_key(@legacy_k256, bytes), do: {:ok, bytes, :secp256k1}
+  defp legacy_key(_type, _bytes), do: {:error, :unsupported_key_type}
+
   defp split_codec(<<@p256, key::binary>>), do: {:ok, key, :secp256r1}
   defp split_codec(<<@k256, key::binary>>), do: {:ok, key, :secp256k1}
   defp split_codec(_other), do: {:error, :unsupported_key_type}
 
   # y² = x³ + ax + b (mod p); both supported curves have p ≡ 3 (mod 4), so
   # y = rhs^((p+1)/4) mod p and the prefix byte selects the root's parity.
-  defp decompress(<<0x04, _rest::binary>> = point, _curve), do: {:ok, point}
+  # Legacy methods arrive uncompressed; the exact 65-byte shape (0x04 ||
+  # X || Y) is what :crypto.verify/5 expects, anything else is invalid.
+  defp decompress(<<0x04, _rest::binary-64>> = point, curve), do: {:ok, point, curve}
 
   defp decompress(<<prefix, x::unsigned-big-256>>, curve) when prefix in [0x02, 0x03] do
     %{p: p, a: a, b: b} = Map.fetch!(@curves, curve)
