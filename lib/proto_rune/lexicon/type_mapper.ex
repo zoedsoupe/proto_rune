@@ -1,17 +1,28 @@
 defmodule ProtoRune.Lexicon.TypeMapper do
   @moduledoc """
-  Maps ATProto lexicon types to Peri schema types.
+  Maps ATProto lexicon type definitions to Peri schema types.
 
-  This module handles the conversion of AT Protocol type definitions
-  (from lexicon JSON files) to Peri schema definitions that can be
-  used for validation.
+  This module is the JSON-to-Peri translation engine used by
+  `ProtoRune.Lexicon.Loader`. Its input is a lexicon type definition whose
+  `$ref` graph has already been inlined by `ProtoRune.Lexicon.Resolver`: a
+  `"ref"` node or a `"refs"`-only union node reaching `map_type/1` is a bug
+  in the caller, and is reported as `{:unresolved_ref, _}` /
+  `{:unresolved_union, _}` instead of silently emitting a Peri term that
+  validates nothing.
 
   ## Supported ATProto Types
 
-  - Primitives: string, integer, boolean, bytes
-  - Complex: object, array, ref, union
-  - Special: unknown (maps to :any)
+  - Primitives: string, integer, boolean, float, bytes
+  - Complex: object, params, array, union
+  - Special: unknown (maps to :any), token (maps to :string),
+    cid-link and blob (map to :map)
   - Formats: datetime, uri, did, handle, etc.
+
+  Property names become atoms via `String.to_atom/1`. The atom table grows
+  once per distinct lexicon property name, bounded by the loaded lexicon
+  corpus; keys keep the exact camelCase spelling the lexicon uses
+  (`"createdAt"` becomes `:"createdAt"`), so validated records are
+  atom-keyed wire shapes.
 
   ## Examples
 
@@ -23,13 +34,10 @@ defmodule ProtoRune.Lexicon.TypeMapper do
 
       iex> TypeMapper.map_type(%{"type" => "array", "items" => %{"type" => "string"}})
       {:ok, {:list, :string}}
-
-      iex> TypeMapper.map_type(%{"type" => "ref", "ref" => "com.atproto.repo.strongRef"})
-      {:ok, {:ref, "com.atproto.repo.strongRef"}}
   """
 
   @type atproto_type :: map()
-  @type peri_type :: atom() | tuple()
+  @type peri_type :: atom() | tuple() | map()
   @type mapping_result :: {:ok, peri_type()} | {:error, term()}
 
   @doc """
@@ -37,7 +45,8 @@ defmodule ProtoRune.Lexicon.TypeMapper do
 
   ## Parameters
 
-  - `type_def`: A map containing the ATProto type definition
+  - `type_def`: A map containing the ATProto type definition, with all refs
+    already inlined (see `ProtoRune.Lexicon.Resolver`)
 
   ## Returns
 
@@ -52,16 +61,23 @@ defmodule ProtoRune.Lexicon.TypeMapper do
   def map_type(%{"type" => "bytes"}), do: {:ok, :string}
   def map_type(%{"type" => "unknown"}), do: {:ok, :any}
   def map_type(%{"type" => "blob"}), do: {:ok, :map}
+  def map_type(%{"type" => "token"}), do: {:ok, :string}
+  def map_type(%{"type" => "cid-link"}), do: {:ok, :map}
 
-  def map_type(%{"type" => "array", "items" => items}) do
-    with {:ok, item_type} <- map_type(items) do
-      {:ok, {:list, item_type}}
-    end
-  end
+  def map_type(%{"type" => "array"} = def), do: map_array_type(def)
+
+  # A ref to a record definition unwraps to the record's object body.
+  def map_type(%{"type" => "record", "record" => body}), do: map_type(body)
 
   def map_type(%{"type" => "object"} = type_def), do: map_object_type(type_def)
-  def map_type(%{"type" => "ref", "ref" => ref}), do: {:ok, {:ref, ref}}
-  def map_type(%{"type" => "union", "refs" => refs}), do: map_union_type(refs)
+  def map_type(%{"type" => "params"} = type_def), do: map_object_type(type_def)
+
+  # The Resolver consumes every ref before translation. Reaching this clause
+  # means a ref escaped resolution; emitting `{:ref, binary}` would produce a
+  # Peri term that rejects everything, so it fails loudly instead.
+  def map_type(%{"type" => "ref", "ref" => ref}), do: {:error, {:unresolved_ref, ref}}
+
+  def map_type(%{"type" => "union"} = def), do: map_union_type(def)
   def map_type(%{"type" => _} = type_def), do: {:error, {:unsupported_type, type_def}}
   def map_type(_), do: {:error, :invalid_type_definition}
 
@@ -78,11 +94,19 @@ defmodule ProtoRune.Lexicon.TypeMapper do
     map_properties(properties, [])
   end
 
+  # Objects and params with no declared properties accept any map shape
+  # (strictly: an empty schema).
+  def map_object_type(%{"type" => kind}) when kind in ["object", "params"], do: {:ok, %{}}
+
   def map_object_type(_), do: {:error, :invalid_object_definition}
 
   # Private functions
 
-  defp map_string_type(%{"format" => "datetime"}), do: {:ok, :datetime}
+  # Peri's :datetime only accepts %DateTime{} structs, but record data carries
+  # the ISO 8601 string the wire uses (the hand-written Repo schemas validate
+  # `created_at` as a plain string for the same reason), so the format maps to
+  # a plain string.
+  defp map_string_type(%{"format" => "datetime"}), do: {:ok, :string}
   defp map_string_type(%{"format" => "uri"}), do: {:ok, :string}
   defp map_string_type(%{"format" => "did"}), do: {:ok, :string}
   defp map_string_type(%{"format" => "handle"}), do: {:ok, :string}
@@ -149,10 +173,51 @@ defmodule ProtoRune.Lexicon.TypeMapper do
 
   defp map_float_type(_), do: {:ok, :float}
 
-  defp map_union_type(refs) when is_list(refs) do
-    ref_types = Enum.map(refs, &{:ref, &1})
-    {:ok, {:oneof, ref_types}}
+  defp map_array_type(%{"items" => items} = def) do
+    with {:ok, item_type} <- map_type(items) do
+      {:ok, list_type(item_type, def)}
+    end
   end
+
+  defp map_array_type(_), do: {:error, :invalid_array_definition}
+
+  defp list_type(item_type, def) do
+    bounds =
+      []
+      |> maybe_bound({:max, def["maxLength"]})
+      |> maybe_bound({:min, def["minLength"]})
+
+    case bounds do
+      [] -> {:list, item_type}
+      opts -> {:list, item_type, opts}
+    end
+  end
+
+  defp maybe_bound(acc, {_key, nil}), do: acc
+  defp maybe_bound(acc, {key, value}), do: [{key, value} | acc]
+
+  # The Resolver attaches the resolvable members of a union under "variants",
+  # each already carrying the `$type` literal the wire data uses. The members
+  # discriminate the oneof, so any data naming none of them is rejected.
+  defp map_union_type(%{"variants" => variants}) when is_map(variants) do
+    variants
+    |> Map.values()
+    |> Enum.reduce_while({:ok, []}, fn variant, {:ok, acc} ->
+      case map_type(variant) do
+        {:ok, type} -> {:cont, {:ok, [type | acc]}}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+    |> case do
+      # Every member dangling or cyclic: the subtree stays unchecked.
+      {:ok, []} -> {:ok, :any}
+      {:ok, types} -> {:ok, {:oneof, Enum.reverse(types)}}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp map_union_type(%{"refs" => refs}), do: {:error, {:unresolved_union, refs}}
+  defp map_union_type(_), do: {:error, :invalid_union_definition}
 
   defp map_properties(properties, required) do
     Enum.reduce_while(properties, {:ok, %{}}, fn {key, type_def}, {:ok, acc} ->
@@ -172,47 +237,4 @@ defmodule ProtoRune.Lexicon.TypeMapper do
 
   defp wrap_if_required(peri_type, true), do: {:required, peri_type}
   defp wrap_if_required(peri_type, false), do: peri_type
-
-  @doc """
-  Extracts default value from an ATProto type definition if present.
-  """
-  @spec extract_default(atproto_type()) :: {:ok, term()} | :no_default
-  def extract_default(%{"default" => value}), do: {:ok, value}
-  def extract_default(_), do: :no_default
-
-  @doc """
-  Checks if a field is nullable in the ATProto definition.
-  """
-  @spec nullable?(atproto_type()) :: boolean()
-  def nullable?(%{"nullable" => true}), do: true
-  def nullable?(_), do: false
-
-  @doc """
-  Maps a lexicon record to a complete Peri schema including all definitions.
-  """
-  @spec map_record(map()) :: mapping_result()
-  def map_record(%{"record" => record_def, "key" => _key} = def) do
-    with {:ok, schema} <- map_type(record_def) do
-      # Add metadata about the record
-      {:ok,
-       %{
-         type: :record,
-         schema: schema,
-         description: def["description"]
-       }}
-    end
-  end
-
-  def map_record(%{"record" => record_def} = def) do
-    with {:ok, schema} <- map_type(record_def) do
-      {:ok,
-       %{
-         type: :record,
-         schema: schema,
-         description: def["description"]
-       }}
-    end
-  end
-
-  def map_record(_), do: {:error, :invalid_record_definition}
 end
