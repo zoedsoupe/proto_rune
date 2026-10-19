@@ -106,17 +106,55 @@ defmodule ProtoRune.Bot do
   - `get_password/0`: Retrieves the bot's password. This is used alongside the identifier
     to authenticate the bot.
 
-  The following callback is optional (the default does nothing):
+  The following callbacks are optional (defaults do nothing):
 
   - `handle_event/2`: Handles events that are dispatched to the bot. These events can include
     mentions, replies, likes, and other interactions that the bot should process.
   - `handle_event/3`: Same as `handle_event/2`, but also receives the bot's current session,
     for handlers that need to call the API. Prefer it over reaching for the session through
     global state.
+  - `handle_event/4`: Same as `handle_event/3`, but also receives the bot's current state as
+    the fourth argument and treats the return value as the new state. This is the stateful
+    variant for bots that track data across events; it takes precedence over the other two
+    arities when defined.
+  - `init_state/0`: Returns the bot's initial state. Called once by the bot server at boot;
+    a bot that wants to recover persisted data loads it here instead of returning a fresh
+    value. Bots without it start with `nil`.
+  - `persist_state/1`: Called by the bot server on each persistence tick so the bot saves
+    its state wherever it wants (disk, ETS, a database). `{:error, reason}` returns are
+    logged and never fatal.
 
   The `handle_event/2` function receives:
   - `event`: An atom that represents the type of event (e.g., `:mention`, `:like`, `:reply`).
   - `payload`: A map containing the data related to the event, such as the URI of the post or the user who triggered the event.
+
+  ## State Persistence
+
+  Stateful bots combine the state callbacks with the `:persist_interval` option (in
+  seconds): the server seeds the state from `init_state/0` at boot, threads it through every
+  `handle_event/4` dispatch, and calls `persist_state/1` on each tick so the bot can save it
+  wherever it wants:
+
+  ```elixir
+  defmodule Counter do
+    use ProtoRune.Bot,
+      name: __MODULE__,
+      strategy: :polling,
+      persist_interval: 30
+
+    def init_state, do: 0
+
+    def handle_event(:mention, _payload, _session, count), do: count + 1
+
+    def persist_state(count) do
+      File.write!("counter.dat", Integer.to_string(count))
+    end
+  end
+  ```
+
+  On the next boot, `init_state/0` reads the file back and the count resumes. Persistence
+  is opt-in: without `:persist_interval` the server never calls `persist_state/1`, and
+  without `handle_event/4` the state stays at its initial value.
 
   ## Bot Lifecycle
 
@@ -200,7 +238,36 @@ defmodule ProtoRune.Bot do
   """
   @callback handle_event(event :: atom(), data :: map(), session :: Session.t()) :: term
 
-  @optional_callbacks handle_event: 3
+  @doc """
+  Handles an event with the bot's current session and state, returning the new state.
+
+  Optional stateful variant: the server passes the bot's current state (seeded by
+  `init_state/0`) as the fourth argument and stores the return value as the new
+  state. Takes precedence over `handle_event/3` and `handle_event/2` when defined.
+  """
+  @callback handle_event(event :: atom(), data :: map(), session :: Session.t(), state :: term) ::
+              term
+
+  @doc """
+  Returns the bot's initial state.
+
+  Optional: called once by the bot server at boot. A bot that wants to recover
+  its persisted data loads it here instead of returning a fresh value. Bots
+  without this callback start with `nil`.
+  """
+  @callback init_state :: term
+
+  @doc """
+  Persists the bot's current state.
+
+  Optional: called by the bot server on each persistence tick (see the
+  `:persist_interval` option) with the current bot state. Save it wherever the
+  bot wants (disk, ETS, a database). `{:error, reason}` returns are logged and
+  never crash the server.
+  """
+  @callback persist_state(state :: term) :: :ok | {:error, term}
+
+  @optional_callbacks handle_event: 3, handle_event: 4, init_state: 0, persist_state: 1
 
   @spec __using__(Server.options_t()) :: Macro.t()
   defmacro __using__(opts) do
