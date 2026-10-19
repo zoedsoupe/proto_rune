@@ -57,6 +57,8 @@ defmodule ProtoRune.Firehose.Transport.Mint do
     end
   end
 
+  # Same Dialyzer gap as connect/2 above.
+  @dialyzer {:nowarn_function, upgrade: 4}
   defp upgrade(ws_scheme, conn, path, timeout) do
     case Mint.WebSocket.upgrade(ws_scheme, conn, path, []) do
       {:ok, conn, ref} -> await_upgrade(conn, ref, [], timeout)
