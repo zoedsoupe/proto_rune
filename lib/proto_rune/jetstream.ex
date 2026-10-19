@@ -80,6 +80,21 @@ defmodule ProtoRune.Jetstream do
   })
 
   @doc """
+  Returns a child spec to run the consumer under a supervisor.
+
+  Accepts the same options as `start_link/1`, e.g.
+  `{ProtoRune.Jetstream, handler: self()}` in a children list. When the
+  options register a `:name`, it doubles as the child id.
+  """
+  @spec child_spec(keyword | map) :: Supervisor.child_spec()
+  def child_spec(opts) do
+    %{
+      id: child_id(opts),
+      start: {__MODULE__, :start_link, [opts]}
+    }
+  end
+
+  @doc """
   Starts a Jetstream consumer process.
 
   See the module documentation for the available options.
@@ -139,6 +154,9 @@ defmodule ProtoRune.Jetstream do
       name -> [name: name]
     end
   end
+
+  defp child_id(opts) when is_list(opts), do: Keyword.get(opts, :name, __MODULE__)
+  defp child_id(opts) when is_map(opts), do: Map.get(opts, :name, __MODULE__)
 
   defp validate_handler(handler) when is_pid(handler), do: :ok
   defp validate_handler(handler) when is_function(handler, 1), do: :ok

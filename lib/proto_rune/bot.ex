@@ -7,7 +7,7 @@ defmodule ProtoRune.Bot do
 
   The bot system integrates with the `ProtoRune.Bot.Server` to manage bot lifecycles, handle
   events, and manage sessions. Bots can use different strategies for receiving notifications,
-  such as polling or firehose.
+  such as polling, firehose, or jetstream.
 
   ## Usage
 
@@ -110,6 +110,9 @@ defmodule ProtoRune.Bot do
 
   - `handle_event/2`: Handles events that are dispatched to the bot. These events can include
     mentions, replies, likes, and other interactions that the bot should process.
+  - `handle_event/3`: Same as `handle_event/2`, but also receives the bot's current session,
+    for handlers that need to call the API. Prefer it over reaching for the session through
+    global state.
 
   The `handle_event/2` function receives:
   - `event`: An atom that represents the type of event (e.g., `:mention`, `:like`, `:reply`).
@@ -126,6 +129,13 @@ defmodule ProtoRune.Bot do
   Walle.start_link()
   ```
 
+  The generated module also implements `child_spec/1` (the configured `:name`
+  is the child id), so bots fit directly into a supervision tree:
+
+  ```elixir
+  children = [Walle]
+  ```
+
   ## Customizing the Bot
 
   - **Authentication**: Bots must implement `get_identifier/0` and `get_password/0` to provide authentication details.
@@ -140,9 +150,10 @@ defmodule ProtoRune.Bot do
 
   ## Notes
 
-  - The polling strategy fetches the bot's notifications periodically, while the firehose
-    strategy streams real-time repo events; see `ProtoRune.Bot.Firehose` for the events it
-    dispatches.
+  - The polling strategy fetches the bot's notifications periodically; the firehose
+    strategy streams real-time repo events (see `ProtoRune.Bot.Firehose` for the events it
+    dispatches and its backpressure caveat); the jetstream strategy streams the same
+    events, server-side filtered, through `ProtoRune.Bot.Jetstream`.
   - Bots should be designed to handle events and messages in a non-blocking manner for efficient performance.
 
   ## Telemetry
@@ -172,11 +183,24 @@ defmodule ProtoRune.Bot do
   """
 
   alias ProtoRune.Bot.Server
+  alias ProtoRune.Session
 
   @callback get_identifier :: String.t()
   @callback get_password :: String.t()
 
   @callback handle_event(event :: atom(), data :: map()) :: term
+
+  @doc """
+  Handles an event with the bot's current session.
+
+  Optional: prefer this over `handle_event/2` when the handler needs to call
+  the API (replying, following back, and so on). The server passes the
+  session it authenticated with, so handlers do not need to reach for the
+  session through global state.
+  """
+  @callback handle_event(event :: atom(), data :: map(), session :: Session.t()) :: term
+
+  @optional_callbacks handle_event: 3
 
   @spec __using__(Server.options_t()) :: Macro.t()
   defmacro __using__(opts) do
@@ -187,11 +211,22 @@ defmodule ProtoRune.Bot do
         Server.start_link(unquote(opts))
       end
 
+      # The child id is the configured bot name, so several bots can live in
+      # the same supervision tree; without a name it falls back to the
+      # module itself.
+      def child_spec(_opts) do
+        %{id: unquote(opts)[:name] || __MODULE__, start: {__MODULE__, :start_link, []}}
+      end
+
       # Default implementation for the optional event callback
       @impl ProtoRune.Bot
       def handle_event(_, _), do: :ok
 
-      defoverridable handle_event: 2
+      # Default for the session-aware callback: delegate to `handle_event/2`
+      @impl ProtoRune.Bot
+      def handle_event(event, payload, _session), do: handle_event(event, payload)
+
+      defoverridable handle_event: 2, handle_event: 3
     end
   end
 end

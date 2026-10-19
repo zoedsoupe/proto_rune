@@ -5,10 +5,12 @@ defmodule ProtoRune.Bot.Server do
   module also integrates with the polling system to retrieve real-time notifications from
   ATProto and Bluesky services.
 
-  The bot server can operate in two modes:
+  The bot server can operate in three modes:
   - **Polling**: Periodically fetches notifications using the `ProtoRune.Bot.Poller` module.
   - **Firehose**: Streams real-time repo events over a WebSocket connection using the
     `ProtoRune.Bot.Firehose` module.
+  - **Jetstream**: Streams server-side filtered repo events as JSON using the
+    `ProtoRune.Bot.Jetstream` module.
 
   ## Features
 
@@ -17,7 +19,8 @@ defmodule ProtoRune.Bot.Server do
   - **Polling Strategy**: Supports polling for notifications at regular intervals via the
     `ProtoRune.Bot.Poller`.
   - **Session Management**: Automatically handles session creation, refresh, and expiration.
-  - **Event Handling**: Dispatches events to the bot's `handle_event/2` callback.
+  - **Event Handling**: Dispatches events to the bot's `handle_event/2` callback, or
+    `handle_event/3` when defined (passing the bot's session).
 
   ## Options
 
@@ -25,13 +28,13 @@ defmodule ProtoRune.Bot.Server do
   - `:module` - The module implementing the `ProtoRune.Bot` callbacks
     (defaults to `:name`, which covers the usual
     `use ProtoRune.Bot, name: __MODULE__` setup).
-  - `:lang` - A list of languages the bot supports (default: `["en"]`).
   - `:service` - The service endpoint the bot will connect to (default: `"https://bsky.social"`).
   - `:identifier` - The bot's login identifier (e.g., email or username).
   - `:password` - The bot's password for login.
   - `:polling` - Polling configuration (e.g., interval and process_from).
   - `:firehose` - Firehose configuration (e.g., relay_uri, cursor and auto_reconnect).
-  - `:strategy` - The bot's strategy for receiving notifications (`:polling` or `:firehose`).
+  - `:jetstream` - Jetstream configuration (e.g., wanted_collections and wanted_dids).
+  - `:strategy` - The bot's strategy for receiving notifications (`:polling`, `:firehose` or `:jetstream`).
 
   ## Polling Configuration
 
@@ -66,6 +69,29 @@ defmodule ProtoRune.Bot.Server do
     strategy: :firehose,
     service: "https://bsky.social",
     firehose: %{cursor: 32_625_482_169}
+  )
+  ```
+
+  ## Jetstream Configuration
+
+  The jetstream strategy streams repo events from a Jetstream instance, with
+  the filtering done server-side (see `ProtoRune.Bot.Jetstream`). Jetstream
+  configuration includes:
+  - `:wanted_collections` - AT-URI collections to receive commit events for
+    (default: all).
+  - `:wanted_dids` - Restrict events to these repository DIDs (default: all).
+  - `:relay_uri` - The WebSocket URI for the Jetstream instance
+    (default: `"wss://jetstream2.us-east.bsky.network"`).
+  - `:auto_reconnect` - Automatically reconnect if the connection drops (default: true).
+  - `:cursor` - A `time_us` timestamp to resume the stream from (default: live events only).
+
+  Example:
+  ```elixir
+  ProtoRune.Bot.Server.start_link(
+    name: :my_bot,
+    strategy: :jetstream,
+    service: "https://bsky.social",
+    jetstream: %{wanted_collections: ["app.bsky.feed.post"]}
   )
   ```
 
@@ -108,8 +134,8 @@ defmodule ProtoRune.Bot.Server do
   - `name`: The bot's name.
   - `service`: The endpoint to connect to.
   - `session`: The session data for making authenticated requests.
+  - `did`: The bot's DID, from its profile.
   - `poller`: The PID of the polling process (if using the polling strategy).
-  - `langs`: The languages the bot supports.
 
   ## Error Handling
 
@@ -123,7 +149,7 @@ defmodule ProtoRune.Bot.Server do
   moduledoc for the full list of bot events):
 
   - `[:proto_rune, :bot, :event, :start]` / `[:proto_rune, :bot, :event, :stop]` /
-    `[:proto_rune, :bot, :event, :exception]` - wrap each `handle_event/2` dispatch
+    `[:proto_rune, :bot, :event, :exception]` - wrap each `handle_event` dispatch
     via `:telemetry.span/3`. Metadata includes `:bot` (the bot module) and `:event`
     (the event type); exception events also carry `:kind`, `:reason` and `:stacktrace`.
   - `[:proto_rune, :bot, :event, :dispatch]` - emitted once per dispatched event with
@@ -136,6 +162,7 @@ defmodule ProtoRune.Bot.Server do
   import Peri
 
   alias ProtoRune.Bot.Firehose
+  alias ProtoRune.Bot.Jetstream
   alias ProtoRune.Bot.Poller
   alias ProtoRune.Bsky
   alias ProtoRune.Session
@@ -153,28 +180,36 @@ defmodule ProtoRune.Bot.Server do
           optional(:cursor) => String.t() | non_neg_integer
         }
 
+  @type jetstream_t :: %{
+          optional(:relay_uri) => String.t(),
+          optional(:wanted_collections) => [String.t()],
+          optional(:wanted_dids) => [String.t()],
+          optional(:auto_reconnect) => boolean,
+          optional(:cursor) => non_neg_integer
+        }
+
   @type option ::
           {:name, atom}
           | {:module, atom}
-          | {:lang, list(String.t())}
           | {:service, String.t()}
           | {:identifier, String.t() | nil}
           | {:password, String.t() | nil}
           | {:polling, polling_t | nil}
           | {:firehose, firehose_t | nil}
-          | {:strategy, :polling | :firehose}
+          | {:jetstream, jetstream_t | nil}
+          | {:strategy, :polling | :firehose | :jetstream}
 
   @type kwargs :: nonempty_list(option)
 
   @type mapargs :: %{
           required(:name) => atom,
-          required(:strategy) => :polling | :firehose,
+          required(:strategy) => :polling | :firehose | :jetstream,
           required(:service) => String.t(),
-          optional(:langs) => list(String.t()),
           optional(:identifier) => String.t(),
           optional(:password) => String.t(),
           optional(:polling) => polling_t,
-          optional(:firehose) => firehose_t
+          optional(:firehose) => firehose_t,
+          optional(:jetstream) => jetstream_t
         }
 
   @type options_t :: kwargs | mapargs
@@ -182,13 +217,13 @@ defmodule ProtoRune.Bot.Server do
   defschema(:options_t, %{
     name: {:required, :atom},
     module: :atom,
-    langs: {{:list, :string}, {:default, ["en"]}},
     service: {:string, {:default, "https://bsky.social"}},
     identifier: :string,
     password: :string,
-    strategy: {{:enum, [:polling, :firehose]}, {:default, :polling}},
+    strategy: {{:enum, [:polling, :firehose, :jetstream]}, {:default, :polling}},
     polling: {:cond, &(&1.strategy == :polling), get_schema(:polling_t), nil},
-    firehose: {:cond, &(&1.strategy == :firehose), get_schema(:firehose_t), nil}
+    firehose: {:cond, &(&1.strategy == :firehose), get_schema(:firehose_t), nil},
+    jetstream: {:cond, &(&1.strategy == :jetstream), get_schema(:jetstream_t), nil}
   })
 
   defschema(:polling_t, %{
@@ -200,6 +235,14 @@ defmodule ProtoRune.Bot.Server do
     relay_uri: {:string, {:default, "wss://bsky.network"}},
     auto_reconnect: {:boolean, {:default, true}},
     cursor: {{:either, {:string, :integer}}, {:default, "latest"}}
+  })
+
+  defschema(:jetstream_t, %{
+    relay_uri: {:string, {:default, "wss://jetstream2.us-east.bsky.network"}},
+    wanted_collections: {{:list, :string}, {:default, []}},
+    wanted_dids: {{:list, :string}, {:default, []}},
+    auto_reconnect: {:boolean, {:default, true}},
+    cursor: :integer
   })
 
   @spec start_link(options_t) :: {:ok, pid} | {:error, term}
@@ -278,6 +321,23 @@ defmodule ProtoRune.Bot.Server do
     {:noreply, Map.put(state, :firehose, pid)}
   end
 
+  def handle_continue(:start_listener, %{strategy: :jetstream} = state) do
+    name = :"#{state[:name]}_jetstream"
+
+    {:ok, pid} =
+      Jetstream.start_link(
+        server_pid: self(),
+        name: name,
+        relay: state[:jetstream][:relay_uri],
+        wanted_collections: state[:jetstream][:wanted_collections],
+        wanted_dids: state[:jetstream][:wanted_dids],
+        auto_reconnect: state[:jetstream][:auto_reconnect],
+        cursor: state[:jetstream][:cursor]
+      )
+
+    {:noreply, Map.put(state, :jetstream, pid)}
+  end
+
   @impl true
   def handle_cast({:handle_event, event, payload}, state) do
     dispatch_event(state, event, payload)
@@ -306,8 +366,9 @@ defmodule ProtoRune.Bot.Server do
   end
 
   @impl true
-  def format_status({:state, state}) do
-    {:state, Map.take(state, [:name, :service, :profile, :langs])}
+  def format_status(%{log: log, state: state}) do
+    # no session in the status: it carries tokens
+    %{log: log, state: Map.take(state, [:name, :service, :did])}
   end
 
   def format_status(key), do: key
@@ -319,8 +380,19 @@ defmodule ProtoRune.Bot.Server do
     :telemetry.execute([:proto_rune, :bot, :event, :dispatch], %{count: 1}, metadata)
 
     :telemetry.span([:proto_rune, :bot, :event], metadata, fn ->
-      {bot.handle_event(event, payload), metadata}
+      {dispatch_callback(bot, event, payload, state[:session]), metadata}
     end)
+  end
+
+  # Prefer the session-aware `handle_event/3` callback; `handle_event/2` is
+  # the fallback for modules implementing the behaviour without
+  # `use ProtoRune.Bot` (which defines a delegating default for arity 3).
+  defp dispatch_callback(bot, event, payload, session) do
+    if function_exported?(bot, :handle_event, 3) do
+      bot.handle_event(event, payload, session)
+    else
+      bot.handle_event(event, payload)
+    end
   end
 
   # The `:module` option names the callback module explicitly; when absent

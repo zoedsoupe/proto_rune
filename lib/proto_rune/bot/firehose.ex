@@ -13,6 +13,15 @@ defmodule ProtoRune.Bot.Firehose do
   `ProtoRune.Firehose`; this module only translates `ProtoRune.Firehose.Event`
   structs into bot events.
 
+  > #### No backpressure {: .warning}
+  >
+  > The firehose strategy subscribes to the entire network: it decodes every
+  > CAR block of every commit relayed and sends every operation to the bot
+  > server, which dispatches events to your handler serially. Use it only
+  > with fast handlers; bots that do real work per event should prefer the
+  > `:jetstream` strategy (`ProtoRune.Bot.Jetstream`), which filters
+  > server-side and ships plain JSON text frames.
+
   ## Dispatched events
 
   - `:commit` - one event per repository operation of a commit. The payload contains
@@ -36,7 +45,7 @@ defmodule ProtoRune.Bot.Firehose do
     (default: `1_000` / `30_000`). The delay doubles after each failed attempt and
     resets once connected.
   - `:transport` / `:transport_opts` - The `ProtoRune.Firehose.Transport`
-    implementation to use and its options (default: `ProtoRune.Firehose.Transport.Gun`).
+    implementation to use and its options (default: `ProtoRune.Firehose.Transport.Mint`).
 
   ## Example
 
@@ -130,8 +139,8 @@ defmodule ProtoRune.Bot.Firehose do
   end
 
   @impl true
-  def format_status({:state, state}) do
-    {:state, Map.take(state, [:name, :relay, :cursor, :auto_reconnect])}
+  def format_status(%{log: log, state: state}) do
+    %{log: log, state: Map.take(state, [:name, :relay, :cursor, :auto_reconnect])}
   end
 
   def format_status(key), do: key
