@@ -4,14 +4,13 @@ defmodule ProtoRune.HTTPClient do
 
   ## Rate limiting and retries
 
-  Requests are transparently throttled and retried at the transport layer:
+  Responses with status 429 are retried with exponential backoff, honoring
+  the `Retry-After` header when present.
 
-    * requests are tracked per host in one-minute windows; once the
-      configured limit is reached the caller sleeps until the next window
-    * responses with status 429 are retried with exponential backoff,
-      honoring the `Retry-After` header when present
-
-  Configuration is read from the application environment:
+  Requests can also be throttled per host in one-minute windows: once the
+  configured limit is reached, the caller sleeps until the next window.
+  Throttling is disabled by default; opt in from the application
+  environment:
 
       config :proto_rune, :rate_limit,
         requests_per_minute: 3_000
@@ -47,9 +46,9 @@ defmodule ProtoRune.HTTPClient do
   alias ProtoRune.HTTPClient.RateLimiter
 
   @default_retry [max_attempts: 3, base_delay: 500, max_delay: 10_000]
-  @default_requests_per_minute 3_000
+  @default_requests_per_minute nil
 
-  defp impl(nil), do: Config.get(:http_client) || Adapters.Req
+  defp impl(nil), do: Adapters.Req
   defp impl(adapter), do: adapter
 
   def request(method, url, opts \\ []) do

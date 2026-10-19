@@ -167,5 +167,19 @@ defmodule ProtoRune.HTTPClientTest do
       assert {:ok, %{status: 200}} = HTTPClient.request(:get, url, [{:rate_limit, false} | http])
       assert {:ok, %{status: 200}} = HTTPClient.request(:get, url, [{:rate_limit, false} | http])
     end
+
+    test "does not throttle by default" do
+      # The limiter table is created lazily, only once throttling is active,
+      # so its absence after a plain request proves the default is off.
+      table = ProtoRune.HTTPClient.RateLimiter
+      if :ets.whereis(table) != :undefined, do: :ets.delete(table)
+
+      put_env(:rate_limit, nil)
+
+      assert {:ok, %{status: 200}} =
+               HTTPClient.request(:get, "https://example.com/xrpc/test", fake_http_from([ok_response()]))
+
+      assert :ets.whereis(table) == :undefined
+    end
   end
 end
