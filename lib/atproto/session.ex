@@ -30,40 +30,21 @@ defmodule ProtoRune.Atproto.Session do
           did_doc: map() | nil
         }
 
-  @t %{
-    access_jwt: {:required, :string},
-    refresh_jwt: {:required, :string},
-    handle: {:required, :string},
-    did: {:required, :string},
-    service_url: :string,
-    expires_at: :integer,
-    active: :boolean,
-    email: :string,
-    email_auth_factor: :boolean,
-    email_confirmed: :boolean,
-    did_doc: %{
-      id: :string,
-      service:
-        {:list,
-         %{
-           id: :string,
-           type: :string,
-           service_endpoint: :string
-         }},
-      "@context": {:list, :string},
-      also_known_as: {:list, :string},
-      verification_method:
-        {:list,
-         %{
-           id: :string,
-           type: :string,
-           controller: :string,
-           public_key_multibase: :string
-         }}
-    }
-  }
+  @fields [
+    :access_jwt,
+    :refresh_jwt,
+    :handle,
+    :did,
+    :service_url,
+    :expires_at,
+    :active,
+    :email,
+    :email_auth_factor,
+    :email_confirmed,
+    :did_doc
+  ]
 
-  defstruct Map.keys(@t)
+  defstruct @fields
 
   @impl true
   def did(%__MODULE__{} = session), do: session.did
