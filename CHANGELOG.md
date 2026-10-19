@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.7.0](https://github.com/zoedsoupe/proto_rune/compare/v0.6.0...v0.7.0) (2026-10-19)
+
+
+### Features
+
+* **bot:** add optional state persistence ([#76](https://github.com/zoedsoupe/proto_rune/issues/76)) ([178d0aa](https://github.com/zoedsoupe/proto_rune/commit/178d0aa43248f1461c8760d91042d7c638837425))
+* **bsky:** add video upload and the video embed ([#75](https://github.com/zoedsoupe/proto_rune/issues/75)) ([5d79830](https://github.com/zoedsoupe/proto_rune/commit/5d79830729e5591a8642eedfc6b704850f9faabb))
+* **rich_text:** parse markdown-like text and add the ~f sigil ([#74](https://github.com/zoedsoupe/proto_rune/issues/74)) ([299f5f2](https://github.com/zoedsoupe/proto_rune/commit/299f5f28597ace34a7ede397d155436efccc553f))
+
+
+### Bug Fixes
+
+* **identity:** extract legacy DID signing keys ([#77](https://github.com/zoedsoupe/proto_rune/issues/77)) ([08ec1e4](https://github.com/zoedsoupe/proto_rune/commit/08ec1e491003b552d11d11757f9045de1e575b49))
+
+
+### Code Refactoring
+
+* load lexicons at runtime, move to Mint, and fix the session and bot bugs ([#72](https://github.com/zoedsoupe/proto_rune/issues/72)) ([1527081](https://github.com/zoedsoupe/proto_rune/commit/152708197002fc8c3346933098452afcfbbd8ad1))
+
 ## [0.6.0](https://github.com/zoedsoupe/proto_rune/compare/v0.5.3...v0.6.0) (2026-09-22)
 
 
