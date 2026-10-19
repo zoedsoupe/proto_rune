@@ -46,7 +46,7 @@ defmodule ProtoRune.Atproto.OAuth do
   Issued access tokens are DPoP-bound. OAuth sessions implement the
   `ProtoRune.Session` behaviour, so they can be passed to any XRPC or DSL
   function; the session attaches the required DPoP proof to each request.
-  For long-running applications, `ProtoRune.Atproto.OAuth.SessionManager`
+  For long-running applications, `ProtoRune.SessionManager`
   keeps a session fresh automatically. Confidential clients
   (`private_key_jwt`) and client metadata document serving are out of
   scope.

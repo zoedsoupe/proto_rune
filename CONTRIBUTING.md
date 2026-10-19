@@ -13,7 +13,7 @@ lib/proto_rune/
 ├── atproto/      # Core AT Protocol
 ├── bsky/         # Bluesky app features
 ├── bot/          # Bot framework
-├── lexicons/     # Generated code
+├── lexicon/      # Lexicon loading and resolution
 └── xrpc/         # XRPC implementation
 ```
 
@@ -48,15 +48,11 @@ PRs should:
 - Follow code style guidelines
 - Include documentation updates
 
-## Generated Code
+## Lexicons
 
-The `lib/proto_rune/lexicons` directory contains generated code from AT Protocol lexicons. To regenerate:
+`priv/lexicons` holds the official AT Protocol lexicon JSON (`app.bsky`, `com.atproto`, `chat.bsky`, `tools.ozone`). `ProtoRune.Lexicon` loads it on first use and inlines every `$ref` into a self-contained Peri schema; `ProtoRune.Lexicon.schema_for/1` returns one for an NSID.
 
-```bash
-mix gen_schemas --path priv/lexicons/ --output lib/proto_rune/lexicons/
-```
-
-Do not modify generated code directly. Update the generator instead.
+There is no code generation step. Third-party lexicons are the consumer's to provide: point `ProtoRune.Lexicon.load/1` at a directory of your own JSON.
 
 ## Release Process
 

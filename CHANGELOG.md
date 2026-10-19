@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### ⚠ Breaking Changes
+
+* rate limiting is opt-in: nothing is throttled unless `requests_per_minute` is configured
+* `SessionManager` telemetry moved from `[:proto_rune, :oauth, ...]` to `[:proto_rune, :session, ...]`, and `ProtoRune.Atproto.OAuth.SessionManager` is deprecated (removed in 1.0)
+* the lexicon code generator is gone: `mix proto_rune.gen.lexicons` and the generated `lib/proto_rune/lexicons` modules are replaced by `ProtoRune.Lexicon.schema_for/1`
+* the bot poller honours `process_from`, so a bot's first poll processes its backlog instead of discarding it
+* `req` and `gun` are replaced by `finch` and `mint_web_socket`
 
 ### Features
 
@@ -11,10 +18,19 @@
 * **bsky:** feed generator helpers: `ProtoRune.Bsky.FeedGen` (skeleton/describe response builders, generator record) and `Bsky.publish_feed/3`
 * **sync:** `Sync.verify_checkout/2` verifies a repo checkout: block integrity against CIDs plus commit signature verification (`ProtoRune.Commit`) against the repo's DID document, for P-256 and secp256k1 signing keys
 * **cbor:** `CBOR.encode/1` canonical DAG-CBOR encoding
+* **lexicon:** runtime lexicon loading: `ProtoRune.Lexicon.schema_for/1` loads the official lexicon JSON from `priv/lexicons` and inlines every `$ref` into a self-contained Peri schema
+* **bot:** `:jetstream` strategy with server-side filtering, and an optional `handle_event/3` callback that receives the session
+* **transport:** a Finch HTTP adapter over the `ProtoRune.Finch` pool and a `mint_web_socket` firehose transport
+* **http:** opt-in private-address guard (`refuse_private_addresses`) with a bounded, guarded redirect walker
 
 ### Bug Fixes
 
 * **mst:** reconstruct keys with per-node prefix compression (a node's first entry always carries its full key), matching the reference implementation
+* **session:** `SessionManager` no longer deletes a persisted session after a transient refresh error; `init/1` reloads the stored session and prefers the newer one
+* **bot:** the poller schedules one timer per cycle, backs off through `Backoff`, and resets its attempt on success
+* **bot:** `Firehose`, `Jetstream` and generated bots export `child_spec/1`, and `format_status/1` returns the shaped status
+* **identity:** DID resolution rejects a document whose `id` differs from the resolved DID
+* **lexicon:** refs resolve across the corpus instead of being dropped, so schemas no longer reject valid records
 
 ## [0.5.3](https://github.com/zoedsoupe/proto_rune/compare/v0.5.2...v0.5.3) (2026-08-27)
 
