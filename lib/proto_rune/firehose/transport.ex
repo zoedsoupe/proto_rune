@@ -4,7 +4,7 @@ defmodule ProtoRune.Firehose.Transport do
 
   A transport owns the underlying connection and translates the BEAM
   messages it receives into firehose frames. The default implementation is
-  `ProtoRune.Firehose.Transport.Gun`; a different implementation can be
+  `ProtoRune.Firehose.Transport.Mint`; a different implementation can be
   injected through the `:transport` and `:transport_opts` options of
   `ProtoRune.Firehose.start_link/1`, which is how the connection lifecycle
   is exercised in tests.

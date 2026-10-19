@@ -9,7 +9,7 @@ defmodule ProtoRune.Atproto.Identity.HandleResolverTest do
         {:ok,
          %{
            status: 200,
-           # Req-style headers: values are lists
+           # map-style headers: values are lists
            headers: %{"content-type" => ["text/plain; charset=utf-8"]},
            body: "did:plc:ewvi7nxzyoun6zhxrhs64oiz"
          }}

@@ -130,6 +130,39 @@ end
 
 Bots are OTP processes with polling out of the box, so they fit into your supervision tree like anything else.
 
+## Security notes
+
+Two transport behaviors are worth knowing about:
+
+**Identity fetches never follow redirects implicitly.** Fetches of
+stranger-chosen URLs (DID documents, well-known handle files, OAuth
+metadata) go through a guarded GET: absolute `https` redirects only,
+bounded hops, and each hop re-checked. Optionally they also refuse
+private, loopback, link-local and otherwise unroutable addresses, so a
+DID document published at a name that resolves to your internal network
+is refused instead of fetched. The address guard is off by default so a
+localhost PDS keeps working; turn it on for applications that resolve
+identity from untrusted input:
+
+```elixir
+config :proto_rune, refuse_private_addresses: true
+
+# or per call:
+Identity.resolve_did(did, http: [refuse_private_addresses: true])
+```
+
+Known limits of the guard (same shape as the gaps in the module docs of
+`ProtoRune.HTTPClient.SSRF`): DNS answers are checked for A records
+only, and the address is resolved once here and again when the
+connection opens, so a name that changes answers between the two is not
+pinned.
+
+**HTTP runs on Finch.** The library supervises one named Finch pool
+(`ProtoRune.Finch`) started by `ProtoRune.Application`. It is added to
+your application's supervision tree automatically when you depend on
+`:proto_rune`; configure pool sizes through
+`config :proto_rune, ProtoRune.Finch, pools: %{...}` (see `Finch`).
+
 ## Built with ProtoRune
 
 - [Quintal](https://quintal.blog.br) — a collective blogging platform on atproto, inspired by the old web: personal blogs, human writing, small communities, chronological forever. No engagement metrics, no ads; your data on your PDS. It uses ProtoRune for its own lexicons (prosas, recados, blogrolls) instead of the Bluesky API, which is exactly the point.

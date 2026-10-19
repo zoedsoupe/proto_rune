@@ -4,12 +4,15 @@ defmodule ProtoRune.HTTPClient do
 
   ## Rate limiting and retries
 
-  Requests are transparently throttled and retried at the transport layer:
+  Requests are retried at the transport layer: responses with status 429 are
+  retried with exponential backoff, honoring the `Retry-After` header when
+  present.
 
-    * requests are tracked per host in one-minute windows; once the
-      configured limit is reached the caller sleeps until the next window
-    * responses with status 429 are retried with exponential backoff,
-      honoring the `Retry-After` header when present
+  Requests can also be transparently throttled per host in one-minute
+  windows; once the configured limit is reached the caller sleeps until the
+  next window. Throttling is off by default: `requests_per_minute` must be
+  set in the configuration (or the `:rate_limit` option given per request)
+  for requests to be paced.
 
   Configuration is read from the application environment:
 
@@ -28,7 +31,9 @@ defmodule ProtoRune.HTTPClient do
       HTTPClient.request(:get, url, rate_limit: false)
 
   The `:adapter` option overrides the configured adapter for a single
-  request:
+  request. The default adapter is `ProtoRune.HTTPClient.Adapters.Finch`,
+  which issues requests through the `ProtoRune.Finch` pool supervised by
+  `ProtoRune.Application`:
 
       HTTPClient.request(:get, url, adapter: MyApp.HTTPStub)
 
@@ -42,14 +47,14 @@ defmodule ProtoRune.HTTPClient do
   """
 
   alias ProtoRune.Config
-  alias ProtoRune.HTTPClient.Adapters
+  alias ProtoRune.HTTPClient.Adapters.Finch
   alias ProtoRune.HTTPClient.Backoff
   alias ProtoRune.HTTPClient.RateLimiter
 
   @default_retry [max_attempts: 3, base_delay: 500, max_delay: 10_000]
-  @default_requests_per_minute 3_000
+  @default_requests_per_minute nil
 
-  defp impl(nil), do: Config.get(:http_client) || Adapters.Req
+  defp impl(nil), do: Config.get(:http_client) || Finch
   defp impl(adapter), do: adapter
 
   def request(method, url, opts \\ []) do
@@ -126,8 +131,8 @@ defmodule ProtoRune.HTTPClient do
   Reads a header value from a response headers collection,
   case-insensitively.
 
-  Adapters deliver headers either as a list of `{name, value}` tuples or
-  as a map of downcased names to value lists (Req); both shapes are
+  Adapters deliver headers either as a list of `{name, value}` tuples
+  (Finch) or as a map of downcased names to value lists; both shapes are
   accepted. Returns `nil` when the header is absent.
   """
   @spec get_header(term(), String.t()) :: String.t() | nil

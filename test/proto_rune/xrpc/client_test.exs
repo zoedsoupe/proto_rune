@@ -108,9 +108,10 @@ defmodule ProtoRune.XRPC.ClientTest do
 
   describe "execute/1 error paths" do
     test "decodes the JSON error body even for a binary request" do
-      # Error.from/1 matches on Req.Response, so the stub returns one
+      # Error.from/1 accepts any response map with :status/:body, so the
+      # stub returns a plain one
       http =
-        stub_response(%Req.Response{
+        stub_response(%{
           status: 400,
           body: JSON.encode!(%{"error" => "InvalidRequest", "message" => "bad repo"})
         })

@@ -58,6 +58,7 @@ defmodule ProtoRune.Atproto.OAuth do
   alias ProtoRune.Atproto.OAuth.PKCE
   alias ProtoRune.Atproto.OAuth.Session
   alias ProtoRune.HTTPClient
+  alias ProtoRune.HTTPClient.SSRF
 
   @typedoc """
   Flow state produced by `authorization_url/3` and consumed by
@@ -485,7 +486,10 @@ defmodule ProtoRune.Atproto.OAuth do
   end
 
   defp fetch_json(url, http) do
-    case HTTPClient.request(:get, url, [headers: [{"accept", "application/json"}]] ++ http) do
+    # Well-known metadata URLs are derived from the PDS and issuer strings,
+    # so the fetch is guarded and redirects are followed explicitly (see
+    # ProtoRune.HTTPClient.SSRF).
+    case SSRF.get(url, [headers: [{"accept", "application/json"}]] ++ http) do
       {:ok, %{status: status, body: body}} when status in 200..299 ->
         decode_json_body(body)
 

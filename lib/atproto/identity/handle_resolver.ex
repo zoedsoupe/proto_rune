@@ -7,7 +7,7 @@ defmodule ProtoRune.Atproto.Identity.HandleResolver do
   - HTTPS lookup at https://<handle>/.well-known/atproto-did
   """
 
-  alias ProtoRune.HTTPClient
+  alias ProtoRune.HTTPClient.SSRF
 
   require Logger
 
@@ -75,7 +75,9 @@ defmodule ProtoRune.Atproto.Identity.HandleResolver do
   end
 
   defp do_resolve_https(url, timeout, retries, http_opts) do
-    case HTTPClient.request(:get, url, [timeout: timeout] ++ http_opts) do
+    # The handle is stranger-chosen; the fetch is guarded and redirects are
+    # followed explicitly (see ProtoRune.HTTPClient.SSRF).
+    case SSRF.get(url, [timeout: timeout] ++ http_opts) do
       {:ok, %{status: 200, body: body, headers: headers}} ->
         with true <- text_response?(headers),
              {:ok, did} <- validate_did_response(body) do

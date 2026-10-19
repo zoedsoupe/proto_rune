@@ -146,6 +146,6 @@ defmodule ProtoRune.Bot.TelemetryTest do
   end
 
   defp rate_limited(headers) do
-    {:ok, %Req.Response{status: 429, headers: headers, body: %{}}}
+    {:ok, %{status: 429, headers: headers, body: %{}}}
   end
 end

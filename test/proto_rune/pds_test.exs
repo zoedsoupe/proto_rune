@@ -1,7 +1,7 @@
 defmodule ProtoRune.PDSTest do
   @moduledoc """
   End-to-end tests against a fake PDS served by Bypass, exercising the
-  real HTTP stack (Req adapter) instead of the env-stubbed adapter.
+  real HTTP stack (Finch adapter) instead of the env-stubbed adapter.
   """
   use ProtoRune.TestCase, async: true
 
