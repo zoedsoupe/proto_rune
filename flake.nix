@@ -2,11 +2,11 @@
   description = "ATProtocol and BlueSky SDK and bot framework for Elixir";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11-small";
-  inputs.elixir-overlay.url = "github:zoedsoupe/elixir-overlay";
+  inputs.beam-overlay.url = "github:zeeetech/beam-overlay";
 
   outputs = {
     nixpkgs,
-    elixir-overlay,
+    beam-overlay,
     ...
   }: let
     inherit (nixpkgs.lib) genAttrs;
@@ -15,13 +15,18 @@
       genAttrs flakeExposed (system:
         f (import nixpkgs {
           inherit system;
-          overlays = [elixir-overlay.overlays.default];
+          overlays = [beam-overlay.overlays.default];
         }));
   in {
     devShells = forAllSystems (pkgs: {
       default = pkgs.mkShell {
         name = "proto-rune-dev";
-        packages = with pkgs; [erlang_28 (elixir-with-otp erlang_28).latest];
+        packages = with pkgs; [
+          erlang_28
+          (pkgs.beam-overlay.mkToolchain {
+            elixir.version = "1.20.2";
+          })
+        ];
       };
     });
   };
