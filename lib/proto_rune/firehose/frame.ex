@@ -43,7 +43,9 @@ defmodule ProtoRune.Firehose.Frame do
 
   defp build_event(%{"op" => 1, "t" => "#commit"}, payload) do
     with {:ok, ops} <- decode_ops(payload["ops"] || []),
-         {:ok, blocks} <- decode_blocks(payload["blocks"]) do
+         {:ok, blocks} <- decode_blocks(payload["blocks"]),
+         {:ok, commit} <- decode_required_link(payload["commit"]),
+         {:ok, prev_data} <- decode_link(payload["prevData"]) do
       {:ok,
        %Event{
          type: :commit,
@@ -51,6 +53,9 @@ defmodule ProtoRune.Firehose.Frame do
          repo: payload["repo"],
          time: payload["time"],
          rev: payload["rev"],
+         commit: commit,
+         since: payload["since"],
+         prev_data: prev_data,
          ops: ops,
          blocks: blocks,
          payload: payload
@@ -88,8 +93,9 @@ defmodule ProtoRune.Firehose.Frame do
   defp decode_ops(_ops), do: {:error, :invalid_commit_ops}
 
   defp decode_op(%{"action" => action, "path" => path} = op) do
-    with {:ok, cid} <- decode_link(op["cid"]) do
-      {:ok, %{action: decode_action(action), path: path, cid: cid}}
+    with {:ok, cid} <- decode_link(op["cid"]),
+         {:ok, prev} <- decode_link(op["prev"]) do
+      {:ok, %{action: decode_action(action), path: path, cid: cid, prev: prev}}
     end
   end
 
@@ -102,6 +108,9 @@ defmodule ProtoRune.Firehose.Frame do
 
   defp decode_link(nil), do: {:ok, nil}
   defp decode_link(link), do: CID.from_link(link)
+
+  defp decode_required_link(nil), do: {:error, :invalid_cid_link}
+  defp decode_required_link(link), do: CID.from_link(link)
 
   defp decode_blocks(nil), do: {:ok, %{}}
 

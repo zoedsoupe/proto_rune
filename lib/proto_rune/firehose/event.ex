@@ -12,6 +12,9 @@ defmodule ProtoRune.Firehose.Event do
     * `:repo` - the DID of the repository the event belongs to.
     * `:time` - the event timestamp as an ISO 8601 string.
     * `:rev` - the repository revision (`:commit` events only).
+    * `:commit` - the CID of the commit block (`:commit` events only).
+    * `:since` - the revision from which a commit was made, when provided.
+    * `:prev_data` - the previous MST root CID (`:commit` events only).
     * `:ops` - the repository operations of a `:commit` event.
     * `:blocks` - the repository blocks of a `:commit` event, CBOR-decoded
       and keyed by CID string. The record for an operation can be found at
@@ -26,8 +29,14 @@ defmodule ProtoRune.Firehose.Event do
     * `:action` - `:create`, `:update` or `:delete`.
     * `:path` - the record path, e.g. `"app.bsky.feed.post/3jxfb3nkkf22v"`.
     * `:cid` - the record CID (`nil` for deletions).
+    * `:prev` - the previous record CID, or `nil` when not provided.
   """
-  @type op :: %{action: :create | :update | :delete, path: String.t(), cid: ProtoRune.CID.t() | nil}
+  @type op :: %{
+          action: :create | :update | :delete,
+          path: String.t(),
+          cid: ProtoRune.CID.t() | nil,
+          prev: ProtoRune.CID.t() | nil
+        }
 
   @type t :: %__MODULE__{
           type: :commit | :identity | :account | :handle | :migrate | :tombstone | :info | :error | :unknown,
@@ -35,12 +44,15 @@ defmodule ProtoRune.Firehose.Event do
           repo: String.t() | nil,
           time: String.t() | nil,
           rev: String.t() | nil,
+          commit: ProtoRune.CID.t() | nil,
+          since: String.t() | nil,
+          prev_data: ProtoRune.CID.t() | nil,
           ops: [op],
           blocks: %{optional(String.t()) => term},
           payload: map
         }
 
-  defstruct [:type, :seq, :repo, :time, :rev, :payload, ops: [], blocks: %{}]
+  defstruct [:type, :seq, :repo, :time, :rev, :commit, :since, :prev_data, :payload, ops: [], blocks: %{}]
 
   @doc """
   Returns true when any operation of a `:commit` event belongs to the

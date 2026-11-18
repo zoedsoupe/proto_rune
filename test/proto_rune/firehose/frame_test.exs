@@ -1,6 +1,7 @@
 defmodule ProtoRune.Firehose.FrameTest do
   use ExUnit.Case, async: true
 
+  alias ProtoRune.CBOR
   alias ProtoRune.CID
   alias ProtoRune.Firehose.Event
   alias ProtoRune.Firehose.Frame
@@ -8,6 +9,25 @@ defmodule ProtoRune.Firehose.FrameTest do
   @fixtures_dir Path.expand("../../fixtures/firehose", __DIR__)
 
   defp fixture(name), do: @fixtures_dir |> Path.join(name) |> File.read!()
+
+  defp cid(seed) do
+    digest = :binary.copy(<<seed>>, 32)
+    %CID{version: 1, codec: 0x71, multihash: <<0x12, 32, digest::binary>>}
+  end
+
+  defp link(cid), do: {:tag, 42, <<0, CID.to_binary(cid)::binary>>}
+
+  defp commit_frame(ops, payload \\ %{}) do
+    header = %{"op" => 1, "t" => "#commit"}
+
+    payload =
+      Map.merge(
+        %{"commit" => link(cid(1)), "ops" => ops, "blocks" => nil},
+        payload
+      )
+
+    CBOR.encode(header) <> CBOR.encode(payload)
+  end
 
   describe "decode/1 commit events" do
     test "decodes a commit frame with a create op" do
@@ -18,8 +38,11 @@ defmodule ProtoRune.Firehose.FrameTest do
       assert event.repo == "did:plc:4vdi2b4k2klzdke344ag2njy"
       assert event.time == "2026-08-10T19:20:49.113Z"
       assert is_binary(event.rev)
+      assert %CID{} = event.commit
+      assert event.since == "3msmthujweu2f"
+      assert %CID{} = event.prev_data
 
-      assert [%{action: :create, path: "app.bsky.feed.post/" <> _rkey, cid: %CID{}}] = event.ops
+      assert [%{action: :create, path: "app.bsky.feed.post/" <> _rkey, cid: %CID{}, prev: nil}] = event.ops
     end
 
     test "resolves the record of a create op from the blocks" do
@@ -49,7 +72,61 @@ defmodule ProtoRune.Firehose.FrameTest do
 
       assert event.type == :commit
       assert event.repo == "did:plc:sp5liks5o7ra6j663zhv5rgi"
-      assert [%{action: :delete, path: "app.bsky.graph.follow/3lnm6stbtwi2i", cid: nil}] = event.ops
+
+      assert [
+               %{
+                 action: :delete,
+                 path: "app.bsky.graph.follow/3lnm6stbtwi2i",
+                 cid: nil,
+                 prev: %CID{}
+               }
+             ] = event.ops
+    end
+
+    test "decodes prev links for create, update, and delete operations" do
+      create = %{
+        "action" => "create",
+        "path" => "app.example.record/create",
+        "cid" => link(cid(2)),
+        "prev" => nil
+      }
+
+      update = %{
+        "action" => "update",
+        "path" => "app.example.record/update",
+        "cid" => link(cid(3)),
+        "prev" => link(cid(4))
+      }
+
+      delete = %{
+        "action" => "delete",
+        "path" => "app.example.record/delete",
+        "cid" => nil,
+        "prev" => link(cid(5))
+      }
+
+      assert {:ok, %Event{ops: [%{action: :create, prev: nil}]}} = Frame.decode(commit_frame([create]))
+      assert {:ok, %Event{ops: [%{action: :update, prev: update_prev}]}} = Frame.decode(commit_frame([update]))
+      assert update_prev == cid(4)
+
+      assert {:ok, %Event{ops: [%{action: :delete, prev: delete_prev}]}} = Frame.decode(commit_frame([delete]))
+      assert delete_prev == cid(5)
+    end
+
+    test "decodes commit metadata links and leaves missing previous data nil" do
+      payload = %{
+        "since" => "3msmthujweu2f",
+        "prevData" => link(cid(6))
+      }
+
+      assert {:ok, %Event{commit: commit, since: "3msmthujweu2f", prev_data: prev_data}} =
+               Frame.decode(commit_frame([], payload))
+
+      assert commit == cid(1)
+      assert prev_data == cid(6)
+
+      assert {:ok, %Event{prev_data: nil}} =
+               Frame.decode(commit_frame([], %{"since" => "3msmthujweu2f"}))
     end
   end
 
@@ -63,6 +140,9 @@ defmodule ProtoRune.Firehose.FrameTest do
       assert event.time == "2026-08-10T19:24:04.480Z"
       assert event.ops == []
       assert event.blocks == %{}
+      assert event.commit == nil
+      assert event.since == nil
+      assert event.prev_data == nil
     end
 
     test "decodes an error frame" do
@@ -108,6 +188,19 @@ defmodule ProtoRune.Firehose.FrameTest do
       # %{"t" => "#commit"} followed by %{}
       data = <<0xA1, 0x61, "t", 0x67, "#commit", 0xA0>>
       assert {:error, :invalid_frame_header} = Frame.decode(data)
+    end
+
+    test "returns an error for invalid operation and commit metadata links" do
+      invalid_op = %{"action" => "update", "path" => "app.example.record/key", "cid" => nil, "prev" => "not a link"}
+      assert {:error, :invalid_cid_link} = Frame.decode(commit_frame([invalid_op]))
+
+      assert {:error, :invalid_cid_link} =
+               Frame.decode(commit_frame([], %{"commit" => "not a link"}))
+
+      assert {:error, :invalid_cid_link} = Frame.decode(commit_frame([], %{"commit" => nil}))
+
+      assert {:error, :invalid_cid_link} =
+               Frame.decode(commit_frame([], %{"prevData" => "not a link"}))
     end
   end
 end
