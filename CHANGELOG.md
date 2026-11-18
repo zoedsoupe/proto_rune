@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.1.0](https://github.com/zoedsoupe/proto_rune/compare/v1.0.0...v1.1.0) (2026-11-18)
+
+
+### Features
+
+* **firehose:** preserve commit inversion metadata ([049c0db](https://github.com/zoedsoupe/proto_rune/commit/049c0db265e467f7cac4beacb4f211b0d81d8638))
+* **mst:** verify firehose operation inversion ([72157c4](https://github.com/zoedsoupe/proto_rune/commit/72157c4f824f7d977bd35ec2659d42367160bc4b))
+* **sync:** add canonical byte-string and CID helpers ([ab17e63](https://github.com/zoedsoupe/proto_rune/commit/ab17e63df980f02ed0b383b520c2c91a6f340d65))
+
 ## [1.0.0](https://github.com/zoedsoupe/proto_rune/compare/v0.7.0...v1.0.0) (2026-11-18)
 
 
