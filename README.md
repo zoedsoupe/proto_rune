@@ -12,7 +12,7 @@ An Elixir SDK for the AT Protocol. Build your own atproto apps: custom lexicons,
 ```elixir
 def deps do
   [
-    {:proto_rune, "~> 1.0.0"} # x-release-please-version
+    {:proto_rune, "~> 1.1.0"} # x-release-please-version
   ]
 end
 ```
