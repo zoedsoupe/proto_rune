@@ -1,7 +1,7 @@
 defmodule ProtoRune.MixProject do
   use Mix.Project
 
-  @version "0.7.0"
+  @version "1.0.0"
   @source_url "https://github.com/zoedsoupe/proto_rune"
 
   def project do
