@@ -3,7 +3,7 @@
 #
 # Run from the project root:
 #
-#     mix run test/fixtures/sync/generate_repo_car.ex
+#     mix run scripts/generate_repo_car.ex
 
 alias ProtoRune.CBOR
 alias ProtoRune.CID

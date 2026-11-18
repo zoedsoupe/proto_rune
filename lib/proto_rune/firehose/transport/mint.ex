@@ -9,7 +9,7 @@ defmodule ProtoRune.Firehose.Transport.Mint do
   `Mint.WebSocket.decode/2` to reassemble fragmented messages. The
   connection is in active mode, so no explicit recv loop runs: the socket
   messages arrive in the connection owner's mailbox and flow through
-  `ProtoRune.StreamClient`'s `handle_info` into `stream/2`.
+  the stream client's `handle_info` into `stream/2`.
 
   Frames sent while the HTTP 101 upgrade response is still being parsed
   (the same TCP packet) are consumed by Mint's HTTP parser and dropped;

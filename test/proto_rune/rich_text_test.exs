@@ -130,8 +130,11 @@ defmodule ProtoRune.RichTextTest do
     end
 
     test "raises ArgumentError on non-binary input" do
-      assert_raise ArgumentError, fn -> RichText.parse!(nil) end
-      assert_raise ArgumentError, fn -> RichText.parse!(42) end
+      # Dynamic dispatch intentionally tests inputs outside parse!/1's typespec.
+      # credo:disable-for-next-line Credo.Check.Refactor.Apply
+      assert_raise ArgumentError, fn -> apply(RichText, :parse!, [nil]) end
+      # credo:disable-for-next-line Credo.Check.Refactor.Apply
+      assert_raise ArgumentError, fn -> apply(RichText, :parse!, [42]) end
     end
   end
 

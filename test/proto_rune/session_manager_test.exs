@@ -254,10 +254,7 @@ defmodule ProtoRune.SessionManagerTest do
       assert {:ok, _blob} = MemoryStore.fetch(@did, pid: store_pid)
     end
 
-    test "retries persisting a freshly rotated session through a storage hiccup", %{
-      store_pid: store_pid,
-      key: key
-    } do
+    test "retries persisting a freshly rotated session through a storage hiccup", %{key: key} do
       {:ok, flaky_pid} = FlakyStore.start_link(2)
       store = {FlakyStore, [pid: flaky_pid]}
 
@@ -529,7 +526,7 @@ defmodule ProtoRune.SessionManagerTest do
     "#{header}.#{payload}.sig"
   end
 
-  defp app_password_session(opts \\ []) do
+  defp app_password_session(opts) do
     %Session{
       access_jwt: jwt(@exp),
       refresh_jwt: Keyword.get(opts, :refresh_jwt, "rt-1"),
