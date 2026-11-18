@@ -36,9 +36,10 @@ defmodule ProtoRune.MST do
 
   ## Trust model
 
-  This module performs no hashing and no signature checks: the CID-keyed
-  block maps it walks are trusted as decoded. A proof is only as strong as
-  the root CID it is anchored to — take the root from a commit verified
+  This module does not verify hashes of supplied blocks or check signatures:
+  the CID-keyed block maps it walks are trusted as decoded. `verify_inversion/4`
+  hashes nodes it creates, but does not re-hash input blocks. A proof is only
+  as strong as the root CID it is anchored to. Take the root from a commit verified
   with `ProtoRune.Atproto.Sync.verify_checkout/2` or
   `ProtoRune.Commit.verify/2`, and when the blocks come from an untrusted
   source, check that each block's bytes hash to its CID (as
@@ -46,6 +47,7 @@ defmodule ProtoRune.MST do
   """
 
   alias ProtoRune.CID
+  alias ProtoRune.MST.Inversion
 
   @typedoc "A decoded block map as returned by `ProtoRune.Atproto.Sync.parse_car/1`."
   @type blocks :: %{CID.t() => term()}
@@ -56,8 +58,14 @@ defmodule ProtoRune.MST do
     * `:action` - `:create`, `:update` or `:delete`.
     * `:path` - the record path, e.g. `"app.bsky.feed.post/3jxfb3nkkf22v"`.
     * `:cid` - the record CID (`nil` for deletions).
+    * `:prev` - the previous record CID for updates and deletions.
   """
-  @type op :: %{action: :create | :update | :delete, path: String.t(), cid: CID.t() | nil}
+  @type op :: %{
+          optional(:prev) => CID.t() | nil,
+          action: :create | :update | :delete,
+          path: String.t(),
+          cid: CID.t() | nil
+        }
 
   @typedoc """
   An inclusion or absence proof for a key.
@@ -178,6 +186,25 @@ defmodule ProtoRune.MST do
         {:error, reason} -> {:halt, {:error, {op.path, reason}}}
       end
     end)
+  end
+
+  @doc """
+  Verifies a commit by reversing its operations from `new_root`.
+
+  Unlike `verify_ops/3`, this recomputes the prior MST root by applying the
+  inverse mutations. `blocks` may be a partial tree: untouched subtrees remain
+  opaque CIDs, while every block needed to split, merge, or otherwise update
+  an affected path must be present. Blocks are treated as already decoded and
+  hash-verified; this function performs no IO or signature verification.
+
+  Update and delete operations must carry `:prev`, the previous record CID.
+  A create does not need it. Returns `:ok` only when the recomputed root
+  equals `previous_root`.
+  """
+  @spec verify_inversion(blocks(), CID.t(), CID.t() | nil, [op()]) ::
+          :ok | {:error, term()}
+  def verify_inversion(blocks, %CID{} = new_root, previous_root, ops) when is_map(blocks) and is_list(ops) do
+    Inversion.verify(blocks, new_root, previous_root, ops)
   end
 
   defp verify_op(blocks, root_cid, %{action: :delete, path: path}) do
