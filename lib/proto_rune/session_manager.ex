@@ -8,8 +8,7 @@ defmodule ProtoRune.SessionManager do
   OAuth sessions (`ProtoRune.Atproto.OAuth.Session`, which additionally
   needs its issuing client passed via `:refresh_opts`).
 
-  The manager is opt-in: the SDK starts no processes on its own, so add
-  it to the host application's supervision tree:
+  The manager is opt-in: add it to the host application's supervision tree:
 
       children = [
         {ProtoRune.SessionManager, session: session}

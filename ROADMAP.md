@@ -2,7 +2,7 @@
 
 **Mission**: Build a production-ready, type-safe AT Protocol SDK and bot framework for Elixir that leverages BEAM's strengths for reliability and concurrency.
 
-**Current Status**: v0.5.3 released ✅ | Next: v0.6.0 in development
+**Current Version**: v0.7.0
 
 ---
 
@@ -52,14 +52,12 @@
 - ✅ Proper documentation structure in ExDoc
 
 #### Infrastructure
-- ✅ Lexicon generator and type mapper (code exists)
-- ✅ Mix task for lexicon generation
-- ✅ Git submodule with official AT Protocol lexicons
+- ✅ Official AT Protocol lexicon corpus
 
 ### Known Limitations (v0.2.0)
 
 - Reply threading uses stub values (issue #22)
-- No lexicon schemas generated yet (pending: run mix task)
+- Custom lexicon schema support was not available at this milestone; current releases load lexicon JSON at runtime.
 - Basic error handling (needs edge case coverage - issue #21)
 
 ---
@@ -114,7 +112,6 @@ surface, generic record writes. Detail in [PLAN-v0.4.0.md](PLAN-v0.4.0.md).
 - [x] OAuth session lifecycle (token revocation, SessionManager GenServer)
 - [x] `com.atproto.sync` read surface (getBlob, getRepo, describeRepo, MST traversal, resolveHandle)
 - [x] Generic record writes with opt-in caller-supplied Peri schema validation
-- [x] Lexicon codegen flags (--path, --output) for host apps
 - [x] Test infrastructure: Bypass-based PDS fixture tests
 
 ---
@@ -126,7 +123,7 @@ surface, generic record writes. Detail in [PLAN-v0.4.0.md](PLAN-v0.4.0.md).
 
 ---
 
-## v0.6.0 - Media & Verification 🚧 In Development
+## v0.6.0 - Media & Verification ✅ Released
 
 **Focus**: media embeds, checkout verification, feed generator SDK.
 
@@ -135,10 +132,11 @@ surface, generic record writes. Detail in [PLAN-v0.4.0.md](PLAN-v0.4.0.md).
 - [x] Block integrity verification (every CAR block checked against its CID)
 - [x] Feed generator SDK (skeleton/describe builders, feed record publishing)
 - [x] MST inclusion proofs for efficient sync (partial trees, firehose ops)
+- [x] Runtime lexicon loading and schema lookup for host lexicons
 
 ---
 
-## v0.7.0+ - Future Enhancements 💭 Ideas
+## Future Enhancements 💭 Ideas
 
 **Focus**: Advanced protocol features and ecosystem integration
 
@@ -233,6 +231,6 @@ ProtoRune stands on the shoulders of these excellent projects:
 
 ---
 
-**Last Updated**: 2026-08-18
+**Last Updated**: 2026-11-18
 **Maintained By**: [@zoedsoupe](https://github.com/zoedsoupe)
 **Status**: Living document - updated as development progresses

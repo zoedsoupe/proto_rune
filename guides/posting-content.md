@@ -59,11 +59,11 @@ rt = if include_mention?, do: RichText.mention(rt, "alice.bsky.social"), else: r
 :ok = ProtoRune.Bsky.delete_post(session, post.uri)
 ```
 
-Note: the current implementation does not fetch parent post details, so replies work but without full threading context.
+When `:reply_to` is set, `Bsky.post/3` fetches the parent record to build the correct root and parent references. If the parent is itself a reply, its root is preserved.
 
 ## Limits and languages
 
-- Post text is capped at 3000 graphemes, check `String.length/1` before posting.
+- The built-in post schema limits text to 300 according to its Peri string constraint. It does not explicitly count grapheme clusters; the PDS may also validate the record.
 - Set accurate `:langs` for discovery and accessibility: `["en"]`, `["pt"]`, or `["en", "pt"]` for multilingual posts.
 
 ## Errors
@@ -71,7 +71,7 @@ Note: the current implementation does not fetch parent post details, so replies 
 ```elixir
 case ProtoRune.Bsky.post(session, content) do
   {:ok, post} -> post.uri
-  {:error, %{error: "InvalidRecord"}} -> # content is invalid
+  {:error, %ProtoRune.XRPC.Error{reason: reason}} -> reason
   {:error, reason} -> # network or other
 end
 ```

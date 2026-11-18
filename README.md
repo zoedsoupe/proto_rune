@@ -61,14 +61,17 @@ end
 
 ## Building on atproto
 
-Bluesky's `app.bsky.*` collections are just lexicons, and your app can define its own the same way. Records live on the user's PDS under your NSID; ProtoRune writes them with validation before anything hits the wire:
-
-```bash
-mix proto_rune.gen.lexicons --path priv/lexicons --output lib/my_app/lexicons
-```
+Bluesky's `app.bsky.*` collections are just lexicons, and your app can define its own the same way. Records live on the user's PDS under your NSID. Load your lexicon JSON at runtime and pass its schema to Repo writes for validation:
 
 ```elixir
-schema = MyApp.Lexicons.Blog.Post.get_schema(:main)
+vendored_files =
+  Path.wildcard(Path.join(ProtoRune.Lexicon.vendored_dir(), "**/*.json"))
+
+host_files = Path.wildcard("priv/my_lexicons/**/*.json")
+
+# load/1 replaces the registry, so include both sets when you need both.
+:ok = ProtoRune.Lexicon.load(vendored_files ++ host_files)
+{:ok, schema} = ProtoRune.Lexicon.schema_for("blog.myapp.post")
 
 {:ok, %{uri: uri}} =
   ProtoRune.Atproto.Repo.create_record(
@@ -76,11 +79,17 @@ schema = MyApp.Lexicons.Blog.Post.get_schema(:main)
     %{
       repo: ProtoRune.Session.did(session),
       collection: "blog.myapp.post",
-      record: %{"$type" => "blog.myapp.post", "title" => "hello atproto"}
+      record: %{
+        :"$type" => "blog.myapp.post",
+        title: "hello atproto",
+        :"createdAt" => DateTime.utc_now() |> DateTime.to_iso8601()
+      }
     },
     schema: schema
   )
 ```
+
+Lexicon-derived schemas use atom keys that preserve the JSON property spelling, such as `:"createdAt"`. This differs from high-level Bluesky helpers, which accept Elixir-style keys such as `:created_at`; Repo validates custom records before converting keys for the wire.
 
 Drop lower when you need to: `ProtoRune.Atproto.Repo` for record CRUD with optimistic concurrency, `ProtoRune.Atproto.Sync` to download and verify repository checkouts (CAR files, signed commits), `ProtoRune.Atproto.Identity` for handle/DID resolution, and the XRPC layer for endpoints with no generated module. See the guides for [custom lexicons](guides/custom-lexicons.md), [repository operations](guides/repository-operations.md) and [XRPC](guides/xrpc.md).
 

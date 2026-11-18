@@ -6,7 +6,7 @@ defmodule ProtoRune.Config do
 
   The XRPC endpoint a request goes to is resolved in this order:
 
-  1. per-call `:service` option (for example on `ProtoRune.login/3`)
+  1. per-call `:base_url` option on `ProtoRune.XRPC.query/5` and `procedure/5`
   2. the session's own `service_url` (see `ProtoRune.Session.service_url/1`)
   3. the `:base_url` application environment key
   4. the default, `"https://bsky.social/xrpc"`

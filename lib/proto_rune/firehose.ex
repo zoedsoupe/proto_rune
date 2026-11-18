@@ -6,8 +6,7 @@ defmodule ProtoRune.Firehose do
   CBOR frames and delivers each event as a `ProtoRune.Firehose.Event` to a
   consumer-provided handler.
 
-  ProtoRune is a library and starts no processes on its own: add the
-  firehose to your own supervision tree:
+  The firehose is opt-in: add it to your own supervision tree:
 
       children = [
         {ProtoRune.Firehose, handler: self()}

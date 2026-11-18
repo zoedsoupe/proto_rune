@@ -47,7 +47,7 @@ post.uri # => "at://did:plc:.../app.bsky.feed.post/..."
 post.cid # => "bafy..."
 ```
 
-Options: `:langs` (default `["en"]`), `:reply_to` (an AT-URI),
+Options: `:langs` (omitted when not given), `:reply_to` (an AT-URI),
 `:created_at` (default `DateTime.utc_now()`).
 
 ### Rich text post
@@ -145,6 +145,6 @@ end
 | `:follow` | `%{uri, user}` |
 | `:error` | `%{reason}` |
 
-Callbacks receive no session. To reply from a callback, log in with
-`ProtoRune.login/3` yourself and keep the session around (for example in
-an `Agent`), then call `ProtoRune.Bsky.post/3` with `reply_to: uri`.
+`handle_event/3` receives the bot's current session, so a callback can call
+`ProtoRune.Bsky.post/3` with `reply_to: uri` without logging in again.
+`handle_event/2` remains available for handlers that do not need the session.

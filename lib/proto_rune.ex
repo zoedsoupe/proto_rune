@@ -115,7 +115,8 @@ defmodule ProtoRune do
   @doc """
   Resolves a handle to a DID (Decentralized Identifier).
 
-  Results are cached for 1 hour.
+  Results are cached for 1 hour when `ProtoRune.Atproto.Identity.Cache`
+  is included in the host application's supervision tree.
 
   ## Examples
 
@@ -128,7 +129,8 @@ defmodule ProtoRune do
   @doc """
   Resolves a DID to its DID document.
 
-  Results are cached for 24 hours.
+  Results are cached for 24 hours when `ProtoRune.Atproto.Identity.Cache`
+  is included in the host application's supervision tree.
 
   ## Examples
 

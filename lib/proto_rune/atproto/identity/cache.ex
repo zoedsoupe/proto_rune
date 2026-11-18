@@ -11,8 +11,8 @@ defmodule ProtoRune.Atproto.Identity.Cache do
 
   ## Supervision
 
-  ProtoRune is a library and starts no processes of its own. To enable
-  identity caching, add the cache to your application's supervision tree:
+  Identity caching is opt-in. Add the cache to your application's
+  supervision tree to enable it:
 
       children = [
         ProtoRune.Atproto.Identity.Cache
