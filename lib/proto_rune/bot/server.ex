@@ -231,9 +231,9 @@ defmodule ProtoRune.Bot.Server do
     password: :string,
     strategy: {{:enum, [:polling, :firehose, :jetstream]}, {:default, :polling}},
     persist_interval: :integer,
-    polling: {:cond, &(&1.strategy == :polling), get_schema(:polling_t), nil},
-    firehose: {:cond, &(&1.strategy == :firehose), get_schema(:firehose_t), nil},
-    jetstream: {:cond, &(&1.strategy == :jetstream), get_schema(:jetstream_t), nil}
+    polling: {:cond, &(&1[:strategy] == :polling), get_schema(:polling_t), nil},
+    firehose: {:cond, &(&1[:strategy] == :firehose), get_schema(:firehose_t), nil},
+    jetstream: {:cond, &(&1[:strategy] == :jetstream), get_schema(:jetstream_t), nil}
   })
 
   defschema(:polling_t, %{

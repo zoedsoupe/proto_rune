@@ -129,6 +129,22 @@ defmodule ProtoRune.BotTest do
     assert opts[:persist_interval] == nil
   end
 
+  test "accepts strategy-specific options from maps" do
+    for {strategy, option, config} <- [
+          {:polling, :polling, %{interval: 10}},
+          {:firehose, :firehose, %{cursor: 123}},
+          {:jetstream, :jetstream, %{wanted_collections: ["app.bsky.feed.post"]}}
+        ] do
+      opts =
+        %{name: StatefulBot, strategy: strategy}
+        |> Map.put(option, config)
+        |> Server.options_t!()
+
+      assert opts[:strategy] == strategy
+      assert opts[option]
+    end
+  end
+
   @pds_did "did:plc:test"
 
   describe "optional state persistence" do
