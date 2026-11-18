@@ -166,17 +166,11 @@ defmodule ProtoRune.Atproto.Sync do
 
   defp verify_blocks(blocks) do
     Enum.reduce_while(blocks, :ok, fn {cid, bytes}, :ok ->
-      if valid_block?(cid, bytes), do: {:cont, :ok}, else: {:halt, {:error, {:block_hash_mismatch, cid}}}
+      if CID.valid_bytes?(cid, bytes),
+        do: {:cont, :ok},
+        else: {:halt, {:error, {:block_hash_mismatch, cid}}}
     end)
   end
-
-  # CID multihash layout: hash function code varint (0x12 = sha2-256),
-  # digest size varint (0x20 = 32 bytes), digest.
-  defp valid_block?(%CID{multihash: <<0x12, 0x20, digest::binary-32>>}, bytes) do
-    :crypto.hash(:sha256, bytes) == digest
-  end
-
-  defp valid_block?(_cid, _bytes), do: false
 
   defp fetch_commit_cid(%{roots: [commit_cid | _]}), do: {:ok, commit_cid}
   defp fetch_commit_cid(_car), do: {:error, :missing_commit_root}

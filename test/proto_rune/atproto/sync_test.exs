@@ -168,7 +168,11 @@ defmodule ProtoRune.Atproto.SyncTest do
           record_bytes
         end
 
-      node = %{"l" => nil, "e" => [%{"p" => 0, "k" => "com.example.post/aaa", "v" => link(record_cid), "t" => nil}]}
+      node = %{
+        "l" => nil,
+        "e" => [%{"p" => 0, "k" => CBOR.bytes("com.example.post/aaa"), "v" => link(record_cid), "t" => nil}]
+      }
+
       node_bytes = CBOR.encode(node)
       node_cid = cid_for(node_bytes)
 

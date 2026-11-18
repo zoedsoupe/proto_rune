@@ -29,6 +29,31 @@ defmodule ProtoRune.CIDTest do
     end
   end
 
+  describe "from_dag_cbor/1" do
+    test "constructs a deterministic DAG-CBOR sha2-256 CID" do
+      cid = CID.from_dag_cbor("abc")
+
+      assert CID.to_binary(cid) ==
+               Base.decode16!("01711220BA7816BF8F01CFEA414140DE5DAE2223B00361A396177A9CB410FF61F20015AD")
+
+      assert CID.to_string(cid) == "bafyreif2pall7dybz7vecqka3zo24irdwabwdi4wc55jznaq75q7eaavvu"
+    end
+  end
+
+  describe "valid_bytes?/2" do
+    test "accepts matching bytes" do
+      cid = CID.from_dag_cbor("abc")
+      assert CID.valid_bytes?(cid, "abc")
+    end
+
+    test "rejects tampered bytes and non-sha2-256 multihashes" do
+      cid = CID.from_dag_cbor("abc")
+      refute CID.valid_bytes?(cid, "abd")
+      refute CID.valid_bytes?(%{cid | multihash: <<0x13, 0x20, :binary.part(cid.multihash, 2, 32)::binary>>}, "abc")
+      refute CID.valid_bytes?(%{cid | multihash: <<0x12, 0x1F, :binary.part(cid.multihash, 2, 32)::binary>>}, "abc")
+    end
+  end
+
   describe "from_link/1" do
     test "decodes a DAG-CBOR CID link" do
       assert {:ok, cid} = CID.from_link({:tag, 42, <<0, @cid_binary::binary>>})

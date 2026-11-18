@@ -1,3 +1,12 @@
+defmodule ProtoRune.CBOR.Bytes do
+  @moduledoc "A binary explicitly encoded as a CBOR byte string."
+
+  @enforce_keys [:value]
+  defstruct [:value]
+
+  @type t :: %__MODULE__{value: binary()}
+end
+
 defmodule ProtoRune.CBOR do
   @moduledoc """
   Minimal CBOR (RFC 8949) codec.
@@ -15,8 +24,18 @@ defmodule ProtoRune.CBOR do
   `com.atproto.sync.subscribeRepos` frames.
   """
 
+  alias ProtoRune.CBOR.Bytes
+
   @typedoc "A CBOR semantic tag, e.g. `{:tag, 42, bytes}` for a CID link."
   @type tag :: {:tag, non_neg_integer, term}
+
+  @doc """
+  Wraps a binary so `encode/1` emits it as a CBOR byte string.
+
+  Plain binaries retain their existing UTF-8-sensitive encoding behavior.
+  """
+  @spec bytes(binary()) :: Bytes.t()
+  def bytes(binary) when is_binary(binary), do: %Bytes{value: binary}
 
   @doc """
   Decodes a single CBOR item from the head of the given binary.
@@ -103,9 +122,9 @@ defmodule ProtoRune.CBOR do
   are sorted by length then bytewise, as DAG-CBOR requires.
 
   Binaries holding valid UTF-8 encode as text strings (major type 3),
-  anything else as byte strings (major type 2). The one exception is a
-  binary tag value (e.g. a CID link under tag 42), which always encodes as
-  a byte string.
+  anything else as byte strings (major type 2). Use `bytes/1` to explicitly
+  encode a valid UTF-8 binary as a byte string. A binary tag value (e.g. a
+  CID link under tag 42) always encodes as a byte string.
 
       iex> ProtoRune.CBOR.encode(%{"a" => 1})
       <<0xa1, 0x61, 0x61, 0x01>>
@@ -121,6 +140,8 @@ defmodule ProtoRune.CBOR do
   defp encode_value(int) when is_integer(int), do: encode_argument(1, -1 - int)
 
   defp encode_value(float) when is_float(float), do: <<0xFB, float::64-float>>
+
+  defp encode_value(%Bytes{value: binary}), do: encode_binary(2, binary)
 
   defp encode_value({:tag, tag, value}) when is_integer(tag) and tag >= 0 do
     encoded = if is_binary(value), do: encode_binary(2, value), else: encode_value(value)

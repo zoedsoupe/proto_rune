@@ -28,6 +28,12 @@ defmodule ProtoRune.CBOREncodeTest do
     assert CBOR.encode(<<0xFF, 0xFE>>) == <<0x42, 0xFF, 0xFE>>
   end
 
+  test "encodes explicit byte strings without changing plain binary encoding" do
+    assert CBOR.encode(CBOR.bytes("abc")) == <<0x43, 0x61, 0x62, 0x63>>
+    assert CBOR.encode("abc") == <<0x63, 0x61, 0x62, 0x63>>
+    assert CBOR.encode(CBOR.bytes(String.duplicate("a", 24))) == <<0x58, 0x18>> <> String.duplicate("a", 24)
+  end
+
   test "encodes CID links as tag 42 with a byte string value" do
     cid = cid("block")
     assert CBOR.encode(link(cid)) == <<0xD8, 0x2A>> <> CBOR.encode(<<0>> <> CID.to_binary(cid))
@@ -62,11 +68,12 @@ defmodule ProtoRune.CBOREncodeTest do
     node = %{
       "l" => nil,
       "e" => [
-        %{"p" => 0, "k" => "com.example.post/aaa", "v" => link(cid("record")), "t" => nil}
+        %{"p" => 0, "k" => CBOR.bytes("com.example.post/aaa"), "v" => link(cid("record")), "t" => nil}
       ]
     }
 
     assert {:ok, decoded, <<>>} = CBOR.decode(CBOR.encode(node))
-    assert decoded == node
+    expected = Map.update!(node, "e", fn [entry] -> [Map.put(entry, "k", "com.example.post/aaa")] end)
+    assert decoded == expected
   end
 end

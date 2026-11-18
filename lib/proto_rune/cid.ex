@@ -26,6 +26,25 @@ defmodule ProtoRune.CID do
   defstruct [:version, :codec, :multihash]
 
   @doc """
+  Builds a DAG-CBOR CIDv1 using a sha2-256 multihash of the given bytes.
+  """
+  @spec from_dag_cbor(binary) :: t
+  def from_dag_cbor(bytes) when is_binary(bytes) do
+    digest = :crypto.hash(:sha256, bytes)
+    %__MODULE__{version: 1, codec: 0x71, multihash: <<0x12, 0x20, digest::binary>>}
+  end
+
+  @doc """
+  Checks whether the given bytes match a CID's exact sha2-256 multihash.
+  """
+  @spec valid_bytes?(t, binary) :: boolean
+  def valid_bytes?(%__MODULE__{multihash: <<0x12, 0x20, digest::binary-32>>}, bytes) when is_binary(bytes) do
+    :crypto.hash(:sha256, bytes) == digest
+  end
+
+  def valid_bytes?(_cid, _bytes), do: false
+
+  @doc """
   Parses a binary CID from the head of the given binary.
 
   Returns the parsed CID along with the unconsumed rest of the input, which
