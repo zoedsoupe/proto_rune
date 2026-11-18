@@ -150,12 +150,12 @@ defmodule ProtoRune.XRPC.Client do
 
   defp parse_http({:error, err}, _response), do: {:error, err}
 
-  defp parse_http({:ok, %{status: status} = resp}, _response) when status >= 400 do
-    {:error, Error.from(%{resp | body: decode_body(resp.body)})}
-  end
-
   defp parse_http({:ok, %{status: status} = resp}, response) when status in [200, 201] do
     decode_success(resp, response)
+  end
+
+  defp parse_http({:ok, %{status: _status} = resp}, _response) do
+    {:error, Error.from(Map.put(resp, :body, decode_error_body(Map.get(resp, :body))))}
   end
 
   defp decode_success(resp, :binary) do
@@ -163,7 +163,19 @@ defmodule ProtoRune.XRPC.Client do
   end
 
   defp decode_success(resp, :json) do
-    {:ok, resp.body |> decode_body() |> ProtoRune.Case.snakelize_enum()}
+    case decode_json_body(resp.body) do
+      {:ok, body} ->
+        {:ok, ProtoRune.Case.snakelize_enum(body)}
+
+      :error ->
+        {:error,
+         %Error{
+           reason: :invalid_response,
+           message: "Response body is not valid JSON",
+           http_status: resp.status,
+           retry_after: nil
+         }}
+    end
   end
 
   # :auto routes on the response content-type; a missing content-type
@@ -184,7 +196,14 @@ defmodule ProtoRune.XRPC.Client do
     end
   end
 
-  defp decode_body(body) when body in ["", nil], do: %{}
-  defp decode_body(body) when is_binary(body), do: JSON.decode!(body)
-  defp decode_body(body), do: body
+  defp decode_json_body(body) when body in ["", nil], do: {:ok, %{}}
+
+  defp decode_json_body(body) when is_binary(body) do
+    case JSON.decode(body) do
+      {:ok, decoded} -> {:ok, decoded}
+      {:error, _reason} -> :error
+    end
+  end
+
+  defp decode_json_body(body), do: {:ok, body}
 end

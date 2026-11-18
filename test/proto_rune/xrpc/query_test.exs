@@ -172,5 +172,49 @@ defmodule ProtoRune.XRPC.QueryTest do
 
       assert url =~ "q=hello+world"
     end
+
+    test "camelizes parameter names without changing parameter values" do
+      query =
+        "app.bsky.graph.getRelationships"
+        |> Query.new(base_url: "https://bsky.social/xrpc")
+        |> Query.put_param(:parent_height, "keep_snake_case")
+
+      assert to_string(query) ==
+               "https://bsky.social/xrpc/app.bsky.graph.getRelationships?parentHeight=keep_snake_case"
+    end
+
+    test "encodes list values as repeated query parameters" do
+      query =
+        "app.bsky.graph.getRelationships"
+        |> Query.new(base_url: "https://bsky.social/xrpc")
+        |> Query.put_param(:others, ["alice.test", "bob.test"])
+
+      assert to_string(query) ==
+               "https://bsky.social/xrpc/app.bsky.graph.getRelationships?others=alice.test&others=bob.test"
+    end
+
+    test "escapes values and retains false while omitting nil values" do
+      query =
+        "app.bsky.feed.searchPosts"
+        |> Query.new(base_url: "https://bsky.social/xrpc")
+        |> Query.put_param(:q, "a+b & c")
+        |> Query.put_param(:include_replies, false)
+        |> Query.put_param(:cursor, nil)
+
+      url = to_string(query)
+
+      assert url =~ "q=a%2Bb+%26+c"
+      assert url =~ "includeReplies=false"
+      refute url =~ "cursor"
+    end
+
+    test "omits nil-only params without adding a query string" do
+      query =
+        "app.bsky.actor.getProfile"
+        |> Query.new(base_url: "https://bsky.social/xrpc")
+        |> Query.put_param(:cursor, nil)
+
+      assert to_string(query) == "https://bsky.social/xrpc/app.bsky.actor.getProfile"
+    end
   end
 end

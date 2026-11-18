@@ -2,6 +2,7 @@ defmodule ProtoRune.XRPC.ClientTest do
   use ProtoRune.TestCase, async: true
 
   alias ProtoRune.XRPC.Client
+  alias ProtoRune.XRPC.Error
   alias ProtoRune.XRPC.Procedure
   alias ProtoRune.XRPC.Query
 
@@ -116,7 +117,37 @@ defmodule ProtoRune.XRPC.ClientTest do
 
       query = Query.new("com.atproto.sync.getRepo", response: :binary)
 
-      assert {:error, %ProtoRune.XRPC.Error{}} = Client.execute(query, http: http)
+      assert {:error, %Error{}} = Client.execute(query, http: http)
+    end
+
+    test "uses status-derived errors for non-success statuses and redirects" do
+      for status <- [202, 302, 400] do
+        http = stub_response(%{status: status, body: "not-json"})
+        query = Query.new("app.bsky.actor.getProfile")
+
+        assert {:error, %Error{http_status: ^status, reason: :unknown, message: nil}} =
+                 Client.execute(query, http: http)
+      end
+    end
+
+    test "preserves status-derived reason for a malformed error body" do
+      http = stub_response(%{status: 404, body: "<html>not found</html>"})
+      query = Query.new("app.bsky.actor.getProfile")
+
+      assert {:error, %Error{reason: :not_found, message: nil, http_status: 404}} =
+               Client.execute(query, http: http)
+    end
+
+    test "returns an XRPC error for malformed success JSON" do
+      http = stub_response(%{status: 201, body: "{\"handle\":"})
+      query = Query.new("app.bsky.actor.getProfile")
+
+      assert {:error,
+              %Error{
+                reason: :invalid_response,
+                message: "Response body is not valid JSON",
+                http_status: 201
+              }} = Client.execute(query, http: http)
     end
   end
 end

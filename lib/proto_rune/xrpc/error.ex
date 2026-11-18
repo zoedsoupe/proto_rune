@@ -48,7 +48,7 @@ defmodule ProtoRune.XRPC.Error do
 
   # Error names are server-controlled; interning blindly would leak atoms.
   # Known lexicon names resolve to atoms, anything else stays a string.
-  defp reason(%{"error" => name}, _status) do
+  defp reason(%{"error" => name}, _status) when is_binary(name) do
     name
     |> ProtoRune.Case.snakelize()
     |> String.to_existing_atom()
@@ -67,7 +67,7 @@ defmodule ProtoRune.XRPC.Error do
   defp reason(_body, 504), do: :gateway_timeout
   defp reason(_body, _status), do: :unknown
 
-  defp message(%{"message" => message}), do: message
+  defp message(%{"message" => message}) when is_binary(message), do: message
   defp message(_body), do: nil
 
   defp retry_after(429, headers), do: ProtoRune.HTTPClient.get_header(headers, "retry-after")

@@ -100,6 +100,7 @@ defmodule ProtoRune.XRPC.Query do
   end
 
   defimpl String.Chars, for: __MODULE__ do
+    alias ProtoRune.Case
     alias ProtoRune.Config
     alias ProtoRune.XRPC.Query
 
@@ -111,7 +112,22 @@ defmodule ProtoRune.XRPC.Query do
       if Enum.empty?(query.params) do
         base
       else
-        Enum.join([base, "?", URI.encode_query(query.params)])
+        params =
+          Enum.flat_map(query.params, fn
+            {_key, nil} ->
+              []
+
+            {key, values} when is_list(values) ->
+              Enum.map(values, &{Case.camelize(Kernel.to_string(key)), &1})
+
+            {key, value} ->
+              [{Case.camelize(Kernel.to_string(key)), value}]
+          end)
+
+        case params do
+          [] -> base
+          params -> Enum.join([base, "?", URI.encode_query(params)])
+        end
       end
     end
   end

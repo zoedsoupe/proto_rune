@@ -121,7 +121,7 @@ defmodule ProtoRune.Bsky.Graph do
 
   https://docs.bsky.app/docs/api/app-bsky-graph-get-relationships
   """
-  defquery "app.bsky.graph.getRelationShips" do
+  defquery "app.bsky.graph.getRelationships" do
     param :actor, {:required, :string}
     param :others, {:list, :string}
   end

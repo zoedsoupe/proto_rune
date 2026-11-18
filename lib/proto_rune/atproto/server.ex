@@ -140,7 +140,7 @@ defmodule ProtoRune.Atproto.Server do
 
   https://docs.bsky.app/docs/api/com-atproto-server-get-service-auth
   """
-  defquery "com.atproto.server.getServiceAuth" do
+  defquery "com.atproto.server.getServiceAuth", authenticated: true do
     param :aud, {:required, :string}
     param :exp, :integer
     param :lxm, :string
