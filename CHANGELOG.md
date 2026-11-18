@@ -1,5 +1,34 @@
 # Changelog
 
+## [1.0.0](https://github.com/zoedsoupe/proto_rune/compare/v0.7.0...v1.0.0) (2026-11-18)
+
+
+### ⚠ BREAKING CHANGES
+
+* **oauth:** remove deprecated session manager
+
+### Bug Fixes
+
+* **bot:** support keyword options with Peri 0.12 ([c4e7644](https://github.com/zoedsoupe/proto_rune/commit/c4e7644ec522870b4d5d90529e4dab631d21af20))
+* **xrpc:** correct query encoding and response handling ([f77c79b](https://github.com/zoedsoupe/proto_rune/commit/f77c79b530c3b01968c124c83a88d9761624538e))
+
+
+### Documentation
+
+* align guides with current APIs ([faf88c7](https://github.com/zoedsoupe/proto_rune/commit/faf88c74e0b5cc7ae829078ae11baf58fd376fbb))
+
+
+### Miscellaneous Chores
+
+* clear development and test warnings ([36e39b7](https://github.com/zoedsoupe/proto_rune/commit/36e39b7eab8492233527170186736f18222ce1d9))
+* fix mix.lock conflict ([59f7992](https://github.com/zoedsoupe/proto_rune/commit/59f79927b143f52da1877eb95327966417cc7a37))
+* **nix:** migrate dev shell to beam-overlay ([5ddc037](https://github.com/zoedsoupe/proto_rune/commit/5ddc0375b041ee4cd564c6c41cc9ec2c21efebb9))
+
+
+### Code Refactoring
+
+* **oauth:** remove deprecated session manager ([aae646d](https://github.com/zoedsoupe/proto_rune/commit/aae646d2b6a8420f378041ea8d4acf8f4e7789b0))
+
 ## [0.7.0](https://github.com/zoedsoupe/proto_rune/compare/v0.6.0...v0.7.0) (2026-10-19)
 
 
