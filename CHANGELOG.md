@@ -88,7 +88,7 @@
 ### ⚠ Breaking Changes
 
 * rate limiting is opt-in: nothing is throttled unless `requests_per_minute` is configured
-* `SessionManager` telemetry moved from `[:proto_rune, :oauth, ...]` to `[:proto_rune, :session, ...]`, and `ProtoRune.Atproto.OAuth.SessionManager` is deprecated (removed in 1.0)
+* `SessionManager` telemetry moved from `[:proto_rune, :oauth, ...]` to `[:proto_rune, :session, ...]`, and the deprecated `ProtoRune.Atproto.OAuth.SessionManager` forwarder was removed; use `ProtoRune.SessionManager`
 * the lexicon code generator is gone: `mix proto_rune.gen.lexicons` and the generated `lib/proto_rune/lexicons` modules are replaced by `ProtoRune.Lexicon.schema_for/1`
 * the bot poller honours `process_from`, so a bot's first poll processes its backlog instead of discarding it
 * `req` and `gun` are replaced by `finch` and `mint_web_socket`

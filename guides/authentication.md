@@ -117,7 +117,7 @@ Per RFC 7009 the server answers success even for unknown tokens, so `{:ok, :revo
 
 ### SessionManager
 
-`ProtoRune.SessionManager` keeps any session type fresh through the `ProtoRune.Session` behaviour, refreshing at 75% of the token lifetime (parsed from the access JWT) and optionally persisting each rotation encrypted:
+`ProtoRune.SessionManager` keeps any session type fresh through the `ProtoRune.Session` behaviour, refreshing at 75% of the remaining lifetime from `session.expires_at` (or assuming 30 minutes when it is absent) and optionally persisting each rotation encrypted:
 
 ```elixir
 {ProtoRune.SessionManager,
@@ -136,7 +136,7 @@ OAuth sessions use the same manager, with the OAuth client in `refresh_opts`:
  key: key}
 ```
 
-The SDK starts no processes on its own, add it to your supervision tree:
+The ProtoRune application starts its Finch HTTP connection pool automatically. `ProtoRune.SessionManager` is opt-in and must be supervised by the host application:
 
 ```elixir
 # once, to provision the encryption key:
@@ -145,9 +145,10 @@ System.put_env("PROTO_RUNE_TOKEN_KEY", ProtoRune.Security.encode_key(key))
 ```
 
 ```elixir
-# application.ex
+# MyApp.Application.start/2
 {:ok, key} = ProtoRune.Security.decode_key(System.fetch_env!("PROTO_RUNE_TOKEN_KEY"))
 
+# session and client are restored or configured by the host application
 children = [
   {Registry, keys: :unique, name: MyApp.OAuthRegistry},
   {ProtoRune.SessionManager,
@@ -175,7 +176,7 @@ session = ProtoRune.SessionManager.session(via)
 :ok = ProtoRune.SessionManager.logout(via)
 ```
 
-The manager's refresh and revoke telemetry events are `[:proto_rune, :session, ...]`. `ProtoRune.Atproto.OAuth.SessionManager` still works as a forwarding shim and is deprecated; it is removed in 1.0.
+The manager's refresh and revoke telemetry events are `[:proto_rune, :session, ...]`. The deprecated `ProtoRune.Atproto.OAuth.SessionManager` forwarding shim has been removed; use `ProtoRune.SessionManager` for both session types.
 
 ### Limitations
 
